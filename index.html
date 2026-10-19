@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#f2f4f6" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#12161b" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f6f6f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141619" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Q1 Biomed">
 <title>Mon Q1 Biomed</title>
@@ -15,37 +15,37 @@
 <link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Hanken+Grotesk:wght@500;600;700&display=swap">
 <style>
 /* Concept : un cahier de labo. Chaque matière a son étiquette de couleur (comme les lames
    au microscope) ; c'est la seule couleur forte. Le reste est calme : encre sur papier gris-bleu.
    Navigation : rail à gauche sur ordi, barre d'onglets en bas sur téléphone. */
 :root {
-  --paper: #f2f4f6; --sheet: #ffffff; --ink: #17202a; --soft: #5b6672; --faint: #8b95a1; --rule: #dde2e8;
-  --focus: #2457c5; --ok: #1b7f4f; --warn: #b5650a; --bad: #c03a2b;
-  --bio: #2f6fde; --chimie: #d4572a; --maths: #138a5e; --physique: #b8860b; --anat: #8a4cc2; --other: #6c7783;
-  --bio-t: #e6efff; --chimie-t: #fdece5; --maths-t: #e3f4ec; --physique-t: #f8f0dc; --anat-t: #f1e8fb; --other-t: #eceff2;
+  --paper: #f6f6f3; --sheet: #ffffff; --ink: #1c1f23; --soft: #5b636c; --faint: #6b737c; --rule: #e6e6e2; --pill: #ecece8;
+  --focus: #2c5bb8; --ok: #1f7a55; --ok-t: #e9f4ee; --warn: #9a5a0a; --bad: #b23a2b; --bad-t: #fbe9e6;
+  --bio: #3a6fd8; --chimie: #d2662f; --maths: #2a9468; --physique: #b48a12; --anat: #8a5cc2; --other: #6c7783;
+  --bio-t: #e8effb; --chimie-t: #fbeee6; --maths-t: #e6f3ec; --physique-t: #f8f1dc; --anat-t: #f1e9fa; --other-t: #eeefef;
   --f-body: "Atkinson Hyperlegible", system-ui, sans-serif;
-  --f-head: "Bricolage Grotesque", "Atkinson Hyperlegible", system-ui, sans-serif;
-  --r: 10px;
+  --f-head: "Hanken Grotesk", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --r: 18px;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --paper: #12161b; --sheet: #1a2027; --ink: #e8edf2; --soft: #a3adb8; --faint: #76818d; --rule: #2a323b;
-  --focus: #7aa7ff; --ok: #5fcf96; --warn: #f0b04f; --bad: #ff7d6e;
-  --bio: #78a6f5; --chimie: #f39066; --maths: #58cf9d; --physique: #e7c25c; --anat: #c49af2; --other: #9aa5b1;
-  --bio-t: #1c2a44; --chimie-t: #3a2219; --maths-t: #16302a; --physique-t: #342b14; --anat-t: #2c2140; --other-t: #232a32;
+  --paper: #141619; --sheet: #1c1f23; --ink: #ecedee; --soft: #a5acb4; --faint: #8f97a0; --rule: #2c3036; --pill: #2a2e34;
+  --focus: #8fb2ff; --ok: #6fd3a3; --ok-t: #17322a; --warn: #f0b04f; --bad: #ff8a7a; --bad-t: #3a1f1c;
+  --bio: #7fa6f0; --chimie: #f0915f; --maths: #5fcf9d; --physique: #e3c05c; --anat: #c49af2; --other: #9aa5b1;
+  --bio-t: #1d2840; --chimie-t: #3a241a; --maths-t: #163027; --physique-t: #332b15; --anat-t: #2b2140; --other-t: #24282d;
   color-scheme: dark; } }
 :root[data-theme="dark"] {
-  --paper: #12161b; --sheet: #1a2027; --ink: #e8edf2; --soft: #a3adb8; --faint: #76818d; --rule: #2a323b;
-  --focus: #7aa7ff; --ok: #5fcf96; --warn: #f0b04f; --bad: #ff7d6e;
-  --bio: #78a6f5; --chimie: #f39066; --maths: #58cf9d; --physique: #e7c25c; --anat: #c49af2; --other: #9aa5b1;
-  --bio-t: #1c2a44; --chimie-t: #3a2219; --maths-t: #16302a; --physique-t: #342b14; --anat-t: #2c2140; --other-t: #232a32;
+  --paper: #141619; --sheet: #1c1f23; --ink: #ecedee; --soft: #a5acb4; --faint: #8f97a0; --rule: #2c3036; --pill: #2a2e34;
+  --focus: #8fb2ff; --ok: #6fd3a3; --ok-t: #17322a; --warn: #f0b04f; --bad: #ff8a7a; --bad-t: #3a1f1c;
+  --bio: #7fa6f0; --chimie: #f0915f; --maths: #5fcf9d; --physique: #e3c05c; --anat: #c49af2; --other: #9aa5b1;
+  --bio-t: #1d2840; --chimie-t: #3a241a; --maths-t: #163027; --physique-t: #332b15; --anat-t: #2b2140; --other-t: #24282d;
   color-scheme: dark; }
 :root[data-theme="light"] { color-scheme: light; }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
-body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
 h1, h2, h3, p { margin: 0; }
 button, input { font: inherit; color: inherit; }
 a { color: inherit; }
@@ -138,7 +138,7 @@ a { color: inherit; }
 .todo-item .what { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .todo-item .what b { font-weight: 700; }
 .todo-item.urgent .when { color: var(--bad); }
-@media (max-width: 520px) { .todo-item { grid-template-columns: 4.4rem 1fr; } .todo-item .act { grid-column: 2; justify-self: start; } }
+@media (max-width: 520px) { .todo-item { grid-template-columns: 3.9rem minmax(0, 1fr) auto; gap: 12px; } }
 
 .timeline { position: relative; padding: 8px 0; }
 .slot { display: grid; grid-template-columns: 5.2rem 1fr; gap: 14px; padding: 10px 16px; align-items: start; }
@@ -274,6 +274,111 @@ button.item:hover { background: var(--paper); }
   border-radius: 999px; padding: 6px 14px; font-size: .82rem; font-weight: 700; }
 .offline-note { color: var(--soft); font-size: .85rem; display: flex; align-items: center; gap: 6px; }
 .offline-note::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+
+/* =========================================================
+   Nouveau design « propre et calme » (maquettes Claude Design)
+   ========================================================= */
+.lock .tags span { border-radius: 4px; }
+.field input, .search { border-width: 1px; border-radius: 14px; min-height: 48px; }
+.primary { border-radius: 999px; min-height: 50px; }
+.tab { border-radius: 12px; }
+.tab[aria-current="page"] { box-shadow: none; background: var(--sheet); border: 1px solid var(--rule); }
+.page { gap: 26px; max-width: 46rem; }
+.page-head .eyebrow { font-size: .85rem; color: var(--soft); }
+.page-head h1 { font-size: clamp(1.85rem, 4vw, 2.4rem); }
+.block > h2 { font-size: 1.18rem; justify-content: space-between; }
+.block > h2 .count { font-size: .84rem; color: var(--soft); }
+.sheet { overflow: hidden; }
+.label { background: none; color: var(--soft); gap: 6px; border-radius: 0; font-size: .82rem; overflow: visible; }
+.label::before { width: 8px; height: 8px; border-radius: 50%; align-self: center; flex: none; }
+.label span { padding: 0; }
+.chip { border-width: 1px; min-height: 40px; padding: 0 14px; font-size: .9rem; }
+.chip .sw { border-radius: 50%; width: 8px; height: 8px; }
+.chip[aria-pressed="true"] .n { color: #c9cdd2; opacity: 1; }
+.btn { border-width: 1px; border-radius: 999px; min-height: 40px; padding: 0 14px; justify-content: center; }
+.btn.solid:hover { opacity: .9; }
+.item, .todo-item, .news { border-top-color: var(--rule); }
+.todo-item .when { font-family: var(--f-head); font-size: 1.05rem; }
+.todo-item .when small { font-family: var(--f-body); }
+.todo-item .ready { color: var(--ok); font-weight: 700; font-size: .84rem; }
+.slot { padding: 12px 16px; }
+.slot .t { font-family: var(--f-head); font-weight: 600; font-size: 1rem; }
+.slot .d { border-left: 0; padding-left: 0; }
+.slot.cur { background: var(--paper); }
+.slot.agenda .d { border-left: 0; }
+.slot.prep .d b::after, .slot.quiz .d b::after { color: var(--ok); }
+.daybtn { border-width: 1px; border-radius: 14px; min-height: 64px; justify-content: center; }
+.daybtn .dd { font-size: 1.2rem; }
+.daybtn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); box-shadow: none; }
+.daybtn[aria-pressed="true"] .dn { color: inherit; opacity: .8; }
+.daybtn.today .dn { color: var(--ok); }
+.daybtn[aria-pressed="true"].today .dn { color: inherit; }
+.seg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 4px; background: var(--pill); border-radius: 999px; gap: 0; overflow: visible; }
+.seg .chip { justify-content: center; border: 0; background: transparent; color: var(--soft); }
+.seg .chip[aria-pressed="true"] { background: var(--sheet); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.bottom .tab { border-radius: 14px; }
+.bottom .tab[aria-current="page"] { background: var(--pill); border: 0; }
+.bottom { padding-top: 8px; }
+
+/* En ce moment */
+.nowcard { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.nowcard .k { display: flex; align-items: center; gap: 8px; font-size: .84rem; font-weight: 700; color: var(--ok); }
+.nowcard .k::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.nowcard .k.next { color: var(--soft); } .nowcard .k.next::before { background: var(--faint); }
+.nowcard .what { font-family: var(--f-head); font-size: 1.25rem; font-weight: 700; line-height: 1.2; }
+.nowcard .prog { height: 6px; border-radius: 3px; background: var(--pill); overflow: hidden; }
+.nowcard .prog i { display: block; height: 100%; border-radius: 3px; background: var(--ok); }
+.nowcard .ends { display: flex; justify-content: space-between; font-size: .84rem; color: var(--soft); }
+
+/* Quiz */
+.kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.kpi { padding: 14px; display: flex; flex-direction: column; gap: 2px; }
+.kpi b { font-family: var(--f-head); font-size: 1.7rem; line-height: 1.1; }
+.kpi span { color: var(--soft); font-size: .84rem; }
+.kpi.bad b { color: var(--bad); }
+.hero { background: var(--ink); color: var(--paper); border-radius: var(--r); padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.hero .k { font-size: .84rem; font-weight: 700; opacity: .75; }
+.hero .t { font-family: var(--f-head); font-size: 1.3rem; font-weight: 700; line-height: 1.2; }
+.hero .s { opacity: .8; }
+.hero .btn { background: var(--paper); color: var(--ink); border-color: var(--paper); align-self: flex-start; }
+.pill { display: inline-flex; align-items: center; min-height: 28px; padding: 0 10px; border-radius: 999px; font-size: .82rem; font-weight: 700; background: var(--pill); color: var(--soft); white-space: nowrap; }
+.pill.bad { background: var(--bad-t); color: var(--bad); }
+.pill.ok { background: var(--ok-t); color: var(--ok); }
+
+/* PDF */
+.prow { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border: 0; border-top: 1px solid var(--rule); background: none; text-align: left; cursor: pointer; font: inherit; color: inherit; min-height: 64px; }
+.prow:first-child { border-top: 0; }
+.prow:hover { background: var(--paper); }
+.prow .ico { width: 40px; height: 48px; border-radius: 10px; flex: none; display: grid; place-items: center; background: var(--t, var(--other-t)); color: var(--c, var(--other)); }
+.prow .ico svg { width: 20px; height: 20px; }
+.prow .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.prow .tx b { font-weight: 700; line-height: 1.3; }
+.prow .tx span { color: var(--soft); font-size: .84rem; }
+.prow .chev { color: var(--faint); flex: none; width: 18px; height: 18px; }
+.group-head h3 { display: flex; align-items: center; gap: 8px; font-size: 1.18rem; }
+.group-head h3::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--c, var(--other)); }
+
+/* Minuteur plein écran sur téléphone */
+.pomo-fab { background: var(--ink); color: var(--paper); border-color: var(--ink); min-height: 48px; box-shadow: 0 6px 20px rgba(28,31,35,.18); }
+.pomo-dial { position: relative; width: 240px; height: 240px; margin: 4px auto 0; }
+.pomo-dial svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.pomo-dial .in { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.pomo-dial .pomo-time { font-size: 3.8rem; }
+.pomo-dial .fin { color: var(--soft); font-size: .86rem; }
+.pomo { border-radius: var(--r); gap: 16px; }
+.pomo-actions { flex-wrap: nowrap; }
+.pomo-actions .btn { min-height: 50px; padding: 0 18px; font-size: .95rem; }
+.pomo-actions .btn.solid { min-width: 120px; }
+.pomo-hint { text-align: center; color: var(--soft); font-size: .84rem; }
+.pomo-week { border: 1px solid var(--rule); border-radius: var(--r); padding: 14px 16px; background: var(--sheet); }
+.pomo-week .head { display: flex; justify-content: space-between; font-weight: 700; }
+.pomo-week .bar { height: 8px; border-radius: 4px; background: var(--pill); }
+@media (max-width: 820px) {
+  .pomo { inset: 0; width: auto; border-radius: 0; border: 0; box-shadow: none; background: var(--paper); z-index: 40; overflow-y: auto;
+    padding: calc(16px + env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
+  .pomo .pomo-week { margin-top: auto; }
+}
+.offline { background: var(--ink); }
 </style>
 </head>
 <body>
@@ -393,6 +498,9 @@ const h = (tag, attrs = {}, ...kids) => {
 };
 const label = (m) => h('span', { class: 'label ' + mcls(m) }, h('span', {}, m));
 const stateEl = (text, kind) => h('span', { class: 'state s-' + kind }, text);
+const svgEl = (inner, cls) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round'); s.setAttribute('aria-hidden', 'true'); if (cls) s.setAttribute('class', cls); s.innerHTML = inner; return s; };
+const FILE_SVG = '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/>';
+const CHEV_SVG = '<path d="M9 6l6 6-6 6"/>';
 const ICON = {
   today: '<path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="8"/>',
   week: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
@@ -435,7 +543,7 @@ function dayItems(day, onlyPrep) {
 function slotEl(it, now, detail) {
   const pp = it.src ? prep.find((p) => p.id === it.src.id) : null;
   const col = it.journee ? '' : `--c:var(--${MAT[it.matiere] || 'other'})`;
-  return h('div', { class: 'slot' + (String(it.fin) < now ? ' past' : '') + (it.prep ? ' prep' : '') + (it.kind === 'quiz' ? ' quiz' : '') + (it.kind === 'agenda' ? ' agenda' : ''), style: col },
+  return h('div', { class: 'slot' + (String(it.fin) < now ? ' past' : '') + (!it.journee && String(it.debut) <= now && String(it.fin) > now ? ' cur' : '') + (it.prep ? ' prep' : '') + (it.kind === 'quiz' ? ' quiz' : '') + (it.kind === 'agenda' ? ' agenda' : ''), style: col },
     h('div', { class: 't num' }, it.journee ? 'Journée' : hh(it.debut), it.journee ? null : h('small', {}, hh(it.fin))),
     h('div', { class: 'd' },
       h('div', { class: 'row' }, it.journee ? null : label(it.matiere), h('b', {}, it.titre)),
@@ -498,13 +606,13 @@ function pageToday() {
       todoList.append(h('div', { class: 'todo-item' + (n === 0 ? ' urgent' : '') },
         h('div', { class: 'when num' }, hh(q.ouverture), h('small', {}, cap(rel(q.ouverture, now)))),
         h('div', { class: 'what' }, h('div', {}, label(q.matiere)), h('b', {}, `${q.titre} : ${q.sujet}`), h('span', { class: 'muted small' }, `Ouvert de ${hh(q.ouverture)} à ${hh(q.fermeture)}, une seule tentative`)),
-        h('div', { class: 'act' }, h('a', { class: 'btn', href: q.lien, target: '_blank', rel: 'noopener' }, 'Ouvrir Moodle'))));
+        h('div', { class: 'act' }, h('a', { class: 'btn', href: q.lien, target: '_blank', rel: 'noopener' }, 'Moodle'))));
     } else {
       const p = t.p;
       todoList.append(h('div', { class: 'todo-item' + (n <= 1 && !p.pdf ? ' urgent' : '') },
         h('div', { class: 'when num' }, hh(p.debut), h('small', {}, cap(rel(p.debut, now)))),
-        h('div', { class: 'what' }, h('div', {}, label(p.matiere)), h('b', {}, `Préparer : ${p.type.toLowerCase()} de ${p.matiere.toLowerCase()}`), h('span', { class: 'muted small' }, p.local)),
-        h('div', { class: 'act' }, p.pdf && p.pdf.enc ? h('button', { class: 'btn solid', type: 'button', onclick: () => openPdf(p.pdf) }, 'Ouvrir la prépa') : stateEl(...prepStatus(p, now)))));
+        h('div', { class: 'what' }, h('div', {}, label(p.matiere)), h('b', {}, `${p.type}, ${p.local.split(' - ')[0]}`), p.pdf && p.pdf.enc ? h('span', { class: 'ready' }, 'PDF de prépa prêt') : stateEl(...prepStatus(p, now))),
+        h('div', { class: 'act' }, p.pdf && p.pdf.enc ? h('button', { class: 'btn', type: 'button', onclick: () => openPdf(p.pdf) }, 'Ouvrir') : null)));
     }
   });
 
@@ -529,16 +637,37 @@ function pageToday() {
     h('div', { class: 'stat' }, h('span', { class: 'v num' }, String(missed)), h('span', { class: 'k' }, missed > 1 ? 'quiz manqués' : 'quiz manqué')),
     h('div', { class: 'stat' }, h('span', { class: 'v num' }, String(pdfs.length)), h('span', { class: 'k' }, 'PDF de révision')));
 
-  const freshNews = annonces.filter((a) => a.pour_toi && dd(String(a.date), now) <= 7).slice(0, 4);
+  const fresh = annonces.filter((a) => a.pour_toi && dd(String(a.date), now) <= 7);
+  const importantNews = fresh.filter((a) => a.important).slice(0, 2);
+  const freshNews = importantNews.length ? importantNews : fresh.slice(0, 1);
   const greeting = cap(fLong(today + 'T12:00'));
+  // En ce moment / ensuite
+  const todayCours = hor.filter((x) => x.jour === today && x.type !== 'Congé');
+  const curC = todayCours.find((x) => String(x.debut) <= now && String(x.fin) > now);
+  const nextC = todayCours.find((x) => String(x.debut) > now);
+  const mins = (a, b) => Math.round((P(b) - P(a)) / 6e4);
+  const dur = (m) => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}` : `${m} min`;
+  let nowCard = null;
+  if (curC) {
+    const tot = mins(curC.debut, curC.fin), left = mins(now, curC.fin);
+    nowCard = h('section', { class: 'sheet nowcard', 'aria-label': 'En ce moment' }, h('span', { class: 'k' }, 'En ce moment'),
+      h('div', {}, h('div', { class: 'what' }, `${curC.matiere} · ${curC.type}`), h('div', { class: 'muted' }, curC.local)),
+      h('div', { class: 'prog', role: 'img', 'aria-label': `Fini dans ${dur(left)}` }, h('i', { style: `width:${Math.max(2, Math.min(100, (1 - left / tot) * 100))}%` })),
+      h('div', { class: 'ends num' }, h('span', {}, hh(curC.debut)), h('span', {}, `Fini dans ${dur(left)}`), h('span', {}, hh(curC.fin))));
+  } else if (nextC) {
+    nowCard = h('section', { class: 'sheet nowcard', 'aria-label': 'Prochain cours' }, h('span', { class: 'k next' }, `Prochain cours dans ${dur(mins(now, nextC.debut))}`),
+      h('div', {}, h('div', { class: 'what' }, `${nextC.matiere} · ${nextC.type}`), h('div', { class: 'muted' }, `${hh(nextC.debut)} – ${hh(nextC.fin)} · ${nextC.local}`)));
+  }
+  const nToday = todayCours.length, nPrepToday = todayCours.filter((x) => x.a_preparer).length;
   const first = todos[0];
   const sub = first ? (first.kind === 'quiz' ? `En premier : ${first.q.titre}, ${rel(first.q.ouverture, now)} à ${hh(first.q.ouverture)}.` : `En premier : préparer la séance de ${first.p.matiere.toLowerCase()}, ${rel(first.p.debut, now)}.`) : (nextPrep ? `Prochaine séance à préparer : ${nextPrep.matiere.toLowerCase()}, ${rel(nextPrep.debut, now)}.` : 'Rien d’urgent.');
   return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('h1', {}, greeting), h('p', {}, sub)),
-    h('section', { class: 'block' }, h('h2', {}, 'À faire', h('span', { class: 'count' }, 'les 3 prochains jours')), todoList),
+    h('header', { class: 'page-head' }, h('span', { class: 'eyebrow' }, greeting), h('h1', {}, 'Bonjour Hadi'),
+      h('p', {}, nToday ? `${nToday} cours aujourd'hui${nPrepToday ? `, dont ${nPrepToday} à préparer` : ''}. ${sub}` : sub)),
+    nowCard,
+    h('section', { class: 'block' }, h('h2', {}, 'À faire', h('span', { class: 'count' }, '3 prochains jours')), todoList),
     h('section', { class: 'block' }, h('h2', {}, showDay === today ? "Programme d'aujourd'hui" : `Programme ${rel(showDay + 'T12:00', now) === 'demain' ? 'de demain' : 'du ' + fLong(showDay + 'T12:00')}`), tl),
-    freshNews.length ? h('section', { class: 'block' }, h('h2', {}, 'Nouvelles annonces', h('span', { class: 'count' }, '7 derniers jours')), h('div', { class: 'sheet' }, freshNews.map((a) => newsEl(a, now))), h('a', { class: 'muted small', href: '#cours' }, 'Toutes les annonces')) : null,
-    h('section', { class: 'block' }, h('h2', {}, 'En chiffres'), stats));
+    freshNews.length ? h('section', { class: 'block' }, h('h2', {}, importantNews.length ? (importantNews.length > 1 ? 'Annonces importantes' : 'Annonce importante') : 'Dernière annonce', h('a', { class: 'count', href: '#cours', style: 'font-weight:700;color:var(--ink)' }, 'Toutes')), h('div', { class: 'sheet' }, freshNews.map((a) => newsEl(a, now)))) : null);
 }
 
 /* ---------- Page : Semaine ---------- */
@@ -565,7 +694,7 @@ function pageWeek() {
     its.forEach((x) => listBox.append(slotEl(x, now, true)));
   };
   const head = h('h2', {});
-  const toggle = h('label', { class: 'toggle' }, h('input', { type: 'checkbox', id: 'onlyprep', checked: onlyPrep || null, onchange: (e) => { onlyPrep = e.target.checked; prefs.onlyPrep = onlyPrep; savePrefs(); drawList(); } }), 'Seulement les séances à préparer');
+  const toggle = h('label', { class: 'toggle' }, h('input', { type: 'checkbox', id: 'onlyprep', checked: onlyPrep || null, onchange: (e) => { onlyPrep = e.target.checked; prefs.onlyPrep = onlyPrep; savePrefs(); drawList(); } }), 'Seulement ce qui est à préparer');
   drawStrip(); drawList();
   // Vue Google Agenda (intégré) ou vue liste. L'adresse de l'agenda reste sur l'appareil.
   let mode = prefs.weekMode === 'liste' ? 'liste' : 'agenda';
@@ -589,15 +718,15 @@ function pageWeek() {
         h('a', { href: 'https://calendar.google.com/calendar/r/week', target: '_blank', rel: 'noopener' }, 'ouvre Google Agenda'), '. ',
         h('button', { class: 'btn', type: 'button', style: 'margin-left:6px', onclick: () => { delete prefs.gcal; savePrefs(); drawGcal(); } }, 'Changer d’adresse')));
   };
-  const viewSwitch = h('div', { class: 'chips', role: 'group', 'aria-label': 'Affichage' });
+  const viewSwitch = h('div', { class: 'seg', role: 'group', 'aria-label': 'Affichage' });
   const drawSwitch = () => {
-    viewSwitch.replaceChildren(...[['agenda', 'Google Agenda'], ['liste', 'Liste des cours']].map(([k, t]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(mode === k), onclick: () => { mode = k; prefs.weekMode = k; savePrefs(); drawSwitch(); } }, t)));
+    viewSwitch.replaceChildren(...[['liste', 'Mes cours'], ['agenda', 'Google Agenda']].map(([k, t]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(mode === k), onclick: () => { mode = k; prefs.weekMode = k; savePrefs(); drawSwitch(); } }, t)));
     gcalBox.hidden = mode !== 'agenda'; listView.hidden = mode !== 'liste';
     if (mode === 'agenda' && !gcalBox.childElementCount) drawGcal();
   };
   drawSwitch();
   return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'Ta semaine'), h('p', {}, 'Ton Google Agenda en direct, ou la liste de tes cours B6 avec les séances à préparer.')),
+    h('header', { class: 'page-head' }, h('span', { class: 'eyebrow' }, 'Les 7 prochains jours'), h('h1', {}, `${P(days[0]).getDate()}${P(days[0]).getMonth() === P(days[6]).getMonth() ? '' : ' ' + P(days[0]).toLocaleDateString('fr-BE', { month: 'short' })} – ${P(days[6]).toLocaleDateString('fr-BE', { day: 'numeric', month: 'long' })}`)),
     viewSwitch, gcalBox, listView);
 }
 
@@ -618,7 +747,7 @@ function pageQuiz() {
       const [st, kind] = quizStatus(q, now); const n = note(q);
       return h('div', { class: 'item ' + mcls(q.matiere) },
         h('div', {}, h('div', { class: 'top' }, label(q.matiere), h('span', { class: 'title' }, q.titre)), h('div', { class: 'sub' }, q.sujet), h('div', { class: 'sub num' }, `${cap(fShort(q.ouverture))}, ${hh(q.ouverture)}–${hh(q.fermeture)}`)),
-        h('div', { class: 'right' }, n !== null ? h('span', { class: 'grade num' }, String(n).replace('.', ','), h('small', {}, '/20')) : stateEl(st, kind),
+        h('div', { class: 'right' }, n !== null ? h('span', { class: 'grade num' }, String(n).replace('.', ','), h('small', {}, '/20')) : (String(q.fermeture) >= now ? null : h('span', { class: 'pill' + (kind === 'bad' ? ' bad' : kind === 'ok' ? ' ok' : '') }, st)),
           n !== null ? h('span', { class: 'bar', role: 'img', 'aria-label': `${n} sur 20` }, h('i', { style: `width:${n * 5}%` })) : (String(q.fermeture) >= now ? h('a', { class: 'btn', href: q.lien, target: '_blank', rel: 'noopener' }, 'Moodle') : null)));
     };
     body.replaceChildren(
@@ -628,9 +757,18 @@ function pageQuiz() {
   draw();
   const done = quiz.filter((q) => note(q) !== null);
   const avg = done.length ? Math.round(done.reduce((s, q) => s + note(q), 0) / done.length * 10) / 10 : null;
+  const missed = quiz.filter((q) => quizStatus(q, now)[0] === 'manqué').length;
+  const nq = quiz.find((q) => String(q.fermeture) >= now);
   return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'Quiz'), h('p', {}, avg === null ? 'Tes quiz Moodle, à venir et passés.' : `Moyenne de ${String(avg).replace('.', ',')}/20 sur ${done.length} quiz passés.`)),
-    chips, body);
+    h('header', { class: 'page-head' }, h('h1', {}, 'Quiz'), h('p', {}, mats.length === 1 ? `Tes quiz de ${mats[0].toLowerCase()} sur l’UV.` : 'Tes quiz sur l’UV.')),
+    h('div', { class: 'kpis' },
+      h('div', { class: 'sheet kpi' }, h('b', { class: 'num' }, avg === null ? '—' : String(avg).replace('.', ',')), h('span', {}, 'moyenne /20')),
+      h('div', { class: 'sheet kpi' }, h('b', { class: 'num' }, String(done.length)), h('span', {}, 'faits')),
+      h('div', { class: 'sheet kpi' + (missed ? ' bad' : '') }, h('b', { class: 'num' }, String(missed)), h('span', {}, missed > 1 ? 'manqués' : 'manqué'))),
+    nq ? h('section', { class: 'hero', 'aria-label': 'Prochain quiz' }, h('span', { class: 'k' }, `Prochain quiz · ${rel(nq.ouverture, now)} ${dd(now, nq.ouverture) > 1 ? fDay(nq.ouverture) : ''}`.trim()),
+      h('span', { class: 't' }, `${nq.titre} : ${nq.sujet}`), h('span', { class: 's num' }, `De ${hh(nq.ouverture)} à ${hh(nq.fermeture)} · 1 tentative`),
+      h('a', { class: 'btn', href: nq.lien, target: '_blank', rel: 'noopener' }, 'Ouvrir sur l’UV')) : null,
+    mats.length > 1 ? chips : null, body);
 }
 
 /* ---------- Page : PDF ---------- */
@@ -647,25 +785,32 @@ function pagePdf() {
       m === 'Tout' ? null : h('span', { class: 'sw' }), m, h('span', { class: 'n num' }, String(m === 'Tout' ? pdfs.length : pdfs.filter((p) => p.matiere === m).length)))));
     typeChips.replaceChildren(...(types.length > 1 ? ['Tous', ...types] : []).map((t) => h('button', { class: 'chip small', type: 'button', 'aria-pressed': String(t === typ), onclick: () => { typ = t; drawChips(); drawList(); } }, t)));
   };
-  const row = (p) => h('button', { class: 'item', type: 'button', onclick: () => openPdf(p) },
-    h('div', {}, h('div', { class: 'top' }, label(p.matiere), h('span', { class: 'sub' }, `${p.type} · ${fDay(p.date + 'T12:00')}`)), h('div', { class: 'title' }, p.titre)),
-    h('span', { class: 'open' }, 'Ouvrir'));
+  const row = (p, sub) => h('button', { class: 'prow', type: 'button', style: `--c:var(--${MAT[p.matiere] || 'other'});--t:var(--${MAT[p.matiere] || 'other'}-t)`, onclick: () => openPdf(p) },
+    h('span', { class: 'ico' }, svgEl(FILE_SVG)),
+    h('span', { class: 'tx' }, h('b', {}, p.titre), h('span', {}, sub || `${p.type} · ${fDay(p.date + 'T12:00')}`)),
+    svgEl(CHEV_SVG, 'chev'));
+  const now = nowL(), today = now.slice(0, 10);
+  const soon = prep.filter((x) => x.pdf && x.pdf.enc && String(x.debut) >= now && x.jour <= addD(today, 7));
   const drawList = () => {
     const sel = pdfs.filter((p) => (mat === 'Tout' || p.matiere === mat) && (typ === 'Tous' || p.type === typ) && (!q || (p.titre + ' ' + p.fichier + ' ' + p.type).toLowerCase().includes(q)));
     out.replaceChildren();
     if (!sel.length) { out.append(h('p', { class: 'muted' }, q ? `Aucun PDF ne correspond à « ${q} ».` : 'Aucun PDF dans cette catégorie pour l’instant.')); return; }
+    if (mat === 'Tout' && typ === 'Tous' && !q && soon.length) {
+      out.append(h('section', { class: 'group' }, h('div', { class: 'group-head' }, h('h3', { style: '--c:var(--ok)' }, 'Pour cette semaine')),
+        h('div', { class: 'sheet list' }, soon.map((x) => row(x.pdf, `${x.matiere} · prépa pour ${rel(x.debut, now)} ${hh(x.debut)}`)))));
+    }
     if (mat === 'Tout') {
       ORDER.concat(['Autre']).forEach((m) => {
         const g = sel.filter((p) => (ORDER.includes(p.matiere) ? p.matiere : 'Autre') === m); if (!g.length) return;
-        out.append(h('section', { class: 'group' }, h('div', { class: 'group-head' }, label(m), h('span', { class: 'n num' }, `${g.length} PDF`)), h('div', { class: 'sheet list' }, g.map(row))));
+        out.append(h('section', { class: 'group' }, h('div', { class: 'group-head' }, h('h3', { style: `--c:var(--${MAT[m] || 'other'})` }, m), h('span', { class: 'n num' }, `${g.length} PDF`)), h('div', { class: 'sheet list' }, g.map((p) => row(p)))));
       });
-    } else out.append(h('div', { class: 'sheet list' }, sel.map(row)));
+    } else out.append(h('div', { class: 'sheet list' }, sel.map((p) => row(p))));
   };
   drawChips(); drawList();
   return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'PDF de révision'), h('p', {}, 'Synthèses, corrigés et prépas. Versions finales uniquement, rangées par matière.'),
-      'serviceWorker' in navigator ? h('span', { class: 'offline-note' }, 'Lisibles aussi sans connexion une fois le site ouvert une fois avec internet') : null),
-    h('div', { class: 'filters' }, matChips, typeChips, search), out);
+    h('header', { class: 'page-head' }, h('h1', {}, 'PDF de révision'),
+      h('span', { class: 'offline-note' }, `${pdfs.length} PDF${'serviceWorker' in navigator ? ', lisibles même hors ligne' : ''}`)),
+    h('div', { class: 'filters' }, search, matChips, typeChips), out);
 }
 
 /* ---------- Annonce (élément) ---------- */
@@ -809,6 +954,14 @@ function drawFab() {
   fab.setAttribute('aria-label', 'Minuteur : ' + (pomo.running ? `${PLABEL[pomo.phase]}, ${mmss(r)} restantes` : 'arrêté'));
   document.title = pomo.running ? `${mmss(r)} · ${pomo.phase === 'focus' ? pomo.mat : 'Pause'} · Mon Q1 Biomed` : 'Mon Q1 Biomed';
 }
+function dial(r, total) {
+  const C = 2 * Math.PI * 52, col = `var(--${pomo.phase === 'focus' ? (MAT[pomo.mat] || 'other') : 'maths'})`;
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 120 120'); s.setAttribute('aria-hidden', 'true');
+  s.innerHTML = `<circle cx="60" cy="60" r="52" fill="none" stroke="var(--pill)" stroke-width="5"/><circle cx="60" cy="60" r="52" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (r / total)).toFixed(1)}"/>`;
+  const end = pomo.running ? new Date(pomo.endAt) : new Date(Date.now() + r * 1000);
+  const fin = String(end.getHours()).padStart(2, '0') + 'h' + String(end.getMinutes()).padStart(2, '0');
+  return h('div', { class: 'pomo-dial' }, s, h('div', { class: 'in' }, h('span', { class: 'pomo-time num', role: 'timer' }, mmss(r)), h('span', { class: 'fin' }, (pomo.running ? 'fin à ' : 'finirait à ') + fin)));
+}
 function drawPomo() {
   drawFab();
   const box = $('#pomo'); if (box.hidden) return;
@@ -821,14 +974,14 @@ function drawPomo() {
   box.replaceChildren(
     h('div', { class: 'pomo-head' }, h('b', {}, 'Minuteur de travail'), h('button', { class: 'btn', type: 'button', onclick: () => { box.hidden = true; $('#pomoFab').setAttribute('aria-expanded', 'false'); } }, 'Fermer')),
     h('div', { class: 'chips', role: 'group', 'aria-label': 'Matière travaillée' }, mats.map((m) => h('button', { class: 'chip small', type: 'button', 'aria-pressed': String(pomo.mat === m), disabled: pomo.running && pomo.phase === 'focus' ? true : null, style: MAT[m] ? `--c:var(--${MAT[m]})` : '', onclick: () => { pomo.mat = m; savePomo(); drawPomo(); } }, MAT[m] ? h('span', { class: 'sw' }) : null, m))),
-    h('div', { class: 'pomo-phase' }, PLABEL[pomo.phase] + (pomo.phase === 'focus' ? ` · ${pomo.mat}` : '') + ` · bloc ${pomo.done % 4 + (pomo.phase === 'focus' ? 1 : 0) || 4}/4`),
-    h('div', { class: 'pomo-time num', 'aria-live': 'off' }, mmss(r)),
-    h('div', { class: 'pomo-ring', style: `--c:var(--${pomo.phase === 'focus' ? (MAT[pomo.mat] || 'other') : 'maths'})` }, h('i', { style: `width:${(1 - r / total) * 100}%` })),
+    dial(r, total),
+    h('div', { class: 'pomo-phase' }, PLABEL[pomo.phase] + (pomo.phase === 'focus' ? ` · ${pomo.mat}` : '') + ` · bloc ${pomo.done % 4 + (pomo.phase === 'focus' ? 1 : 0) || 4} sur 4`),
     h('div', { class: 'pomo-actions' },
-      pomo.running ? h('button', { class: 'btn solid', type: 'button', onclick: pomoPause }, 'Pause') : h('button', { class: 'btn solid', type: 'button', onclick: pomoStart }, r === total ? (pomo.phase === 'focus' ? 'Démarrer 25 min' : `Démarrer la pause`) : 'Reprendre'),
-      h('button', { class: 'btn', type: 'button', onclick: () => { pomo.left = 0; pomo.running = false; pomoNext(); drawPomo(); } }, 'Passer'),
-      h('button', { class: 'btn', type: 'button', onclick: pomoReset }, 'Arrêter')),
-    h('div', { class: 'pomo-week' }, h('b', { class: 'small' }, `Cette semaine : ${fmt(sum)}`),
+      h('button', { class: 'btn', type: 'button', onclick: pomoReset }, 'Arrêter'),
+      pomo.running ? h('button', { class: 'btn solid', type: 'button', onclick: pomoPause }, 'Pause') : h('button', { class: 'btn solid', type: 'button', onclick: pomoStart }, r === total ? 'Démarrer' : 'Reprendre'),
+      h('button', { class: 'btn', type: 'button', onclick: () => { pomo.left = 0; pomo.running = false; pomoNext(); drawPomo(); } }, 'Passer')),
+    h('p', { class: 'pomo-hint' }, 'Le temps reste dans tes notifications si tu quittes le site.'),
+    h('div', { class: 'pomo-week' }, h('div', { class: 'head' }, h('span', {}, 'Cette semaine'), h('span', { class: 'num' }, fmt(sum))),
       Object.keys(wk).length ? Object.entries(wk).sort((a, b) => b[1] - a[1]).map(([m, v]) => h('div', { class: 'row' }, label(m), h('span', { class: 'bar ' + mcls(m), style: `--c:var(--${MAT[m] || 'other'})` }, h('i', { style: `width:${v / max * 100}%` })), h('span', { class: 'num small' }, fmt(v))))
         : h('span', { class: 'muted small' }, 'Lance un premier bloc de 25 min pour voir ton temps par matière.')));
 }
