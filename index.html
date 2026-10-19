@@ -181,6 +181,9 @@ a { color: inherit; }
 .daybtn .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
 .daybtn[aria-pressed="true"] { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
 .daybtn.today .dn { color: var(--bad); }
+.gcal { display: flex; flex-direction: column; gap: 8px; }
+.gcal-frame { overflow: hidden; }
+.gcal-frame iframe { display: block; width: 100%; height: min(72vh, 680px); border: 0; background: #fff; }
 .toggle { display: inline-flex; gap: 10px; align-items: center; font-weight: 700; font-size: .9rem; cursor: pointer; }
 .toggle input { width: 18px; height: 18px; accent-color: var(--ink); }
 
@@ -390,6 +393,13 @@ function slotEl(it, now, detail) {
       it.loc ? h('span', { class: 'loc' }, it.loc + (detail && it.prof ? ' · ' + it.prof : '')) : null,
       detail && pp && pp.pdf && pp.pdf.enc ? h('div', {}, h('button', { class: 'btn', type: 'button', onclick: () => openPdf(pp.pdf) }, 'Ouvrir la prépa')) : null));
 }
+// Statut du PDF de prépa : il doit être prêt 2 à 3 jours avant (agent séminaire, chaque jour à 18h10)
+const prepStatus = (p, now) => {
+  const n = dd(now, p.debut), beforeRun = String(now).slice(11, 16) < '18:10';
+  if (n > 3) return [`PDF prévu ${fShort(addD(p.jour, -3) + 'T12:00')} à 18h10`, 'muted'];
+  if (n >= 2) return beforeRun && n === 3 ? ['PDF prévu ce soir à 18h10', 'muted'] : ['PDF en retard', 'bad'];
+  return ['PDF manquant', 'bad'];
+};
 const quizStatus = (q, now) => {
   if (note(q) !== null || q.statut === 'fait') return ['fait', 'ok'];
   if (String(q.fermeture) < now) return q.statut === 'à venir' ? ['en attente', 'muted'] : ['manqué', 'bad'];
@@ -445,7 +455,7 @@ function pageToday() {
       todoList.append(h('div', { class: 'todo-item' + (n <= 1 && !p.pdf ? ' urgent' : '') },
         h('div', { class: 'when num' }, hh(p.debut), h('small', {}, cap(rel(p.debut, now)))),
         h('div', { class: 'what' }, h('div', {}, label(p.matiere)), h('b', {}, `Préparer : ${p.type.toLowerCase()} de ${p.matiere.toLowerCase()}`), h('span', { class: 'muted small' }, p.local)),
-        h('div', { class: 'act' }, p.pdf && p.pdf.enc ? h('button', { class: 'btn solid', type: 'button', onclick: () => openPdf(p.pdf) }, 'Ouvrir la prépa') : stateEl(n <= 3 ? 'PDF en préparation' : 'PDF bientôt', 'warn'))));
+        h('div', { class: 'act' }, p.pdf && p.pdf.enc ? h('button', { class: 'btn solid', type: 'button', onclick: () => openPdf(p.pdf) }, 'Ouvrir la prépa') : stateEl(...prepStatus(p, now)))));
     }
   });
 
@@ -506,9 +516,38 @@ function pageWeek() {
   const head = h('h2', {});
   const toggle = h('label', { class: 'toggle' }, h('input', { type: 'checkbox', id: 'onlyprep', checked: onlyPrep || null, onchange: (e) => { onlyPrep = e.target.checked; prefs.onlyPrep = onlyPrep; savePrefs(); drawList(); } }), 'Seulement les séances à préparer');
   drawStrip(); drawList();
+  // Vue Google Agenda (intégré) ou vue liste. L'adresse de l'agenda reste sur l'appareil.
+  let mode = prefs.weekMode === 'liste' ? 'liste' : 'agenda';
+  const listView = h('div', { class: 'filters' }, strip, toggle, h('section', { class: 'block' }, head, listBox));
+  const gcalBox = h('div', { class: 'gcal' });
+  const drawGcal = () => {
+    gcalBox.replaceChildren();
+    if (!prefs.gcal) {
+      const inp = h('input', { class: 'search', type: 'email', id: 'gcaladdr', placeholder: 'ton.adresse@gmail.com', autocomplete: 'email', 'aria-label': 'Adresse de ton Google Agenda' });
+      gcalBox.append(h('div', { class: 'sheet', style: 'padding:18px;display:flex;flex-direction:column;gap:12px' },
+        h('b', {}, 'Relier ton Google Agenda'),
+        h('p', { class: 'muted small' }, 'Entre l’adresse Gmail de ton agenda. Elle reste seulement sur cet appareil.'),
+        inp, h('div', {}, h('button', { class: 'btn solid', type: 'button', onclick: () => { const v = inp.value.trim(); if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { prefs.gcal = v; savePrefs(); drawGcal(); } else inp.focus(); } }, 'Afficher mon agenda'))));
+      return;
+    }
+    const narrow = window.innerWidth < 700;
+    const src = 'https://calendar.google.com/calendar/embed?' + new URLSearchParams({ src: prefs.gcal, ctz: 'Europe/Brussels', hl: 'fr', mode: narrow ? 'AGENDA' : 'WEEK', wkst: '2', showTitle: '0', showPrint: '0', showCalendars: '0', showTz: '0' }).toString();
+    gcalBox.append(
+      h('div', { class: 'sheet gcal-frame' }, h('iframe', { src, title: 'Google Agenda', loading: 'lazy' })),
+      h('p', { class: 'muted small' }, 'Page vide ou « pas d’autorisation » ? Connecte-toi à Google dans ce navigateur avec le même compte, ou ',
+        h('a', { href: 'https://calendar.google.com/calendar/r/week', target: '_blank', rel: 'noopener' }, 'ouvre Google Agenda'), '. ',
+        h('button', { class: 'btn', type: 'button', style: 'margin-left:6px', onclick: () => { delete prefs.gcal; savePrefs(); drawGcal(); } }, 'Changer d’adresse')));
+  };
+  const viewSwitch = h('div', { class: 'chips', role: 'group', 'aria-label': 'Affichage' });
+  const drawSwitch = () => {
+    viewSwitch.replaceChildren(...[['agenda', 'Google Agenda'], ['liste', 'Liste des cours']].map(([k, t]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(mode === k), onclick: () => { mode = k; prefs.weekMode = k; savePrefs(); drawSwitch(); } }, t)));
+    gcalBox.hidden = mode !== 'agenda'; listView.hidden = mode !== 'liste';
+    if (mode === 'agenda' && !gcalBox.childElementCount) drawGcal();
+  };
+  drawSwitch();
   return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'Ta semaine'), h('p', {}, 'Tes cours du groupe B6 (TimeEdit) et ton Google Agenda, réunis. Mis à jour deux fois par jour.')),
-    strip, toggle, h('section', { class: 'block' }, head, listBox));
+    h('header', { class: 'page-head' }, h('h1', {}, 'Ta semaine'), h('p', {}, 'Ton Google Agenda en direct, ou la liste de tes cours B6 avec les séances à préparer.')),
+    viewSwitch, gcalBox, listView);
 }
 
 /* ---------- Page : Quiz ---------- */
