@@ -10,6 +10,9 @@
 <meta name="apple-mobile-web-app-title" content="Q1 Biomed">
 <title>Mon Q1 Biomed</title>
 <script>try{var t=(JSON.parse(localStorage.getItem("q1biomed.prefs"))||{}).theme;if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&display=swap">
@@ -230,6 +233,47 @@ button.item:hover { background: var(--paper); }
   .page { animation: rise .28s ease-out both; }
   @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 }
+
+/* ---------- Annonces ---------- */
+.news { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-top: 1px solid var(--rule); }
+.news:first-child { border-top: 0; }
+.news .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.news .title { font-weight: 700; }
+.news .when { color: var(--faint); font-size: .82rem; }
+.news p { color: var(--soft); font-size: .92rem; }
+.news a { font-weight: 700; font-size: .85rem; color: var(--soft); }
+.news.other { opacity: .6; }
+.flag { color: var(--bad); font-weight: 700; font-size: .78rem; display: inline-flex; align-items: center; gap: 5px; }
+.flag::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+/* ---------- Minuteur ---------- */
+.pomo-fab { position: fixed; z-index: 12; right: max(16px, env(safe-area-inset-right)); bottom: calc(20px + env(safe-area-inset-bottom));
+  display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink);
+  border-radius: 999px; padding: 10px 16px 10px 12px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,.12); }
+.pomo-fab svg { width: 20px; height: 20px; }
+.pomo-fab.run { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.pomo-fab.brk { background: var(--maths); color: #fff; border-color: var(--maths); }
+@media (max-width: 820px) { .pomo-fab { bottom: calc(84px + env(safe-area-inset-bottom)); } }
+.pomo { position: fixed; z-index: 25; inset: auto max(16px, env(safe-area-inset-right)) calc(76px + env(safe-area-inset-bottom)) auto; width: min(22rem, calc(100vw - 32px));
+  background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.22); padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+@media (max-width: 820px) { .pomo { bottom: calc(140px + env(safe-area-inset-bottom)); } }
+.pomo .chips { flex-wrap: wrap; overflow: visible; }
+.pomo-head { display: flex; justify-content: space-between; align-items: center; }
+.pomo-head b { font-family: var(--f-head); font-size: 1.1rem; }
+.pomo-time { font-family: var(--f-head); font-weight: 700; font-size: 3.4rem; line-height: 1; text-align: center; letter-spacing: -.02em; }
+.pomo-phase { text-align: center; color: var(--soft); font-weight: 700; font-size: .9rem; }
+.pomo-ring { height: 6px; border-radius: 3px; background: var(--rule); overflow: hidden; }
+.pomo-ring i { display: block; height: 100%; background: var(--c, var(--ink)); transition: width 1s linear; }
+.pomo-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.pomo-week { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--rule); padding-top: 12px; }
+.pomo-week .row { display: grid; grid-template-columns: 5.5rem 1fr 3.4rem; gap: 8px; align-items: center; font-size: .86rem; }
+.pomo-week .bar { width: 100%; }
+
+/* ---------- Hors ligne ---------- */
+.offline { position: fixed; z-index: 13; left: 50%; transform: translateX(-50%); top: calc(10px + env(safe-area-inset-top)); background: var(--ink); color: var(--paper);
+  border-radius: 999px; padding: 6px 14px; font-size: .82rem; font-weight: 700; }
+.offline-note { color: var(--soft); font-size: .85rem; display: flex; align-items: center; gap: 6px; }
+.offline-note::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
 </style>
 </head>
 <body>
@@ -278,8 +322,12 @@ button.item:hover { background: var(--paper); }
   <div class="pages" id="pages"></div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+<button class="pomo-fab" id="pomoFab" type="button" hidden aria-haspopup="dialog" aria-controls="pomo"></button>
+<div class="pomo" id="pomo" role="dialog" aria-label="Minuteur de travail" hidden></div>
+<div class="offline" id="offline" role="status" hidden>Hors ligne : dernière version enregistrée</div>
+
+<script src="vendor/pdf.min.js"></script>
+<script src="vendor/pdf.worker.min.js"></script>
 <script>
 (() => {
 'use strict';
@@ -356,12 +404,14 @@ const TABS = [['aujourdhui', "Aujourd'hui", 'today'], ['semaine', 'Semaine', 'we
 const icon = (k) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = ICON[k]; return s; };
 
 /* ---------- Données dérivées ---------- */
-let quiz = [], hor = [], pdfs = [], cours = [], prep = [], agenda = [];
+let quiz = [], hor = [], pdfs = [], cours = [], prep = [], agenda = [], annonces = [], devoirs = [];
 function prepare() {
   quiz = (D.quiz || []).slice().sort((a, b) => String(a.ouverture).localeCompare(String(b.ouverture)));
   hor = (D.horaire || []).slice().sort((a, b) => String(a.debut).localeCompare(String(b.debut)));
   pdfs = (D.pdfs || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
   cours = (D.cours || []).slice();
+  annonces = (D.annonces || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  devoirs = (D.devoirs || []).slice().sort((a, b) => String(a.echeance).localeCompare(String(b.echeance)));
   prep = hor.filter((x) => x.a_preparer === true).map((x) => ({ ...x, pdf: pdfs.find((p) => String(p.seance_id) === String(x.id)) || null }));
   // Google Agenda : on retire ce qui fait doublon avec l'horaire TimeEdit
   agenda = (D.agenda || []).filter((e) => {
@@ -438,12 +488,21 @@ function pageToday() {
   const todos = [];
   quiz.filter((q) => String(q.fermeture) >= now && q.ouverture.slice(0, 10) <= horizon).forEach((q) => todos.push({ at: q.ouverture, kind: 'quiz', q }));
   prep.filter((p) => String(p.debut) >= now && p.jour <= horizon).forEach((p) => todos.push({ at: p.debut, kind: 'prep', p }));
+  devoirs.filter((d) => !d.rendu && d.echeance && String(d.echeance) >= now && String(d.echeance).slice(0, 10) <= addD(today, 7)).forEach((d) => todos.push({ at: d.echeance, kind: 'devoir', d }));
   todos.sort((a, b) => String(a.at).localeCompare(String(b.at)));
 
   const todoList = h('div', { class: 'sheet todo' });
   if (!todos.length) todoList.append(h('p', { class: 'empty' }, 'Rien à rendre ni à préparer dans les 3 prochains jours.'));
   todos.forEach((t) => {
     const n = dd(now, t.at);
+    if (t.kind === 'devoir') {
+      const d = t.d;
+      todoList.append(h('div', { class: 'todo-item' + (n <= 1 ? ' urgent' : '') },
+        h('div', { class: 'when num' }, hh(d.echeance), h('small', {}, cap(rel(d.echeance, now)))),
+        h('div', { class: 'what' }, h('div', {}, label(d.matiere)), h('b', {}, `À rendre : ${d.titre}`), h('span', { class: 'muted small' }, `Date limite ${fShort(d.echeance)} à ${hh(d.echeance)}`)),
+        h('div', { class: 'act' }, h('a', { class: 'btn', href: d.lien, target: '_blank', rel: 'noopener' }, 'Rendre sur Moodle'))));
+      return;
+    }
     if (t.kind === 'quiz') {
       const q = t.q;
       todoList.append(h('div', { class: 'todo-item' + (n === 0 ? ' urgent' : '') },
@@ -480,6 +539,7 @@ function pageToday() {
     h('div', { class: 'stat' }, h('span', { class: 'v num' }, String(missed)), h('span', { class: 'k' }, missed > 1 ? 'quiz manqués' : 'quiz manqué')),
     h('div', { class: 'stat' }, h('span', { class: 'v num' }, String(pdfs.length)), h('span', { class: 'k' }, 'PDF de révision')));
 
+  const freshNews = annonces.filter((a) => a.pour_toi && dd(String(a.date), now) <= 7).slice(0, 4);
   const greeting = cap(fLong(today + 'T12:00'));
   const first = todos[0];
   const sub = first ? (first.kind === 'quiz' ? `En premier : ${first.q.titre}, ${rel(first.q.ouverture, now)} à ${hh(first.q.ouverture)}.` : `En premier : préparer la séance de ${first.p.matiere.toLowerCase()}, ${rel(first.p.debut, now)}.`) : (nextPrep ? `Prochaine séance à préparer : ${nextPrep.matiere.toLowerCase()}, ${rel(nextPrep.debut, now)}.` : 'Rien d’urgent.');
@@ -487,6 +547,7 @@ function pageToday() {
     h('header', { class: 'page-head' }, h('h1', {}, greeting), h('p', {}, sub)),
     h('section', { class: 'block' }, h('h2', {}, 'À faire', h('span', { class: 'count' }, 'les 3 prochains jours')), todoList),
     h('section', { class: 'block' }, h('h2', {}, showDay === today ? "Programme d'aujourd'hui" : `Programme ${rel(showDay + 'T12:00', now) === 'demain' ? 'de demain' : 'du ' + fLong(showDay + 'T12:00')}`), tl),
+    freshNews.length ? h('section', { class: 'block' }, h('h2', {}, 'Nouvelles annonces', h('span', { class: 'count' }, '7 derniers jours')), h('div', { class: 'sheet' }, freshNews.map((a) => newsEl(a, now))), h('a', { class: 'muted small', href: '#cours' }, 'Toutes les annonces')) : null,
     h('section', { class: 'block' }, h('h2', {}, 'En chiffres'), stats));
 }
 
@@ -570,15 +631,21 @@ function pageQuiz() {
         h('div', { class: 'right' }, n !== null ? h('span', { class: 'grade num' }, String(n).replace('.', ','), h('small', {}, '/20')) : stateEl(st, kind),
           n !== null ? h('span', { class: 'bar', role: 'img', 'aria-label': `${n} sur 20` }, h('i', { style: `width:${n * 5}%` })) : (String(q.fermeture) >= now ? h('a', { class: 'btn', href: q.lien, target: '_blank', rel: 'noopener' }, 'Moodle') : null)));
     };
+    const dsel = devoirs.filter((d) => mat === 'Tout' || d.matiere === mat);
+    const dUp = dsel.filter((d) => !d.rendu && (!d.echeance || String(d.echeance) >= now));
+    const drow = (d) => h('div', { class: 'item' },
+      h('div', {}, h('div', { class: 'top' }, label(d.matiere), h('span', { class: 'title' }, d.titre)), h('div', { class: 'sub num' }, d.echeance ? `À rendre ${rel(d.echeance, now)}, ${fShort(d.echeance)} à ${hh(d.echeance)}` : 'Sans date limite')),
+      h('div', { class: 'right' }, d.rendu ? stateEl('rendu', 'ok') : h('a', { class: 'btn', href: d.lien, target: '_blank', rel: 'noopener' }, 'Rendre')));
     body.replaceChildren(
-      h('section', { class: 'block' }, h('h2', {}, 'À venir', h('span', { class: 'count num' }, String(up.length))), up.length ? h('div', { class: 'sheet list' }, up.map(row)) : h('p', { class: 'muted' }, 'Aucun quiz à venir.')),
-      h('section', { class: 'block' }, h('h2', {}, 'Passés', h('span', { class: 'count num' }, String(past.length))), past.length ? h('div', { class: 'sheet list' }, past.map(row)) : h('p', { class: 'muted' }, 'Aucun quiz passé.')));
+      h('section', { class: 'block' }, h('h2', {}, 'Devoirs à rendre', h('span', { class: 'count num' }, String(dUp.length))), dUp.length ? h('div', { class: 'sheet list' }, dUp.map(drow)) : h('p', { class: 'muted' }, 'Aucun devoir à rendre sur Moodle pour l’instant. Ils apparaîtront ici et dans « Aujourd’hui » dès qu’un prof en publie un.')),
+      h('section', { class: 'block' }, h('h2', {}, 'Quiz à venir', h('span', { class: 'count num' }, String(up.length))), up.length ? h('div', { class: 'sheet list' }, up.map(row)) : h('p', { class: 'muted' }, 'Aucun quiz à venir.')),
+      h('section', { class: 'block' }, h('h2', {}, 'Quiz passés', h('span', { class: 'count num' }, String(past.length))), past.length ? h('div', { class: 'sheet list' }, past.map(row)) : h('p', { class: 'muted' }, 'Aucun quiz passé.')));
   };
   draw();
   const done = quiz.filter((q) => note(q) !== null);
   const avg = done.length ? Math.round(done.reduce((s, q) => s + note(q), 0) / done.length * 10) / 10 : null;
   return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'Quiz'), h('p', {}, avg === null ? 'Tes quiz Moodle, à venir et passés.' : `Moyenne de ${String(avg).replace('.', ',')}/20 sur ${done.length} quiz passés.`)),
+    h('header', { class: 'page-head' }, h('h1', {}, 'Quiz et devoirs'), h('p', {}, avg === null ? 'Tes quiz et devoirs Moodle.' : `Moyenne de ${String(avg).replace('.', ',')}/20 sur ${done.length} quiz passés.`)),
     chips, body);
 }
 
@@ -612,16 +679,39 @@ function pagePdf() {
   };
   drawChips(); drawList();
   return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'PDF de révision'), h('p', {}, 'Synthèses, corrigés et prépas. Versions finales uniquement, rangées par matière.')),
+    h('header', { class: 'page-head' }, h('h1', {}, 'PDF de révision'), h('p', {}, 'Synthèses, corrigés et prépas. Versions finales uniquement, rangées par matière.'),
+      'serviceWorker' in navigator ? h('span', { class: 'offline-note' }, 'Lisibles aussi sans connexion une fois le site ouvert une fois avec internet') : null),
     h('div', { class: 'filters' }, matChips, typeChips, search), out);
+}
+
+/* ---------- Annonce (élément) ---------- */
+function newsEl(a, now) {
+  return h('article', { class: 'news' + (a.pour_toi ? '' : ' other') },
+    h('div', { class: 'top' }, label(a.matiere), h('span', { class: 'when' }, cap(rel(a.date, now)) + ' à ' + hh(a.date)), a.important ? h('span', { class: 'flag' }, 'Important') : null, a.pour_toi ? null : h('span', { class: 'when' }, 'autre groupe')),
+    h('span', { class: 'title' }, a.titre), h('p', {}, a.resume), h('a', { href: a.lien, target: '_blank', rel: 'noopener' }, 'Lire sur Moodle'));
 }
 
 /* ---------- Page : Cours ---------- */
 function pageCours() {
   const now = nowL();
   const groups = [['Ce quadrimestre', (c) => String(c.quadri).startsWith('Q1')], ['Deuxième quadrimestre', (c) => c.quadri === 'Q2'], ['Soutien et remédiation', (c) => !String(c.quadri).startsWith('Q')]];
+  let nMat = prefs.newsMat || 'Tout', others = !!prefs.newsOthers, nMax = 8;
+  const nMats = ORDER.filter((m) => annonces.some((a) => a.matiere === m));
+  const nChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrer les annonces' });
+  const nList = h('div', {});
+  const drawNews = () => {
+    const base = annonces.filter((a) => others || a.pour_toi);
+    nChips.replaceChildren(...['Tout', ...nMats].map((m) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(m === nMat), style: m === 'Tout' ? '' : `--c:var(--${MAT[m]})`, onclick: () => { nMat = m; prefs.newsMat = m; savePrefs(); drawNews(); } },
+      m === 'Tout' ? null : h('span', { class: 'sw' }), m, h('span', { class: 'n num' }, String(m === 'Tout' ? base.length : base.filter((a) => a.matiere === m).length)))));
+    const all = base.filter((a) => nMat === 'Tout' || a.matiere === nMat), sel = all.slice(0, nMax);
+    nList.replaceChildren(sel.length ? h('div', { class: 'sheet' }, sel.map((a) => newsEl(a, now))) : h('p', { class: 'muted' }, 'Aucune annonce pour cette matière.'),
+      all.length > nMax ? h('button', { class: 'btn', type: 'button', style: 'margin-top:10px', onclick: () => { nMax += 10; drawNews(); } }, `Voir ${Math.min(10, all.length - nMax)} annonces de plus`) : null);
+  };
+  drawNews();
+  const othersToggle = h('label', { class: 'toggle' }, h('input', { type: 'checkbox', id: 'newsothers', checked: others || null, onchange: (e) => { others = e.target.checked; prefs.newsOthers = others; savePrefs(); drawNews(); } }), 'Afficher aussi les annonces des autres groupes');
   return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'Tes cours'), h('p', {}, 'Touche un cours pour l’ouvrir sur l’UV (Moodle).')),
+    h('header', { class: 'page-head' }, h('h1', {}, 'Cours et annonces'), h('p', {}, 'Les annonces des profs qui te concernent (groupe B6), puis tes cours sur l’UV.')),
+    h('section', { class: 'block' }, h('h2', {}, 'Annonces des profs'), nChips, othersToggle, nList),
     groups.map(([title, f]) => {
       const list = cours.filter(f).sort((a, b) => (ORDER.indexOf(a.matiere) + 1 || 99) - (ORDER.indexOf(b.matiere) + 1 || 99) || a.code.localeCompare(b.code));
       if (!list.length) return null;
@@ -695,9 +785,85 @@ document.addEventListener('click', (e) => { if (e.target.closest('[data-theme-to
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 applyTheme();
 
+/* ---------- Minuteur (Pomodoro) ---------- */
+const POMO_KEY = 'q1biomed.pomo', LEN = { focus: 25, short: 5, long: 15 };
+const PLABEL = { focus: 'Concentration', short: 'Petite pause', long: 'Grande pause' };
+let pomo = (() => { try { return JSON.parse(localStorage.getItem(POMO_KEY)) || null; } catch (_) { return null; } })() || {};
+pomo = Object.assign({ phase: 'focus', running: false, endAt: 0, left: LEN.focus * 60, mat: 'Bio', done: 0, stats: {} }, pomo);
+const savePomo = () => { try { localStorage.setItem(POMO_KEY, JSON.stringify(pomo)); } catch (_) {} };
+const weekKey = () => { const d = P(nowL()); const day = (d.getDay() + 6) % 7; d.setDate(d.getDate() - day); return d.toLocaleDateString('sv-SE'); };
+const remaining = () => pomo.running ? Math.max(0, Math.round((pomo.endAt - Date.now()) / 1000)) : pomo.left;
+const mmss = (s) => String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+let audioCtx = null;
+const beep = () => { try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); [0, .35, .7].forEach((t) => { const o = audioCtx.createOscillator(), g = audioCtx.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(.0001, audioCtx.currentTime + t); g.gain.exponentialRampToValueAtTime(.25, audioCtx.currentTime + t + .02); g.gain.exponentialRampToValueAtTime(.0001, audioCtx.currentTime + t + .28); o.connect(g).connect(audioCtx.destination); o.start(audioCtx.currentTime + t); o.stop(audioCtx.currentTime + t + .3); }); } catch (_) {} };
+const credit = (min) => { if (min < 1) return; const wk = weekKey(); pomo.stats[wk] = pomo.stats[wk] || {}; pomo.stats[wk][pomo.mat] = (pomo.stats[wk][pomo.mat] || 0) + min; };
+function pomoNext() {
+  if (pomo.phase === 'focus') { credit(LEN.focus); pomo.done += 1; pomo.phase = pomo.done % 4 === 0 ? 'long' : 'short'; }
+  else pomo.phase = 'focus';
+  pomo.running = false; pomo.left = LEN[pomo.phase] * 60; savePomo();
+  beep(); try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (_) {}
+  try { if ('Notification' in window && Notification.permission === 'granted') new Notification(pomo.phase === 'focus' ? 'Pause terminée' : 'Bloc terminé, bravo', { body: pomo.phase === 'focus' ? 'On reprend : 25 min de concentration.' : `Pause de ${LEN[pomo.phase]} min.`, icon: 'icon-192.png' }); } catch (_) {}
+}
+function pomoStart() {
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume && audioCtx.resume(); } catch (_) {}
+  try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (_) {}
+  pomo.running = true; pomo.endAt = Date.now() + pomo.left * 1000; savePomo(); drawPomo();
+}
+function pomoPause() { pomo.left = remaining(); pomo.running = false; savePomo(); drawPomo(); }
+function pomoReset() {
+  if (pomo.phase === 'focus') credit(Math.floor((LEN.focus * 60 - remaining()) / 60));
+  pomo.running = false; pomo.phase = 'focus'; pomo.left = LEN.focus * 60; savePomo(); drawPomo();
+}
+function drawFab() {
+  const fab = $('#pomoFab'), r = remaining();
+  fab.classList.toggle('run', pomo.running && pomo.phase === 'focus'); fab.classList.toggle('brk', pomo.running && pomo.phase !== 'focus');
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('aria-hidden', 'true');
+  s.innerHTML = '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/>';
+  fab.replaceChildren(s, pomo.running || r !== LEN[pomo.phase] * 60 ? mmss(r) : 'Minuteur');
+  fab.setAttribute('aria-label', 'Minuteur : ' + (pomo.running ? `${PLABEL[pomo.phase]}, ${mmss(r)} restantes` : 'arrêté'));
+  document.title = pomo.running ? `${mmss(r)} · ${pomo.phase === 'focus' ? pomo.mat : 'Pause'} · Mon Q1 Biomed` : 'Mon Q1 Biomed';
+}
+function drawPomo() {
+  drawFab();
+  const box = $('#pomo'); if (box.hidden) return;
+  const r = remaining(), total = LEN[pomo.phase] * 60;
+  const wk = pomo.stats[weekKey()] || {};
+  const mats = ['Bio', 'Chimie', 'Maths', 'Physique', 'Anatomie', 'Autre'];
+  const max = Math.max(60, ...Object.values(wk));
+  const sum = Object.values(wk).reduce((a, b) => a + b, 0);
+  const fmt = (m) => m >= 60 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}` : `${m} min`;
+  box.replaceChildren(
+    h('div', { class: 'pomo-head' }, h('b', {}, 'Minuteur de travail'), h('button', { class: 'btn', type: 'button', onclick: () => { box.hidden = true; $('#pomoFab').setAttribute('aria-expanded', 'false'); } }, 'Fermer')),
+    h('div', { class: 'chips', role: 'group', 'aria-label': 'Matière travaillée' }, mats.map((m) => h('button', { class: 'chip small', type: 'button', 'aria-pressed': String(pomo.mat === m), disabled: pomo.running && pomo.phase === 'focus' ? true : null, style: MAT[m] ? `--c:var(--${MAT[m]})` : '', onclick: () => { pomo.mat = m; savePomo(); drawPomo(); } }, MAT[m] ? h('span', { class: 'sw' }) : null, m))),
+    h('div', { class: 'pomo-phase' }, PLABEL[pomo.phase] + (pomo.phase === 'focus' ? ` · ${pomo.mat}` : '') + ` · bloc ${pomo.done % 4 + (pomo.phase === 'focus' ? 1 : 0) || 4}/4`),
+    h('div', { class: 'pomo-time num', 'aria-live': 'off' }, mmss(r)),
+    h('div', { class: 'pomo-ring', style: `--c:var(--${pomo.phase === 'focus' ? (MAT[pomo.mat] || 'other') : 'maths'})` }, h('i', { style: `width:${(1 - r / total) * 100}%` })),
+    h('div', { class: 'pomo-actions' },
+      pomo.running ? h('button', { class: 'btn solid', type: 'button', onclick: pomoPause }, 'Pause') : h('button', { class: 'btn solid', type: 'button', onclick: pomoStart }, r === total ? (pomo.phase === 'focus' ? 'Démarrer 25 min' : `Démarrer la pause`) : 'Reprendre'),
+      h('button', { class: 'btn', type: 'button', onclick: () => { pomo.left = 0; pomo.running = false; pomoNext(); drawPomo(); } }, 'Passer'),
+      h('button', { class: 'btn', type: 'button', onclick: pomoReset }, 'Arrêter')),
+    h('div', { class: 'pomo-week' }, h('b', { class: 'small' }, `Cette semaine : ${fmt(sum)}`),
+      Object.keys(wk).length ? Object.entries(wk).sort((a, b) => b[1] - a[1]).map(([m, v]) => h('div', { class: 'row' }, label(m), h('span', { class: 'bar ' + mcls(m), style: `--c:var(--${MAT[m] || 'other'})` }, h('i', { style: `width:${v / max * 100}%` })), h('span', { class: 'num small' }, fmt(v))))
+        : h('span', { class: 'muted small' }, 'Lance un premier bloc de 25 min pour voir ton temps par matière.')));
+}
+$('#pomoFab').addEventListener('click', () => { const b = $('#pomo'); b.hidden = !b.hidden; $('#pomoFab').setAttribute('aria-expanded', String(!b.hidden)); drawPomo(); });
+setInterval(() => { if (pomo.running && remaining() <= 0) { pomo.left = 0; pomoNext(); } if (!$('#app').hidden) drawPomo(); }, 1000);
+
+/* ---------- Hors ligne ---------- */
+const netState = () => { $('#offline').hidden = navigator.onLine !== false; };
+window.addEventListener('online', netState); window.addEventListener('offline', netState);
+let swReady = null;
+if ('serviceWorker' in navigator) {
+  swReady = navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready).catch(() => null);
+}
+function cacheForOffline() {
+  if (!swReady) return;
+  swReady.then((reg) => { if (!reg || !reg.active) return; reg.active.postMessage({ type: 'cache', urls: pdfs.filter((p) => p.enc).map((p) => p.enc) }); });
+}
+
 /* ---------- Démarrage ---------- */
 function start() {
-  prepare(); buildTabs();
+  prepare(); buildTabs(); netState(); $('#pomoFab').hidden = false; drawFab(); cacheForOffline();
   if (D.maj) $('#maj').textContent = 'Mis à jour le ' + new Date(D.maj).toLocaleString('fr-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   $('#lock').hidden = true; $('#app').hidden = false; route();
 }
