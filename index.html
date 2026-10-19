@@ -404,14 +404,13 @@ const TABS = [['aujourdhui', "Aujourd'hui", 'today'], ['semaine', 'Semaine', 'we
 const icon = (k) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = ICON[k]; return s; };
 
 /* ---------- Données dérivées ---------- */
-let quiz = [], hor = [], pdfs = [], cours = [], prep = [], agenda = [], annonces = [], devoirs = [];
+let quiz = [], hor = [], pdfs = [], cours = [], prep = [], agenda = [], annonces = [];
 function prepare() {
   quiz = (D.quiz || []).slice().sort((a, b) => String(a.ouverture).localeCompare(String(b.ouverture)));
   hor = (D.horaire || []).slice().sort((a, b) => String(a.debut).localeCompare(String(b.debut)));
   pdfs = (D.pdfs || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
   cours = (D.cours || []).slice();
   annonces = (D.annonces || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
-  devoirs = (D.devoirs || []).slice().sort((a, b) => String(a.echeance).localeCompare(String(b.echeance)));
   prep = hor.filter((x) => x.a_preparer === true).map((x) => ({ ...x, pdf: pdfs.find((p) => String(p.seance_id) === String(x.id)) || null }));
   // Google Agenda : on retire ce qui fait doublon avec l'horaire TimeEdit
   agenda = (D.agenda || []).filter((e) => {
@@ -488,21 +487,12 @@ function pageToday() {
   const todos = [];
   quiz.filter((q) => String(q.fermeture) >= now && q.ouverture.slice(0, 10) <= horizon).forEach((q) => todos.push({ at: q.ouverture, kind: 'quiz', q }));
   prep.filter((p) => String(p.debut) >= now && p.jour <= horizon).forEach((p) => todos.push({ at: p.debut, kind: 'prep', p }));
-  devoirs.filter((d) => !d.rendu && d.echeance && String(d.echeance) >= now && String(d.echeance).slice(0, 10) <= addD(today, 7)).forEach((d) => todos.push({ at: d.echeance, kind: 'devoir', d }));
   todos.sort((a, b) => String(a.at).localeCompare(String(b.at)));
 
   const todoList = h('div', { class: 'sheet todo' });
   if (!todos.length) todoList.append(h('p', { class: 'empty' }, 'Rien à rendre ni à préparer dans les 3 prochains jours.'));
   todos.forEach((t) => {
     const n = dd(now, t.at);
-    if (t.kind === 'devoir') {
-      const d = t.d;
-      todoList.append(h('div', { class: 'todo-item' + (n <= 1 ? ' urgent' : '') },
-        h('div', { class: 'when num' }, hh(d.echeance), h('small', {}, cap(rel(d.echeance, now)))),
-        h('div', { class: 'what' }, h('div', {}, label(d.matiere)), h('b', {}, `À rendre : ${d.titre}`), h('span', { class: 'muted small' }, `Date limite ${fShort(d.echeance)} à ${hh(d.echeance)}`)),
-        h('div', { class: 'act' }, h('a', { class: 'btn', href: d.lien, target: '_blank', rel: 'noopener' }, 'Rendre sur Moodle'))));
-      return;
-    }
     if (t.kind === 'quiz') {
       const q = t.q;
       todoList.append(h('div', { class: 'todo-item' + (n === 0 ? ' urgent' : '') },
@@ -631,21 +621,15 @@ function pageQuiz() {
         h('div', { class: 'right' }, n !== null ? h('span', { class: 'grade num' }, String(n).replace('.', ','), h('small', {}, '/20')) : stateEl(st, kind),
           n !== null ? h('span', { class: 'bar', role: 'img', 'aria-label': `${n} sur 20` }, h('i', { style: `width:${n * 5}%` })) : (String(q.fermeture) >= now ? h('a', { class: 'btn', href: q.lien, target: '_blank', rel: 'noopener' }, 'Moodle') : null)));
     };
-    const dsel = devoirs.filter((d) => mat === 'Tout' || d.matiere === mat);
-    const dUp = dsel.filter((d) => !d.rendu && (!d.echeance || String(d.echeance) >= now));
-    const drow = (d) => h('div', { class: 'item' },
-      h('div', {}, h('div', { class: 'top' }, label(d.matiere), h('span', { class: 'title' }, d.titre)), h('div', { class: 'sub num' }, d.echeance ? `À rendre ${rel(d.echeance, now)}, ${fShort(d.echeance)} à ${hh(d.echeance)}` : 'Sans date limite')),
-      h('div', { class: 'right' }, d.rendu ? stateEl('rendu', 'ok') : h('a', { class: 'btn', href: d.lien, target: '_blank', rel: 'noopener' }, 'Rendre')));
     body.replaceChildren(
-      h('section', { class: 'block' }, h('h2', {}, 'Devoirs à rendre', h('span', { class: 'count num' }, String(dUp.length))), dUp.length ? h('div', { class: 'sheet list' }, dUp.map(drow)) : h('p', { class: 'muted' }, 'Aucun devoir à rendre sur Moodle pour l’instant. Ils apparaîtront ici et dans « Aujourd’hui » dès qu’un prof en publie un.')),
-      h('section', { class: 'block' }, h('h2', {}, 'Quiz à venir', h('span', { class: 'count num' }, String(up.length))), up.length ? h('div', { class: 'sheet list' }, up.map(row)) : h('p', { class: 'muted' }, 'Aucun quiz à venir.')),
-      h('section', { class: 'block' }, h('h2', {}, 'Quiz passés', h('span', { class: 'count num' }, String(past.length))), past.length ? h('div', { class: 'sheet list' }, past.map(row)) : h('p', { class: 'muted' }, 'Aucun quiz passé.')));
+      h('section', { class: 'block' }, h('h2', {}, 'À venir', h('span', { class: 'count num' }, String(up.length))), up.length ? h('div', { class: 'sheet list' }, up.map(row)) : h('p', { class: 'muted' }, 'Aucun quiz à venir.')),
+      h('section', { class: 'block' }, h('h2', {}, 'Passés', h('span', { class: 'count num' }, String(past.length))), past.length ? h('div', { class: 'sheet list' }, past.map(row)) : h('p', { class: 'muted' }, 'Aucun quiz passé.')));
   };
   draw();
   const done = quiz.filter((q) => note(q) !== null);
   const avg = done.length ? Math.round(done.reduce((s, q) => s + note(q), 0) / done.length * 10) / 10 : null;
   return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'Quiz et devoirs'), h('p', {}, avg === null ? 'Tes quiz et devoirs Moodle.' : `Moyenne de ${String(avg).replace('.', ',')}/20 sur ${done.length} quiz passés.`)),
+    h('header', { class: 'page-head' }, h('h1', {}, 'Quiz'), h('p', {}, avg === null ? 'Tes quiz Moodle, à venir et passés.' : `Moyenne de ${String(avg).replace('.', ',')}/20 sur ${done.length} quiz passés.`)),
     chips, body);
 }
 

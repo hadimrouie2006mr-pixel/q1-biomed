@@ -38,7 +38,7 @@ def main():
         return iv + aes.encrypt(iv, data, None)
 
     bundle = {}
-    for name in ("horaire", "quiz", "cours", "pdfs", "agenda", "annonces", "devoirs"):
+    for name in ("horaire", "quiz", "cours", "pdfs", "agenda", "annonces"):
         f = src / "data" / f"{name}.json"
         bundle[name] = json.loads(f.read_text(encoding="utf-8")) if f.exists() else []
     from datetime import datetime, timezone
