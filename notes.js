@@ -528,7 +528,7 @@ async function emptyTrash() {
 function tplPreview(kind, color) {
   const c = document.createElement('canvas'); c.width = 84; c.height = 112; c.className = 'nb-tplprev';
   const x = c.getContext('2d'); x.scale(84 / 595.3, 112 / 841.9);
-  N.drawTemplate && N.drawTemplate(x, { w: 595.3, h: 841.9, tpl: kind, color });
+  N.drawTemplate && N.drawTemplate(x, { w: 595.3, h: 841.9, tpl: kind, color }, 5);
   return c;
 }
 N.tplPreview = tplPreview;

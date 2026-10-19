@@ -565,7 +565,7 @@ function drawLive() {
     }
     const it = liveItem(G);
     if (it.type === 'sh') R().drawItem(ctx, it, pv.pg);
-    else { ctx.fillStyle = it.color; ctx.globalAlpha = it.tool === 'hl' ? .38 : 1; ctx.fill(R().livePath(it.pts.concat(G.straight ? [] : G.pred), it)); ctx.globalAlpha = 1; }
+    else { ctx.fillStyle = it.color; ctx.globalAlpha = it.tool === 'hl' ? .5 : 1; ctx.fill(R().livePath(it.pts.concat(G.straight ? [] : G.pred), it)); ctx.globalAlpha = 1; }
     liveRaf = requestAnimationFrame(drawLive);
   } else if (G.kind === 'erase') {
     const r = curSize('eraser') / 2; ctx.strokeStyle = 'rgba(100,110,120,.8)'; ctx.lineWidth = 1 / E.scale; ctx.beginPath(); ctx.arc(G.ex ?? G.sx, G.ey ?? G.sy, r, 0, 6.283); ctx.stroke();

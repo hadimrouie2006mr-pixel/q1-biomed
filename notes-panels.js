@@ -280,7 +280,7 @@ function cropImage(pv, it0) {
   const edge = (side) => {
     const el = h('button', { class: 'ne-ovl ne-ch ' + side, type: 'button', 'aria-label': 'Rogner ' + { l: 'à gauche', r: 'à droite', t: 'en haut', b: 'en bas' }[side] });
     el.addEventListener('pointerdown', (ev) => {
-      ev.preventDefault(); ev.stopPropagation(); el.setPointerCapture(ev.pointerId);
+      ev.preventDefault(); ev.stopPropagation(); try { el.setPointerCapture(ev.pointerId); } catch (_) {}
       const sx = ev.clientX, sy = ev.clientY, start = JSON.parse(JSON.stringify(cur));
       const mv = (m) => {
         const dx = (m.clientX - sx) / e.scale, dy = (m.clientY - sy) / e.scale, n = JSON.parse(JSON.stringify(start)), fx = start.w / ((start.crop[2] - start.crop[0]) * bmp.width), fy = start.h / ((start.crop[3] - start.crop[1]) * bmp.height);
@@ -324,7 +324,7 @@ X.openText = (pv, item, x, y) => {
   e.textEd.fit = fit;
   ta.addEventListener('input', fit);
   ta.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { ev.preventDefault(); X.commitText(); } });
-  const drag = (el, fn) => el.addEventListener('pointerdown', (ev) => { ev.preventDefault(); ev.stopPropagation(); el.setPointerCapture(ev.pointerId); const sx = ev.clientX, sy = ev.clientY, s0 = Object.assign({}, cur); const m = (q) => { fn(s0, (q.clientX - sx) / e.scale, (q.clientY - sy) / e.scale); fit(); }; const u = () => { el.removeEventListener('pointermove', m); el.removeEventListener('pointerup', u); ta.focus(); }; el.addEventListener('pointermove', m); el.addEventListener('pointerup', u); });
+  const drag = (el, fn) => el.addEventListener('pointerdown', (ev) => { ev.preventDefault(); ev.stopPropagation(); try { el.setPointerCapture(ev.pointerId); } catch (_) {} const sx = ev.clientX, sy = ev.clientY, s0 = Object.assign({}, cur); const m = (q) => { fn(s0, (q.clientX - sx) / e.scale, (q.clientY - sy) / e.scale); fit(); }; const u = () => { el.removeEventListener('pointermove', m); el.removeEventListener('pointerup', u); ta.focus(); }; el.addEventListener('pointermove', m); el.addEventListener('pointerup', u); });
   drag(wh, (s0, dx) => { cur.w = clamp(s0.w + dx, 30, pg.w - cur.x); });
   drag(mv, (s0, dx, dy) => { cur.x = clamp(s0.x + dx, 0, pg.w - 20); cur.y = clamp(s0.y + dy, 0, pg.h - 10); });
   const setF = (k, v) => { cur[k] = v; Object.assign(X.TP.text, { [k]: v }); X.saveTP(); fit(); drawBar(); ta.focus(); };
@@ -342,7 +342,8 @@ X.openText = (pv, item, x, y) => {
   drawBar(); e.textEd.bar = bar;
   bar.addEventListener('pointerdown', (ev) => { if (ev.target.closest('button')) ev.preventDefault(); });
   X.root().querySelector('.ne-body').append(bar);
-  fit(); setTimeout(() => { ta.focus({ preventScroll: true }); fit(); }, 20);
+  fit(); try { ta.focus({ preventScroll: true }); } catch (_) {} // synchrone : nécessaire pour le clavier sur iPad
+  setTimeout(() => { if (document.activeElement !== ta && ta.isConnected) ta.focus({ preventScroll: true }); fit(); }, 20);
 };
 X.commitText = () => {
   const e = E(); if (!e || !e.textEd) return;
@@ -438,7 +439,7 @@ X.onEdit = (pids) => {
 };
 function dragThumb(ev, pid) {
   if (!X.canEdit()) return;
-  ev.preventDefault(); const e = E(); const el = ev.currentTarget; el.setPointerCapture(ev.pointerId);
+  ev.preventDefault(); const e = E(); const el = ev.currentTarget; try { el.setPointerCapture(ev.pointerId); } catch (_) {}
   const row = el.closest('.ne-thumb'); row.classList.add('dragging');
   const list = row.parentNode; let target = null;
   const mv = (m) => {
@@ -718,7 +719,7 @@ function zwPlace() {
   if (!box || box.parentNode !== pv.el) {
     if (box) box.remove();
     box = h('div', { class: 'ne-zwbox ne-ovl', 'aria-hidden': 'true' }); pv.el.append(box);
-    box.addEventListener('pointerdown', (ev) => { ev.preventDefault(); ev.stopPropagation(); box.setPointerCapture(ev.pointerId); const sx = ev.clientX, sy = ev.clientY, z0 = Object.assign({}, e.zw); const mv = (m) => { e.zw.x = clamp(z0.x + (m.clientX - sx) / e.scale, 0, pg.w - e.zw.w); e.zw.y = clamp(z0.y + (m.clientY - sy) / e.scale, 0, pg.h - 10); zwPlace(); X.zwRedraw(true); }; const up = () => { box.removeEventListener('pointermove', mv); box.removeEventListener('pointerup', up); }; box.addEventListener('pointermove', mv); box.addEventListener('pointerup', up); });
+    box.addEventListener('pointerdown', (ev) => { ev.preventDefault(); ev.stopPropagation(); try { box.setPointerCapture(ev.pointerId); } catch (_) {} const sx = ev.clientX, sy = ev.clientY, z0 = Object.assign({}, e.zw); const mv = (m) => { e.zw.x = clamp(z0.x + (m.clientX - sx) / e.scale, 0, pg.w - e.zw.w); e.zw.y = clamp(z0.y + (m.clientY - sy) / e.scale, 0, pg.h - 10); zwPlace(); X.zwRedraw(true); }; const up = () => { box.removeEventListener('pointermove', mv); box.removeEventListener('pointerup', up); }; box.addEventListener('pointermove', mv); box.addEventListener('pointerup', up); });
   }
   box.style.cssText = `left:${e.zw.x / pg.w * 100}%;top:${e.zw.y / pg.h * 100}%;width:${e.zw.w / pg.w * 100}%;height:${rh / pg.h * 100}%`;
 }
@@ -740,7 +741,7 @@ X.zwRedraw = (bgToo) => {
 let ZG = null;
 function zwDown(ev) {
   const e = E(); if (ev.pointerType === 'touch' && !X.TP.fingerDraw) return; if (ev.pointerType === 'mouse' && ev.button !== 0) return;
-  ev.preventDefault(); const area = ev.currentTarget; area.setPointerCapture(ev.pointerId);
+  ev.preventDefault(); const area = ev.currentTarget; try { area.setPointerCapture(ev.pointerId); } catch (_) {}
   const tool = ['pen', 'hl'].includes(X.TP.tool) ? X.TP.tool : 'pen';
   const cfg = X.toolCfg(tool);
   ZG = { id: ev.pointerId, area, rc: area.getBoundingClientRect(), tool, pts: [], color: cfg.color, size: X.curSize(tool), pen: tool === 'pen' ? cfg.pen : 'ball', sim: ev.pointerType !== 'pen', ptype: ev.pointerType };
@@ -752,7 +753,7 @@ function zwMoveEv(ev) {
   if (!ZG || ev.pointerId !== ZG.id) return; zwAdd(ev);
   const e = E(); const live = ZG.area.querySelector('.zw-live'); const { rh } = zwDims(); const rect = { x: e.zw.x, y: e.zw.y, w: e.zw.w, h: rh };
   const ctx = X.ctxFor(live, rect); const it = { type: 's', tool: ZG.tool === 'hl' ? 'hl' : 'pen', pen: ZG.pen, color: ZG.color, size: ZG.size, pts: ZG.pts, sim: ZG.sim };
-  ctx.fillStyle = it.color; ctx.globalAlpha = it.tool === 'hl' ? .38 : 1; ctx.fill(R().livePath(ZG.pts, it)); ctx.globalAlpha = 1;
+  ctx.fillStyle = it.color; ctx.globalAlpha = it.tool === 'hl' ? .5 : 1; ctx.fill(R().livePath(ZG.pts, it)); ctx.globalAlpha = 1;
 }
 function zwUp(ev) {
   if (!ZG || ev.pointerId !== ZG.id) return; const g = ZG; ZG = null; const e = E();

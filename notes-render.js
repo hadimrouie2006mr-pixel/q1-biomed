@@ -50,13 +50,13 @@ function tplColor(pg, c) {
   if (isDark(pg)) return { line: 'rgba(255,255,255,.16)', faint: 'rgba(255,255,255,.10)', dot: 'rgba(255,255,255,.35)', strong: 'rgba(255,255,255,.28)', margin: 'rgba(255,120,110,.45)', label: 'rgba(255,255,255,.45)', title: 'rgba(255,255,255,.7)' }[c];
   return { line: 'rgba(70,110,170,.30)', faint: 'rgba(70,110,170,.20)', dot: 'rgba(60,70,90,.42)', strong: 'rgba(60,70,90,.40)', margin: 'rgba(210,70,60,.45)', label: 'rgba(60,70,90,.55)', title: 'rgba(40,45,55,.8)' }[c];
 }
-function drawTemplate(ctx, pg) {
+function drawTemplate(ctx, pg, minW = 0) {
   ctx.fillStyle = paperColor(pg); ctx.fillRect(0, 0, pg.w, pg.h);
   for (const o of tplOps(pg)) {
     const col = tplColor(pg, o.c);
-    if (o.l) { ctx.strokeStyle = col; ctx.lineWidth = o.w; ctx.beginPath(); ctx.moveTo(o.l[0], o.l[1]); ctx.lineTo(o.l[2], o.l[3]); ctx.stroke(); }
-    else if (o.r) { ctx.strokeStyle = col; ctx.lineWidth = o.w; ctx.strokeRect(o.r[0], o.r[1], o.r[2], o.r[3]); }
-    else if (o.dot) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(o.dot[0], o.dot[1], o.dot[2], 0, 6.283); ctx.fill(); }
+    if (o.l) { ctx.strokeStyle = col; ctx.lineWidth = Math.max(o.w, minW); ctx.beginPath(); ctx.moveTo(o.l[0], o.l[1]); ctx.lineTo(o.l[2], o.l[3]); ctx.stroke(); }
+    else if (o.r) { ctx.strokeStyle = col; ctx.lineWidth = Math.max(o.w, minW); ctx.strokeRect(o.r[0], o.r[1], o.r[2], o.r[3]); }
+    else if (o.dot) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(o.dot[0], o.dot[1], Math.max(o.dot[2], minW * .7), 0, 6.283); ctx.fill(); }
     else if (o.t) { ctx.fillStyle = col; ctx.font = `${o.c === 'title' ? 700 : 400} ${o.t[3]}px "Atkinson Hyperlegible", system-ui, sans-serif`; ctx.fillText(o.t[2], o.t[0], o.t[1]); }
   }
 }
@@ -175,7 +175,7 @@ function drawBoxed(ctx, it, hgt, fn) {
 let tapePat = null;
 function drawItem(ctx, it, pg, opts = {}) {
   if (it.type === 's') {
-    ctx.fillStyle = inkColor(it.color, pg); ctx.globalAlpha = it.tool === 'hl' ? .38 : 1;
+    ctx.fillStyle = inkColor(it.color, pg); ctx.globalAlpha = it.tool === 'hl' ? .5 : 1;
     ctx.fill(strokePath(it)); ctx.globalAlpha = 1;
   } else if (it.type === 'sh') {
     const p = shapePath(it);
@@ -418,7 +418,7 @@ async function exportPdf(nbId, pageIds, onProgress) {
     for (const it of items) {
       if (it.type === 's') {
         const d = strokeD(it); if (!d) continue;
-        p.drawSvgPath(d, { x: top.x, y: top.y, scale: k, color: rgb(...hexRgb(it.color)), opacity: it.tool === 'hl' ? .38 : 1, borderWidth: 0 });
+        p.drawSvgPath(d, { x: top.x, y: top.y, scale: k, color: rgb(...hexRgb(it.color)), opacity: it.tool === 'hl' ? .5 : 1, borderWidth: 0 });
       } else if (it.type === 'sh') {
         const d = shapeD(it); if (!d) continue;
         if (it.fill && it.closed) p.drawSvgPath(d, { x: top.x, y: top.y, scale: k, color: rgb(...hexRgb(it.color)), opacity: .22, borderWidth: 0 });
