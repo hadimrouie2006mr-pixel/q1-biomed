@@ -145,6 +145,8 @@ a { color: inherit; }
 .slot .d .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .slot .loc { color: var(--soft); font-size: .88rem; overflow-wrap: anywhere; }
 .slot.past { opacity: .45; }
+.slot.quiz .d b::after { content: " · quiz"; color: var(--warn); font-weight: 700; font-size: .82rem; }
+.slot.agenda .d { border-left-style: dashed; }
 .slot.prep .d b::after { content: " · à préparer"; color: var(--warn); font-weight: 700; font-size: .82rem; }
 .nowline { display: grid; grid-template-columns: 5.2rem 1fr; gap: 14px; padding: 0 16px; align-items: center; color: var(--bad); font-weight: 700; font-size: .78rem; }
 .nowline i { height: 2px; background: var(--bad); border-radius: 1px; }
@@ -351,13 +353,42 @@ const TABS = [['aujourdhui', "Aujourd'hui", 'today'], ['semaine', 'Semaine', 'we
 const icon = (k) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = ICON[k]; return s; };
 
 /* ---------- Données dérivées ---------- */
-let quiz = [], hor = [], pdfs = [], cours = [], prep = [];
+let quiz = [], hor = [], pdfs = [], cours = [], prep = [], agenda = [];
 function prepare() {
   quiz = (D.quiz || []).slice().sort((a, b) => String(a.ouverture).localeCompare(String(b.ouverture)));
   hor = (D.horaire || []).slice().sort((a, b) => String(a.debut).localeCompare(String(b.debut)));
   pdfs = (D.pdfs || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
   cours = (D.cours || []).slice();
   prep = hor.filter((x) => x.a_preparer === true).map((x) => ({ ...x, pdf: pdfs.find((p) => String(p.seance_id) === String(x.id)) || null }));
+  // Google Agenda : on retire ce qui fait doublon avec l'horaire TimeEdit
+  agenda = (D.agenda || []).filter((e) => {
+    const day = String(e.debut).slice(0, 10);
+    const code = (String(e.titre).match(/^([A-Z]{4}G?\d{4})/) || [])[1];
+    if (code && hor.some((x) => x.code === code && x.debut === e.debut)) return false;
+    if (e.journee && hor.some((x) => x.jour === day && x.type === 'Congé')) return false;
+    return true;
+  }).map((e) => {
+    const q = /quizz?/i.test(e.titre) ? quiz.find((z) => z.ouverture === e.debut) : null;
+    return { kind: q ? 'quiz' : 'agenda', jour: String(e.debut).slice(0, 10), debut: e.debut, fin: e.fin, matiere: q ? q.matiere : 'Agenda',
+      titre: q ? `${q.titre} : ${q.sujet}` : String(e.titre).replace(/^\p{Extended_Pictographic}\s*/u, ''), loc: e.lieu || '', journee: !!e.journee };
+  });
+}
+// Tous les éléments d'un jour : cours TimeEdit + Google Agenda, triés
+function dayItems(day, onlyPrep) {
+  const a = hor.filter((x) => x.jour === day && (!onlyPrep || x.a_preparer)).map((x) => ({ kind: x.type === 'Congé' ? 'conge' : 'cours', jour: x.jour, debut: x.debut, fin: x.fin, matiere: x.matiere,
+    titre: x.type === 'Congé' ? x.intitule : x.type, loc: x.local, prof: x.prof, prep: !!x.a_preparer, src: x, journee: x.type === 'Congé' }));
+  const b = onlyPrep ? [] : agenda.filter((e) => e.jour === day);
+  return a.concat(b).sort((x, y) => (y.journee - x.journee) || String(x.debut).localeCompare(String(y.debut)));
+}
+function slotEl(it, now, detail) {
+  const pp = it.src ? prep.find((p) => p.id === it.src.id) : null;
+  const col = it.journee ? '' : `--c:var(--${MAT[it.matiere] || 'other'})`;
+  return h('div', { class: 'slot' + (String(it.fin) < now ? ' past' : '') + (it.prep ? ' prep' : '') + (it.kind === 'quiz' ? ' quiz' : '') + (it.kind === 'agenda' ? ' agenda' : ''), style: col },
+    h('div', { class: 't num' }, it.journee ? 'Journée' : hh(it.debut), it.journee ? null : h('small', {}, hh(it.fin))),
+    h('div', { class: 'd' },
+      h('div', { class: 'row' }, it.journee ? null : label(it.matiere), h('b', {}, it.titre)),
+      it.loc ? h('span', { class: 'loc' }, it.loc + (detail && it.prof ? ' · ' + it.prof : '')) : null,
+      detail && pp && pp.pdf && pp.pdf.enc ? h('div', {}, h('button', { class: 'btn', type: 'button', onclick: () => openPdf(pp.pdf) }, 'Ouvrir la prépa')) : null));
 }
 const quizStatus = (q, now) => {
   if (note(q) !== null || q.statut === 'fait') return ['fait', 'ok'];
@@ -388,8 +419,9 @@ window.addEventListener('hashchange', () => { if (!$('#reader').hidden && !locat
 /* ---------- Page : Aujourd'hui ---------- */
 function pageToday() {
   const now = nowL(), today = now.slice(0, 10);
-  const lastToday = hor.filter((x) => x.jour === today && x.type !== 'Congé').pop();
-  const showDay = lastToday && String(lastToday.fin) > now ? today : (hor.find((x) => x.jour > today && x.type !== 'Congé') || {}).jour || today;
+  const lastToday = dayItems(today, false).filter((x) => !x.journee).pop();
+  const nextDay = hor.concat(agenda).filter((x) => String(x.debut).slice(0, 10) > today && x.type !== 'Congé' && !x.journee).map((x) => String(x.debut).slice(0, 10)).sort()[0];
+  const showDay = lastToday && String(lastToday.fin) > now ? today : nextDay || today;
   const horizon = addD(today, 3);
 
   // À faire : quiz et séances dans les 3 prochains jours
@@ -418,16 +450,13 @@ function pageToday() {
   });
 
   // Ligne du temps du jour affiché
-  const items = hor.filter((x) => x.jour === showDay);
+  const items = dayItems(showDay, false);
   const tl = h('div', { class: 'sheet timeline' });
   let nowPlaced = showDay !== today;
-  if (!items.length) tl.append(h('p', { class: 'empty' }, 'Pas de cours ce jour-là.'));
+  if (!items.length) tl.append(h('p', { class: 'empty' }, 'Rien de prévu ce jour-là.'));
   items.forEach((x) => {
-    if (!nowPlaced && String(x.debut) > now) { tl.append(h('div', { class: 'nowline num', 'aria-label': 'Maintenant' }, hh(now), h('i'))); nowPlaced = true; }
-    const conge = x.type === 'Congé';
-    tl.append(h('div', { class: 'slot ' + mcls(x.matiere) + (String(x.fin) < now ? ' past' : '') + (x.a_preparer ? ' prep' : ''), style: conge ? '' : `--c:var(--${MAT[x.matiere] || 'other'})` },
-      h('div', { class: 't num' }, conge ? 'Journée' : hh(x.debut), conge ? null : h('small', {}, hh(x.fin))),
-      h('div', { class: 'd' }, h('div', { class: 'row' }, conge ? null : label(x.matiere), h('b', {}, conge ? x.intitule : x.type)), conge ? null : h('span', { class: 'loc' }, x.local))));
+    if (!nowPlaced && !x.journee && String(x.debut) > now) { tl.append(h('div', { class: 'nowline num', 'aria-label': 'Maintenant' }, hh(now), h('i'))); nowPlaced = true; }
+    tl.append(slotEl(x, now, false));
   });
   if (!nowPlaced && items.length) tl.append(h('div', { class: 'nowline num' }, hh(now), h('i')));
 
@@ -447,7 +476,7 @@ function pageToday() {
   return h('div', { class: 'page' },
     h('header', { class: 'page-head' }, h('h1', {}, greeting), h('p', {}, sub)),
     h('section', { class: 'block' }, h('h2', {}, 'À faire', h('span', { class: 'count' }, 'les 3 prochains jours')), todoList),
-    h('section', { class: 'block' }, h('h2', {}, showDay === today ? "Cours d'aujourd'hui" : `Cours ${rel(showDay + 'T12:00', now) === 'demain' ? 'de demain' : 'du ' + fLong(showDay + 'T12:00')}`), tl),
+    h('section', { class: 'block' }, h('h2', {}, showDay === today ? "Programme d'aujourd'hui" : `Programme ${rel(showDay + 'T12:00', now) === 'demain' ? 'de demain' : 'du ' + fLong(showDay + 'T12:00')}`), tl),
     h('section', { class: 'block' }, h('h2', {}, 'En chiffres'), stats));
 }
 
@@ -460,33 +489,25 @@ function pageWeek() {
   const strip = h('div', { class: 'days', role: 'group', 'aria-label': 'Choisir un jour' });
   const listBox = h('div', { class: 'sheet timeline' });
   const drawStrip = () => strip.replaceChildren(...days.map((d) => {
-    const its = hor.filter((x) => x.jour === d && x.type !== 'Congé');
-    const mats = [...new Set(its.map((x) => x.matiere))].slice(0, 4);
+    const its = dayItems(d, false).filter((x) => !x.journee);
+    const mats = [...new Set(its.map((x) => x.matiere))].slice(0, 5);
     return h('button', { class: 'daybtn' + (d === today ? ' today' : ''), type: 'button', 'aria-pressed': String(d === sel), onclick: () => { sel = d; prefs.day = d; savePrefs(); drawStrip(); drawList(); } },
       h('span', { class: 'dn' }, P(d).toLocaleDateString('fr-BE', { weekday: 'short' }).replace('.', '')),
       h('span', { class: 'dd num' }, String(P(d).getDate())),
       h('span', { class: 'dots' }, mats.map((m) => h('i', { style: `--c:var(--${MAT[m] || 'other'})` }))));
   }));
   const drawList = () => {
-    const its = hor.filter((x) => x.jour === sel && (!onlyPrep || x.a_preparer));
+    const its = dayItems(sel, onlyPrep);
     listBox.replaceChildren();
     head.textContent = cap(fLong(sel + 'T12:00'));
-    if (!its.length) listBox.append(h('p', { class: 'empty' }, onlyPrep ? 'Rien à préparer ce jour-là.' : 'Pas de cours ce jour-là.'));
-    its.forEach((x) => {
-      const conge = x.type === 'Congé'; const pp = prep.find((p) => p.id === x.id);
-      listBox.append(h('div', { class: 'slot' + (String(x.fin) < now ? ' past' : '') + (x.a_preparer ? ' prep' : ''), style: conge ? '' : `--c:var(--${MAT[x.matiere] || 'other'})` },
-        h('div', { class: 't num' }, conge ? 'Journée' : hh(x.debut), conge ? null : h('small', {}, hh(x.fin))),
-        h('div', { class: 'd' },
-          h('div', { class: 'row' }, conge ? null : label(x.matiere), h('b', {}, conge ? x.intitule : x.type)),
-          conge ? null : h('span', { class: 'loc' }, x.local + (x.prof ? ' · ' + x.prof : '')),
-          pp && pp.pdf && pp.pdf.enc ? h('div', {}, h('button', { class: 'btn', type: 'button', onclick: () => openPdf(pp.pdf) }, 'Ouvrir la prépa')) : null)));
-    });
+    if (!its.length) listBox.append(h('p', { class: 'empty' }, onlyPrep ? 'Rien à préparer ce jour-là.' : 'Rien de prévu ce jour-là.'));
+    its.forEach((x) => listBox.append(slotEl(x, now, true)));
   };
   const head = h('h2', {});
   const toggle = h('label', { class: 'toggle' }, h('input', { type: 'checkbox', id: 'onlyprep', checked: onlyPrep || null, onchange: (e) => { onlyPrep = e.target.checked; prefs.onlyPrep = onlyPrep; savePrefs(); drawList(); } }), 'Seulement les séances à préparer');
   drawStrip(); drawList();
   return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'Ta semaine'), h('p', {}, 'Horaire du groupe B6, mis à jour depuis TimeEdit deux fois par jour.')),
+    h('header', { class: 'page-head' }, h('h1', {}, 'Ta semaine'), h('p', {}, 'Tes cours du groupe B6 (TimeEdit) et ton Google Agenda, réunis. Mis à jour deux fois par jour.')),
     strip, toggle, h('section', { class: 'block' }, head, listBox));
 }
 

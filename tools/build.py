@@ -2,7 +2,7 @@
 Construit le site chiffré « Mon Q1 Biomed » pour GitHub Pages.
 
 Entrées (jamais publiées) :
-  <src>/data/horaire.json, quiz.json, cours.json, pdfs.json
+  <src>/data/horaire.json, quiz.json, cours.json, pdfs.json, agenda.json (Google Agenda)
   <src>/pdf/*.pdf
 Sortie (à publier, à la racine du dépôt) :
   cfg.json        sel + itérations PBKDF2 (public, sans secret)
@@ -38,7 +38,7 @@ def main():
         return iv + aes.encrypt(iv, data, None)
 
     bundle = {}
-    for name in ("horaire", "quiz", "cours", "pdfs"):
+    for name in ("horaire", "quiz", "cours", "pdfs", "agenda"):
         f = src / "data" / f"{name}.json"
         bundle[name] = json.loads(f.read_text(encoding="utf-8")) if f.exists() else []
     from datetime import datetime, timezone
