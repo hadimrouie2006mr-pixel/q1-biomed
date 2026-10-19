@@ -185,7 +185,10 @@ async function gh(method, path, body, raw) {
 }
 async function getHead() {
   try {
-    const ref = await gh('GET', `/git/ref/heads/${BRANCH}`);
+    // matching-refs répond 200 + [] si la branche n'existe pas (pas d'erreur 404 dans la console)
+    const refs = await gh('GET', `/git/matching-refs/heads/${BRANCH}`);
+    const ref = (refs || []).find((r) => r.ref === `refs/heads/${BRANCH}`);
+    if (!ref) return null;
     const sha = ref.object.sha;
     if (sha === st.head && st.headTree) return { commit: sha, tree: st.headTree };
     const c = await gh('GET', `/git/commits/${sha}`);

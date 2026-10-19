@@ -93,6 +93,8 @@ async function close({ keepHash = false, switching = false } = {}) {
   X.commitText && X.commitText();
   X.stopAudio && X.stopAudio();
   X.exitPresent && X.exitPresent(true);
+  X.clearSel && X.clearSel(true);
+  root.querySelectorAll('.ne-selbar, .ne-sel, .ne-crop, .ne-audiobar, .ne-hl, .ne-tawrap, .ne-zw, .ne-zwbox').forEach((x) => x.remove()); root.classList.remove('zw-open');
   const lastPage = E.cur; const id = E.id;
   if (lastPage) N.uiPrefsSave({ lastPage: Object.assign({}, N.uiPrefs().lastPage || {}, { [id]: lastPage }) });
   touchNb(true);

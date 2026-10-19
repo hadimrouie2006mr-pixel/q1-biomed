@@ -661,7 +661,7 @@ const cards = {
   },
   async review() {
     let queue = dueCards().sort((a, b) => (a.due || 0) - (b.due || 0));
-    const all = Object.values(idx.cards).filter(live);
+    let all = Object.values(idx.cards).filter(live);
     const body = h('div', { class: 'nb-review' });
     let i = 0, shown = false, done = 0;
     const side = (s) => {
@@ -672,6 +672,7 @@ const cards = {
     const draw = () => {
       body.replaceChildren();
       if (i >= queue.length) {
+        all = Object.values(idx.cards).filter(live);
         body.append(h('div', { class: 'nb-review-done' }, ico('check'), h('b', {}, done ? `Bravo, ${done} carte${done > 1 ? 's' : ''} révisée${done > 1 ? 's' : ''} !` : 'Rien à revoir aujourd’hui.'), h('span', { class: 'muted' }, 'Reviens demain pour la suite.')),
           h('h3', {}, `Toutes les cartes (${all.length})`), h('div', { class: 'nb-list' }, all.sort((a, b) => (a.due || 0) - (b.due || 0)).map((c) => h('div', { class: 'nb-row' }, h('span', { class: 'tx' }, c.front && c.front.text ? c.front.text.slice(0, 60) : 'Carte image'), h('span', { class: 'muted small' }, (c.due || 0) <= Date.now() ? 'à revoir' : 'le ' + new Date(c.due).toLocaleDateString('fr-BE', { day: 'numeric', month: 'short' })),
             ibtn('trash', 'Supprimer la carte', async () => { if (await confirmDlg('Supprimer la carte ?', 'Elle disparaîtra sur tous tes appareils.', 'Supprimer', true)) { N.setIdx('cards', S().tomb(c.id)); all.splice(all.indexOf(c), 1); draw(); N.renderLib(); } })))));
