@@ -802,15 +802,17 @@ function pomoNext() {
   else pomo.phase = 'focus';
   pomo.running = false; pomo.left = LEN[pomo.phase] * 60; savePomo();
   beep(); try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (_) {}
-  try { if ('Notification' in window && Notification.permission === 'granted') new Notification(pomo.phase === 'focus' ? 'Pause terminée' : 'Bloc terminé, bravo', { body: pomo.phase === 'focus' ? 'On reprend : 25 min de concentration.' : `Pause de ${LEN[pomo.phase]} min.`, icon: 'icon-192.png' }); } catch (_) {}
+  closeTimerNote();
+  notify(pomo.phase === 'focus' ? 'Pause terminée' : 'Bloc terminé, bravo', { body: pomo.phase === 'focus' ? 'On reprend : 25 min de concentration. Touche pour ouvrir le minuteur.' : `Pause de ${LEN[pomo.phase]} min. Touche pour la lancer.`, tag: 'q1-pomo-fin', silent: false, vibrate: [200, 100, 200], requireInteraction: true });
 }
 function pomoStart() {
   try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); audioCtx.resume && audioCtx.resume(); } catch (_) {}
   try { if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission(); } catch (_) {}
   pomo.running = true; pomo.endAt = Date.now() + pomo.left * 1000; savePomo(); drawPomo();
 }
-function pomoPause() { pomo.left = remaining(); pomo.running = false; savePomo(); drawPomo(); }
+function pomoPause() { pomo.left = remaining(); pomo.running = false; savePomo(); closeTimerNote(); drawPomo(); }
 function pomoReset() {
+  closeTimerNote();
   if (pomo.phase === 'focus') credit(Math.floor((LEN.focus * 60 - remaining()) / 60));
   pomo.running = false; pomo.phase = 'focus'; pomo.left = LEN.focus * 60; savePomo(); drawPomo();
 }
@@ -847,7 +849,36 @@ function drawPomo() {
         : h('span', { class: 'muted small' }, 'Lance un premier bloc de 25 min pour voir ton temps par matière.')));
 }
 $('#pomoFab').addEventListener('click', () => { const b = $('#pomo'); b.hidden = !b.hidden; $('#pomoFab').setAttribute('aria-expanded', String(!b.hidden)); drawPomo(); });
-setInterval(() => { if (pomo.running && remaining() <= 0) { pomo.left = 0; pomoNext(); } if (!$('#app').hidden) drawPomo(); }, 1000);
+/* Notification du minuteur quand on quitte le site : heure de fin + minutes restantes (mise à jour chaque minute tant que le téléphone laisse tourner la page). */
+const swReg = () => ('serviceWorker' in navigator ? navigator.serviceWorker.getRegistration() : Promise.resolve(null)).catch(() => null);
+function notify(title, opts) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const o = Object.assign({ icon: 'icon-192.png', badge: 'icon-192.png', data: { url: location.href.split('#')[0] + '#aujourdhui' } }, opts);
+  swReg().then((reg) => { if (reg && reg.showNotification) return reg.showNotification(title, o); try { new Notification(title, o); } catch (_) {} });
+}
+let noteMin = -1;
+function showTimerNote() {
+  if (!pomo.running) return;
+  const r = remaining(), min = Math.ceil(r / 60), end = new Date(pomo.endAt);
+  if (min === noteMin) return; noteMin = min;
+  const fin = String(end.getHours()).padStart(2, '0') + 'h' + String(end.getMinutes()).padStart(2, '0');
+  const what = pomo.phase === 'focus' ? `${pomo.mat}` : PLABEL[pomo.phase];
+  notify(`⏱ ${min} min restantes · ${what}`, { body: `Fin à ${fin}${pomo.phase === 'focus' ? ` · bloc ${pomo.done % 4 + 1}/4` : ''}. Touche pour revenir au minuteur.`, tag: 'q1-pomo', silent: true, renotify: false, requireInteraction: true, timestamp: pomo.endAt });
+}
+function closeTimerNote() {
+  noteMin = -1;
+  swReg().then((reg) => reg && reg.getNotifications && reg.getNotifications({ tag: 'q1-pomo' })).then((ns) => (ns || []).forEach((n) => n.close())).catch(() => {});
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) showTimerNote();
+  else { closeTimerNote(); if (pomo.running && remaining() <= 0) { pomo.left = 0; pomoNext(); } drawPomo(); }
+});
+window.addEventListener('pagehide', showTimerNote);
+setInterval(() => {
+  if (pomo.running && remaining() <= 0) { pomo.left = 0; pomoNext(); }
+  if (document.hidden) { showTimerNote(); return; }
+  if (!$('#app').hidden) drawPomo();
+}, 1000);
 
 /* ---------- Hors ligne ---------- */
 const netState = () => { $('#offline').hidden = navigator.onLine !== false; };

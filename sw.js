@@ -1,7 +1,7 @@
 // Mon Q1 Biomed : lecture hors ligne.
 // Pages et données : réseau d'abord, cache si hors ligne.
 // PDF chiffrés et bibliothèques : cache d'abord (mis à jour en arrière-plan).
-const CACHE = 'q1biomed-v1';
+const CACHE = 'q1biomed-v2';
 const SHELL = ['./', 'index.html', 'cfg.json', 'data.enc', 'manifest.webmanifest', 'icon-192.png',
   'vendor/pdf.min.js',
   'vendor/pdf.worker.min.js'];
@@ -48,5 +48,15 @@ self.addEventListener('message', (e) => {
     const keep = new Set(d.urls.map((x) => new URL(x, self.registration.scope).href));
     for (const req of await c.keys()) if (/\/pdf\/[^/]+\.enc$/.test(req.url) && !keep.has(req.url)) await c.delete(req);
     for (const href of keep) if (!(await c.match(href))) await c.add(href).catch(() => null);
+  }));
+});
+
+// Toucher une notification du minuteur : revenir sur le site (ou l'ouvrir).
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || self.registration.scope;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
+    const c = cs.find((x) => x.url.startsWith(self.registration.scope));
+    return c ? c.focus() : self.clients.openWindow(url);
   }));
 });
