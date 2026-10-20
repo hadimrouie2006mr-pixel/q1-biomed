@@ -156,7 +156,7 @@ function layout() {
   if (!E.pages.length) return;
   const maxW = Math.max(...E.pages.map((p) => p.w)), maxH = Math.max(...E.pages.map((p) => p.h));
   if (E.present) E.fit = Math.min((W - 24) / maxW, (H - 24) / maxH);
-  else if (E.dir === 'h') E.fit = Math.min((H - PAD * 2) / maxH, (Math.min(W, 1200) - PAD * 2) / maxW);
+  else if (E.dir === 'h') E.fit = Math.min((H - PAD * 2) / maxH, (W - PAD * 2) / maxW); // une page entière à l'écran, page par page
   else E.fit = Math.min(W - PAD * 2, 980) / maxW;
   E.fit = Math.max(.05, E.fit);
   layoutSizes();
@@ -166,9 +166,10 @@ function layoutSizes() {
   const gap = E.present ? 24 : GAP;
   if (E.dir === 'h' || E.present) {
     const maxH = Math.max(...E.pages.map((p) => p.h)) * s, ch = Math.max(H, maxH + PAD * 2);
-    let x = E.present ? Math.max(PAD, (W - E.pages[0].w * s) / 2) : PAD;
-    for (const pg of E.pages) { const pv = pvOf(pg.id), w = pg.w * s, hh = pg.h * s; Object.assign(pv, { ox: x, oy: (ch - hh) / 2, cw: w, ch: hh }); x += w + (E.present ? Math.max(gap, W - w) : gap); }
-    E.cw = Math.max(W, x - gap + PAD + (E.present ? Math.max(0, (W - E.pages[E.pages.length - 1].w * s) / 2 - PAD) : 0)); E.ch = ch;
+    // pages côte à côte, chacune centrée sur un écran (on tourne les pages)
+    let x = Math.max(PAD, (W - E.pages[0].w * s) / 2);
+    for (const pg of E.pages) { const pv = pvOf(pg.id), w = pg.w * s, hh = pg.h * s; Object.assign(pv, { ox: x, oy: (ch - hh) / 2, cw: w, ch: hh }); x += w + Math.max(gap, W - w); }
+    E.cw = Math.max(W, x - gap + PAD + Math.max(0, (W - E.pages[E.pages.length - 1].w * s) / 2 - PAD)); E.ch = ch;
   } else {
     const maxW = Math.max(...E.pages.map((p) => p.w)) * s, cw = Math.max(W, maxW + PAD * 2);
     let y = PAD;
@@ -204,7 +205,7 @@ X.toPage = toPage;
 
 function goPage(pid, smooth = true) {
   const pv = pvOf(pid); if (!pv) return;
-  if (E.dir === 'h' || E.present) E.sc.scrollTo({ left: pv.ox - (E.present ? (E.sc.clientWidth - pv.cw) / 2 : PAD), behavior: smooth ? 'smooth' : 'auto' });
+  if (E.dir === 'h' || E.present) E.sc.scrollTo({ left: pv.ox - Math.max(PAD, (E.sc.clientWidth - pv.cw) / 2), behavior: smooth ? 'smooth' : 'auto' });
   else E.sc.scrollTo({ top: pv.oy - PAD / 2, behavior: smooth ? 'smooth' : 'auto' });
   E.cur = pid; requestVisible();
 }
@@ -349,7 +350,7 @@ function onDown(e) {
 function navDown(e, synthetic) {
   stopInertia();
   if (!synthetic) try { E.sc.setPointerCapture(e.pointerId); } catch (_) {}
-  if (!nav.ptrs.size) { nav.t0 = now(); nav.moved = false; nav.max = 0; nav.startZoom = E.zoom; }
+  if (!nav.ptrs.size) { nav.t0 = now(); nav.moved = false; nav.max = 0; nav.startZoom = E.zoom; nav.startCur = E.cur; }
   nav.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, type: e.pointerType });
   nav.max = Math.max(nav.max, nav.ptrs.size);
   if (nav.ptrs.size === 2) {
@@ -386,7 +387,8 @@ function navUp(e) {
     if (!nav.moved && !zoomed && dur < 320) {
       if (nav.max === 2) undo(); else if (nav.max >= 3) redo();
       else if (nav.max === 1 && e.type === 'pointerup') { if (!tapAt(e.clientX, e.clientY, e.pointerType)) quickTap(e.clientX, e.clientY); }
-    } else if (nav.max === 1 && nav.moved && e.type === 'pointerup' && now() - (nav.lastMoveWall || 0) < 1e9) startInertia();
+    } else if (nav.max === 1 && nav.moved && !E.present && E.dir === 'h' && E.zoom <= 1.02) snapPage(nav.vx);
+    else if (nav.max === 1 && nav.moved && e.type === 'pointerup') startInertia();
     if (E.present && nav.moved) X.presentSnap && X.presentSnap(nav.vx);
     nav.pinch = null; requestVisible();
   }
@@ -403,6 +405,15 @@ function startInertia() {
   };
   nav.inertia = requestAnimationFrame(step);
 }
+// Mode page par page : après un glissé, on se cale sur la page (suivante si le geste est franc)
+function snapPage(vx) {
+  const sc = E.sc, mid = sc.scrollLeft + sc.clientWidth / 2;
+  let i = 0, best = Infinity; E.pages.forEach((pg, k) => { const pv = pvOf(pg.id), d = Math.abs(pv.ox + pv.cw / 2 - mid); if (d < best) { best = d; i = k; } });
+  const i0 = E.pages.findIndex((p) => p.id === nav.startCur);
+  if (Math.abs(vx) > .25 && i0 >= 0) i = clamp(i0 + (vx > 0 ? 1 : -1), 0, E.pages.length - 1);
+  goPage(E.pages[i].id);
+}
+X.snapPage = snapPage;
 function stopInertia() { if (nav.inertia) cancelAnimationFrame(nav.inertia); nav.inertia = 0; }
 function tapAt(cx, cy, ptype) {
   const pv = pvAtClient(cx, cy); if (!pv) return;

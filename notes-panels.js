@@ -28,6 +28,7 @@ X.renderTop = () => {
     h('div', { class: 'ne-acts' },
       ib('undo', 'Annuler', () => X.undo(), { class: 'nb-ib ne-undo' }), ib('redo', 'Rétablir', () => X.redo(), { class: 'nb-ib ne-redo' }),
       ib('pages', 'Pages', () => toggleSide(), { 'aria-pressed': String(!X.root().querySelector('.ne-side').hidden) }),
+      ib(e.dir === 'h' ? 'horiz' : 'vert', e.dir === 'h' ? 'Page par page (toucher pour défiler en continu)' : 'Défilement continu (toucher pour passer page par page)', toggleDir, { class: 'nb-ib ne-dirbtn' + (e.dir === 'h' ? ' on' : '') }),
       !narrow() ? ib('bookmark', cur && cur.bm ? 'Retirer le signet' : 'Ajouter un signet', toggleBookmark, { class: 'nb-ib' + (cur && cur.bm ? ' on' : '') }) : null,
       X.canEdit() ? ib('plus', 'Ajouter une page', (ev) => addPageMenu(ev.currentTarget)) : null,
       !narrow() ? ib('share', 'Exporter ou partager', () => N.exportPdf(e.id)) : null,
@@ -606,13 +607,20 @@ function moreMenu(anchor) {
     X.canEdit() ? { label: 'Nouvelle carte', icon: 'plus', onclick: () => N.cards.newCard(null, e.id) } : null,
     '-',
     { label: 'Mode présentation', icon: 'present', onclick: enterPresent },
-    { label: e.dir === 'h' ? 'Défilement vertical' : 'Défilement horizontal', icon: e.dir === 'h' ? 'vert' : 'horiz', onclick: () => { const a = e.cur; e.dir = e.dir === 'h' ? 'v' : 'h'; X.TP.dir = e.dir; X.saveTP(); N.uiPrefsSave({ dirs: Object.assign({}, N.uiPrefs().dirs || {}, { [e.id]: e.dir }) }); e.zoom = 1; X.layout(); X.goPage(a, false); } },
+    { label: e.dir === 'h' ? 'Défilement vertical (continu)' : 'Page par page (comme la présentation)', icon: e.dir === 'h' ? 'vert' : 'horiz', onclick: toggleDir },
     { label: 'Ajuster à la largeur', icon: 'fit', onclick: () => { const a = e.cur; e.zoom = 1; X.layout(); X.goPage(a, false); } },
     { label: 'Dessiner au doigt', icon: 'finger', on: X.TP.fingerDraw, onclick: () => { X.TP.fingerDraw = !X.TP.fingerDraw; X.saveTP(); U().toast(X.TP.fingerDraw ? 'Le doigt dessine (2 doigts pour défiler)' : 'Le doigt fait défiler et zoomer'); } },
     { label: 'Lecture seule', icon: 'readonly', on: e.readonly, onclick: () => { N.setIdx('nbs', Object.assign({}, N.index().nbs[e.id], { readonly: !e.readonly })); e.readonly = !e.readonly; e.nb = N.index().nbs[e.id]; X.clearSel(); X.commitText(); X.renderTop(); X.renderTools(); } },
     { label: 'Renommer le cahier', icon: 'text', onclick: renameNb }
   ], { align: 'right' });
 }
+function toggleDir() {
+  const e = E(); const a = e.cur; e.dir = e.dir === 'h' ? 'v' : 'h'; X.TP.dir = e.dir; X.saveTP();
+  N.uiPrefsSave({ dirs: Object.assign({}, N.uiPrefs().dirs || {}, { [e.id]: e.dir }) });
+  e.zoom = 1; X.layout(); X.goPage(a, false); X.renderTop();
+  U().toast(e.dir === 'h' ? 'Page par page : glisse avec le doigt pour tourner les pages' : 'Défilement vertical');
+}
+X.toggleDir = toggleDir;
 function tabsDialog() {
   const d = U().dialog({ title: 'Documents ouverts', body: h('div', { class: 'nb-list' }, X.openTabs.map((id) => { const n = N.index().nbs[id]; if (!n || n.gone) return null; return h('div', { class: 'nb-row' }, h('button', { class: 'btn', type: 'button', onclick: () => { d.close(); N.openNb(id); } }, n.title), ib('close', `Fermer ${n.title}`, () => { N.editor.closeTab(id); d.close(); if (id === E().id) { const nx = X.openTabs[X.openTabs.length - 1]; if (nx) N.openNb(nx); else X.close(); } })); })) });
 }
