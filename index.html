@@ -463,7 +463,8 @@ const decrypt = (buf) => { const u = new Uint8Array(buf); return crypto.subtle.d
    « sans » = ce qui n'existe pas pour ce profil (pas d'accès à son Moodle, à son Google Agenda ni d'agent prépa). */
 const PROFILES = [
   { dir: '', id: '', nom: 'Hadi', groupe: 'B6', sans: [] },
-  { dir: 'ayah/', id: 'ayah', nom: 'Ayah', groupe: 'B7', sans: ['quiz', 'annonces', 'agenda', 'prepa', 'visites'] }
+  // Ayah : mêmes quiz, annonces et séminaires que Hadi ; pas ses notes de quiz, pas son Google Agenda, pas ses visites Moodle
+  { dir: 'ayah/', id: 'ayah', nom: 'Ayah', groupe: 'B7', sans: ['notes', 'agenda', 'visites'] }
 ];
 let PROF = PROFILES[0];
 const has = (f) => !PROF.sans.includes(f);
@@ -542,12 +543,16 @@ const icon = (k) => { const s = document.createElementNS('http://www.w3.org/2000
 /* ---------- Données dérivées ---------- */
 let quiz = [], hor = [], pdfs = [], cours = [], prep = [], agenda = [], annonces = [];
 function prepare() {
-  quiz = (has('quiz') ? D.quiz || [] : []).slice().sort((a, b) => String(a.ouverture).localeCompare(String(b.ouverture)));
+  quiz = (has('quiz') ? D.quiz || [] : []).map((q) => (has('notes') ? q : { ...q, note: null, statut: null, tentative: null })).sort((a, b) => String(a.ouverture).localeCompare(String(b.ouverture)));
   hor = (D.horaire || []).map((x) => (has('prepa') ? x : { ...x, a_preparer: false })).sort((a, b) => String(a.debut).localeCompare(String(b.debut)));
   pdfs = (D.pdfs || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
   cours = (D.cours || []).slice();
   annonces = (has('annonces') ? D.annonces || [] : []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
-  prep = hor.filter((x) => has('prepa') && x.a_preparer === true).map((x) => ({ ...x, pdf: pdfs.find((p) => String(p.seance_id) === String(x.id)) || null }));
+  const pdfFor = (x) => pdfs.find((p) => String(p.seance_id) === String(x.id)) || (PROF.id ? pdfs.find((p) => {
+    const m = String(p.id || '').match(/^(\d{4}-\d{2}-\d{2})_(.+)$/), code = String(p.cours || (m && m[2]) || '').replace(/-/g, '');
+    return m && code && code === String(x.code).replace(/-/g, '') && Math.abs(dd(m[1], x.jour)) <= 6;
+  }) : null) || null;
+  prep = hor.filter((x) => has('prepa') && x.a_preparer === true).map((x) => ({ ...x, pdf: pdfFor(x) }));
   // Google Agenda : on retire ce qui fait doublon avec l'horaire TimeEdit
   agenda = (has('agenda') ? D.agenda || [] : []).filter((e) => {
     const day = String(e.debut).slice(0, 10);
@@ -587,6 +592,7 @@ const prepStatus = (p, now) => {
 };
 const quizStatus = (q, now) => {
   if (note(q) !== null || q.statut === 'fait') return ['fait', 'ok'];
+  if (!has('notes') && String(q.fermeture) < now) return ['terminé', 'muted'];
   if (String(q.fermeture) < now) return q.statut === 'à venir' ? ['en attente', 'muted'] : ['manqué', 'bad'];
   if (dd(now, q.ouverture) === 0) return ["aujourd'hui", 'warn'];
   return ['à venir', 'muted'];
@@ -797,6 +803,7 @@ function quizState(q, now) {
   const n = note(q), open = String(q.ouverture) <= now && String(q.fermeture) > now;
   if (n !== null) return ['Fait', `Note : ${String(n).replace('.', ',')}/20`, 'ok'];
   if (q.statut === 'fait') return ['Fait', 'Note pas encore publiée', 'ok'];
+  if (!has('notes') && String(q.fermeture) <= now) return ['Terminé', 'Fermé', 'muted'];
   if (String(q.fermeture) <= now) return q.statut === 'à venir' ? ['Note à venir', 'Fermé, la note n’est pas encore là', 'muted'] : ['Manqué', 'Pas fait avant la fermeture', 'bad'];
   if (open) return ['Ouvert', `Ferme à ${hh(q.fermeture)}, il te reste ${dur(mins(now, q.fermeture))}`, 'live'];
   const d = dd(now, q.ouverture);
@@ -853,9 +860,9 @@ function pageQuiz() {
       nq.lien ? h('a', { class: 'btn', href: nq.lien, target: '_blank', rel: 'noopener' }, isLive ? 'Faire le quiz sur l’UV' : 'Voir sur l’UV', svgEl(EXT_SVG, 'ext')) : null);
   }
   return h('div', { class: 'page qz' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'Quiz'), h('p', {}, 'Tes quiz Moodle. Chacun n’est ouvert qu’une journée et tu n’as qu’une tentative.')),
+    h('header', { class: 'page-head' }, h('h1', {}, 'Quiz'), h('p', {}, has('notes') ? 'Tes quiz Moodle. Chacun n’est ouvert qu’une journée et tu n’as qu’une tentative.' : 'Les quiz Moodle du BA1. Chacun n’est ouvert qu’une journée et tu n’as qu’une tentative. Tes notes sont sur l’UV.')),
     hero,
-    h('section', { class: 'block', 'aria-label': 'Ton bilan' },
+    !has('notes') ? null : h('section', { class: 'block', 'aria-label': 'Ton bilan' },
       h('div', { class: 'kpis' },
         h('div', { class: 'sheet kpi' }, h('span', { class: 'kl' }, 'Moyenne'), h('b', { class: 'num' }, avg === null ? '—' : String(avg).replace('.', ',')), h('span', {}, avg === null ? 'pas encore de note' : `sur 20, ${graded.length} note${graded.length > 1 ? 's' : ''}`)),
         h('div', { class: 'sheet kpi' }, h('span', { class: 'kl' }, 'Faits'), h('b', { class: 'num' }, String(doneN)), h('span', {}, `sur ${closed.length} terminé${closed.length > 1 ? 's' : ''}`)),
