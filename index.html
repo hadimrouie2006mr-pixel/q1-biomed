@@ -430,7 +430,7 @@ button.item:hover { background: var(--paper); }
 </div>
 
 <button class="pomo-fab" id="pomoFab" type="button" hidden aria-haspopup="dialog" aria-controls="pomo"></button>
-<div class="pomo" id="pomo" role="dialog" aria-label="Minuteur de travail" hidden></div>
+<div class="pomo" id="pomo" role="dialog" aria-label="Minuteur" hidden></div>
 <div class="offline" id="offline" role="status" hidden>Hors ligne : dernière version enregistrée</div>
 
 <script src="vendor/pdf.min.js"></script>
@@ -1067,38 +1067,33 @@ function drawFab() {
   s.innerHTML = '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/>';
   fab.replaceChildren(s, pomo.running || r !== LEN[pomo.phase] * 60 ? mmss(r) : 'Minuteur');
   fab.setAttribute('aria-label', 'Minuteur : ' + (pomo.running ? `${PLABEL[pomo.phase]}, ${mmss(r)} restantes` : 'arrêté'));
-  document.title = pomo.running ? `${mmss(r)} · ${pomo.phase === 'focus' ? pomo.mat : 'Pause'} · Mon Q1 Biomed` : 'Mon Q1 Biomed';
+  document.title = pomo.running ? `${mmss(r)}${pomo.phase === 'focus' ? '' : ' · Pause'} · Mon Q1 Biomed` : 'Mon Q1 Biomed';
 }
 function dial(r, total) {
-  const C = 2 * Math.PI * 52, col = `var(--${pomo.phase === 'focus' ? (MAT[pomo.mat] || 'other') : 'maths'})`;
+  const C = 2 * Math.PI * 54, col = pomo.phase === 'focus' ? 'var(--focus)' : 'var(--ok)';
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 120 120'); s.setAttribute('aria-hidden', 'true');
-  s.innerHTML = `<circle cx="60" cy="60" r="52" fill="none" stroke="var(--pill)" stroke-width="5"/><circle cx="60" cy="60" r="52" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (r / total)).toFixed(1)}"/>`;
-  const end = pomo.running ? new Date(pomo.endAt) : new Date(Date.now() + r * 1000);
-  const fin = String(end.getHours()).padStart(2, '0') + 'h' + String(end.getMinutes()).padStart(2, '0');
-  return h('div', { class: 'pomo-dial' }, s, h('div', { class: 'in' }, h('span', { class: 'pomo-time num', role: 'timer' }, mmss(r)), h('span', { class: 'fin' }, (pomo.running ? 'fin à ' : 'finirait à ') + fin)));
+  s.innerHTML = `<circle cx="60" cy="60" r="54" fill="none" stroke="var(--pill)" stroke-width="4"/><circle class="arc" cx="60" cy="60" r="54" fill="none" stroke="${col}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - r / total)).toFixed(1)}"/>`;
+  return h('div', { class: 'pomo-dial' + (pomo.phase === 'focus' ? '' : ' brk') }, s, h('div', { class: 'in' }, h('span', { class: 'pomo-time num', role: 'timer', 'aria-label': (pomo.phase === 'focus' ? '' : 'Pause, ') + mmss(r) + ' restantes' }, mmss(r))));
 }
+const PI = { stop: '<rect x="7" y="7" width="10" height="10" rx="2"/>', play: '<path d="M8 5.5v13l11-6.5z" fill="currentColor" stroke="none"/>', pause: '<path d="M8 5v14M16 5v14"/>', skip: '<path d="M6 6l9 6-9 6z" fill="currentColor" stroke="none"/><path d="M18 6v12"/>', close: '<path d="M6 6l12 12M18 6L6 18"/>' };
+const pBtn = (ic, lab, fn, cls) => h('button', { class: 'pbtn' + (cls ? ' ' + cls : ''), type: 'button', 'aria-label': lab, title: lab, onclick: fn }, svgEl(PI[ic]));
 function drawPomo() {
   drawFab();
   const box = $('#pomo'); if (box.hidden) return;
-  const r = remaining(), total = LEN[pomo.phase] * 60;
-  const wk = pomo.stats[weekKey()] || {};
-  const mats = ['Bio', 'Chimie', 'Maths', 'Physique', 'Anatomie', 'Autre'];
-  const max = Math.max(60, ...Object.values(wk));
-  const sum = Object.values(wk).reduce((a, b) => a + b, 0);
-  const fmt = (m) => m >= 60 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}` : `${m} min`;
+  const r = remaining(), total = LEN[pomo.phase] * 60, key = pomo.phase + (pomo.running ? 1 : (r === total ? 'f' : 0));
+  // chaque seconde : on ne met à jour que le chiffre et l'arc (le focus clavier reste sur le bouton)
+  if (box.dataset.k === key && box.querySelector('.pomo-time')) {
+    const t = box.querySelector('.pomo-time'); t.textContent = mmss(r); t.setAttribute('aria-label', (pomo.phase === 'focus' ? '' : 'Pause, ') + mmss(r) + ' restantes');
+    box.querySelector('.arc').setAttribute('stroke-dashoffset', (2 * Math.PI * 54 * (1 - r / total)).toFixed(1)); return;
+  }
+  box.dataset.k = key;
   box.replaceChildren(
-    h('div', { class: 'pomo-head' }, h('b', {}, 'Minuteur de travail'), h('button', { class: 'btn', type: 'button', onclick: () => { box.hidden = true; $('#pomoFab').setAttribute('aria-expanded', 'false'); } }, 'Fermer')),
-    h('div', { class: 'chips', role: 'group', 'aria-label': 'Matière travaillée' }, mats.map((m) => h('button', { class: 'chip small', type: 'button', 'aria-pressed': String(pomo.mat === m), disabled: pomo.running && pomo.phase === 'focus' ? true : null, style: MAT[m] ? `--c:var(--${MAT[m]})` : '', onclick: () => { pomo.mat = m; savePomo(); drawPomo(); } }, MAT[m] ? h('span', { class: 'sw' }) : null, m))),
+    pBtn('close', 'Fermer le minuteur', () => { box.hidden = true; $('#pomoFab').setAttribute('aria-expanded', 'false'); }, 'pclose'),
     dial(r, total),
-    h('div', { class: 'pomo-phase' }, PLABEL[pomo.phase] + (pomo.phase === 'focus' ? ` · ${pomo.mat}` : '') + ` · bloc ${pomo.done % 4 + (pomo.phase === 'focus' ? 1 : 0) || 4} sur 4`),
     h('div', { class: 'pomo-actions' },
-      h('button', { class: 'btn', type: 'button', onclick: pomoReset }, 'Arrêter'),
-      pomo.running ? h('button', { class: 'btn solid', type: 'button', onclick: pomoPause }, 'Pause') : h('button', { class: 'btn solid', type: 'button', onclick: pomoStart }, r === total ? 'Démarrer' : 'Reprendre'),
-      h('button', { class: 'btn', type: 'button', onclick: () => { pomo.left = 0; pomo.running = false; pomoNext(); drawPomo(); } }, 'Passer')),
-    h('p', { class: 'pomo-hint' }, 'Le temps reste dans tes notifications si tu quittes le site.'),
-    h('div', { class: 'pomo-week' }, h('div', { class: 'head' }, h('span', {}, 'Cette semaine'), h('span', { class: 'num' }, fmt(sum))),
-      Object.keys(wk).length ? Object.entries(wk).sort((a, b) => b[1] - a[1]).map(([m, v]) => h('div', { class: 'row' }, label(m), h('span', { class: 'bar ' + mcls(m), style: `--c:var(--${MAT[m] || 'other'})` }, h('i', { style: `width:${v / max * 100}%` })), h('span', { class: 'num small' }, fmt(v))))
-        : h('span', { class: 'muted small' }, 'Lance un premier bloc de 25 min pour voir ton temps par matière.')));
+      pBtn('stop', 'Arrêter', pomoReset),
+      pomo.running ? pBtn('pause', 'Pause', pomoPause, 'main') : pBtn('play', r === total ? 'Démarrer' : 'Reprendre', pomoStart, 'main'),
+      pBtn('skip', 'Passer', () => { pomo.left = 0; pomo.running = false; pomoNext(); drawPomo(); })));
 }
 $('#pomoFab').addEventListener('click', () => { const b = $('#pomo'); b.hidden = !b.hidden; $('#pomoFab').setAttribute('aria-expanded', String(!b.hidden)); drawPomo(); });
 /* Notification du minuteur quand on quitte le site : heure de fin + minutes restantes (mise à jour chaque minute tant que le téléphone laisse tourner la page). */
@@ -1114,7 +1109,7 @@ function showTimerNote() {
   const r = remaining(), min = Math.ceil(r / 60), end = new Date(pomo.endAt);
   if (min === noteMin) return; noteMin = min;
   const fin = String(end.getHours()).padStart(2, '0') + 'h' + String(end.getMinutes()).padStart(2, '0');
-  const what = pomo.phase === 'focus' ? `${pomo.mat}` : PLABEL[pomo.phase];
+  const what = PLABEL[pomo.phase];
   notify(`⏱ ${min} min restantes · ${what}`, { body: `Fin à ${fin}${pomo.phase === 'focus' ? ` · bloc ${pomo.done % 4 + 1}/4` : ''}. Touche pour revenir au minuteur.`, tag: 'q1-pomo', silent: true, renotify: false, requireInteraction: true, timestamp: pomo.endAt });
 }
 function closeTimerNote() {
