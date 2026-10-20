@@ -353,8 +353,8 @@ async function newNbFrom(files, title, folder) {
   N.setIdx('nbs', Object.assign({}, idx.nbs[id], { np: pids.length }));
   return { id, n: pids.length };
 }
-async function importAsNotebook(files) {
-  if (!files.length) return;
+async function importAsNotebook(files, target = curFolder) {
+  if (!files || !files.length) return;
   toast('Import en cours…', 60000);
   try {
     // 1) déplier les .zip (export Goodnotes de plusieurs documents ou d'un dossier)
@@ -369,11 +369,13 @@ async function importAsNotebook(files) {
     const made = []; let done = 0;
     for (const e of pdfs) {
       toast(`Import ${++done} / ${pdfs.length + (imgs.length ? 1 : 0)} : ${e.file.name}`, 60000);
-      made.push(await newNbFrom([e.file], e.file.name.replace(/\.pdf$/i, '') || 'Import', folderFor(e.path, curFolder)));
+      made.push(await newNbFrom([e.file], e.file.name.replace(/\.pdf$/i, '') || 'Import', folderFor(e.path, target)));
     }
-    if (imgs.length) made.push(await newNbFrom(imgs.map((e) => e.file), imgs.length === 1 ? imgs[0].file.name.replace(/\.[^.]+$/, '') : 'Images importées', curFolder));
+    if (imgs.length) made.push(await newNbFrom(imgs.map((e) => e.file), imgs.length === 1 ? imgs[0].file.name.replace(/\.[^.]+$/, '') : 'Images importées', target));
     const pages = made.reduce((a, m) => a + m.n, 0);
-    if (made.length === 1) { toast(`${pages} page${pages > 1 ? 's' : ''} importée${pages > 1 ? 's' : ''}`); N.editor.open(made[0].id); }
+    if (made.length === 1 && !target) { toast(`${pages} page${pages > 1 ? 's' : ''} importée${pages > 1 ? 's' : ''}`); N.editor.open(made[0].id); }
+    else if (target && target !== curFolder) { curFolder = target; filter = 'all'; query = ''; toast(`${made.length} fichier${made.length > 1 ? 's' : ''} ajouté${made.length > 1 ? 's' : ''} au dossier`, 4000); renderLib(); }
+    else if (made.length === 1) { toast('1 fichier ajouté au dossier'); renderLib(); }
     else { toast(`${made.length} cahiers importés (${pages} pages)`, 4000); renderLib(); }
   } catch (e) { console.warn(e); toast('Import impossible : fichier illisible ?'); }
 }
@@ -392,7 +394,8 @@ function goodnotesHelp() {
 }
 
 /* ---------- Bibliothèque ---------- */
-let curFolder = '', filter = 'all', sortBy = 'date', query = '', libRoot = null;
+let curFolder = '', filter = 'all', sortBy = 'date', query = '', libRoot = null, selecting = false;
+const selSet = new Set(); // ids « n:… » ou « f:… »
 const lp = () => { try { return JSON.parse(localStorage.getItem('q1biomed.notesui')) || {}; } catch (_) { return {}; } };
 const lpSave = (o) => { try { localStorage.setItem('q1biomed.notesui', JSON.stringify(Object.assign(lp(), o))); } catch (_) {} };
 N.uiPrefs = lp; N.uiPrefsSave = lpSave;
@@ -424,6 +427,7 @@ function statusPill(still) {
 N.statusPill = statusPill;
 
 function page() {
+  selecting = false; selSet.clear(); document.querySelectorAll('body > .nb-selbar').forEach((x) => x.remove());
   libRoot = h('div', { class: 'page nb-lib' }, h('p', { class: 'muted' }, 'Ouverture des cahiers…'));
   (async () => { await N.ready; await loadIndex(); purgeTrash(); renderLib(); })().catch((e) => { console.warn(e); libRoot.replaceChildren(h('p', { class: 'muted' }, 'Impossible d’ouvrir le stockage des cahiers sur cet appareil (navigation privée ?).')); });
   return libRoot;
@@ -473,8 +477,8 @@ function renderLib() {
   const nN = nbList().filter((n) => !n.trashed).length, fN = folderList().filter((f) => !f.trashed).length;
   const addMenu = (e) => menu(e.currentTarget, [
     { label: 'Nouveau cahier', icon: 'plus', onclick: newNotebookDlg },
-    { label: 'Nouveau dossier', icon: 'folder', onclick: newFolder },
-    { label: 'Importer PDF, images ou .zip', icon: 'upload', onclick: async () => importAsNotebook(await pickFile('application/pdf,image/*,.zip,application/zip', { multiple: true })) },
+    { label: 'Nouveau dossier', icon: 'folder', onclick: () => newFolder() },
+    { label: curFolder ? 'Ajouter des PDF ici' : 'Importer PDF, images ou .zip', icon: 'upload', onclick: () => { const p = pickFile(PDF_ACCEPT, { multiple: true }); p.then((files) => importAsNotebook(files, curFolder)); } },
     { label: 'Transférer depuis Goodnotes', icon: 'download', onclick: goodnotesHelp },
     '-',
     { label: 'Nouvelle carte de révision', icon: 'cards', onclick: () => N.cards.newCard() }
@@ -490,35 +494,44 @@ function renderLib() {
       h('button', { class: 'btn solid', type: 'button', onclick: syncSettings }, 'Activer'), ibtn('close', 'Masquer ce message', () => { lpSave({ hideBanner: true }); renderLib(); })) : null,
     totalCards ? h('div', { class: 'nb-card nb-due' }, h('span', { class: 'nb-grow-ic', style: '--t:#30b45f' }, ico('cards')), h('div', { class: 'tx' }, h('b', {}, due ? `${due} carte${due > 1 ? 's' : ''} à revoir aujourd’hui` : 'Aucune carte à revoir aujourd’hui'), h('span', {}, `${totalCards} carte${totalCards > 1 ? 's' : ''} de révision`)),
       h('button', { class: 'btn' + (due ? ' solid' : ''), type: 'button', onclick: () => N.cards.review() }, due ? 'Réviser' : 'Voir')) : null,
-    h('div', { class: 'nb-toolbar' }, h('label', { class: 'nb-searchwrap' }, ico('search'), search), sortSeg),
+    h('div', { class: 'nb-toolbar' }, h('label', { class: 'nb-searchwrap' }, ico('search'), search), sortSeg,
+      filter !== 'trash' ? h('button', { class: 'btn nb-selbtn' + (selecting ? ' solid' : ''), type: 'button', 'aria-pressed': String(selecting), onclick: () => { selecting = !selecting; selSet.clear(); renderLib(); } }, selecting ? 'Terminé' : 'Sélectionner') : null),
     h('div', { class: 'nb-filters' }, filters),
     crumbs,
+    curFolder && filter === 'all' && !query.trim() ? folderBar() : null,
     filter === 'trash' && (nbList().some((n) => n.trashed) || folderList().some((f) => f.trashed)) ? h('div', {}, h('button', { class: 'btn danger', type: 'button', onclick: emptyTrash }, ico('trash'), 'Vider la corbeille')) : null,
     grid,
     h('section', { class: 'nb-group' }, h('h2', {}, 'Plus'),
       h('div', { class: 'nb-glist' },
-        row('folder', '#0a84ff', 'Nouveau dossier', 'Range tes cahiers par matière', newFolder),
+        row('folder', '#0a84ff', 'Nouveau dossier', 'Mets-y plusieurs PDF d’un coup', () => newFolder()),
         row('download', '#ff9f0a', 'Transférer depuis Goodnotes', 'Tous tes cahiers en PDF, dossiers compris', goodnotesHelp),
         row('cards', '#30b45f', 'Nouvelle carte de révision', 'Recto / verso, répétition espacée', () => N.cards.newCard()),
         row('share', '#5e5ce6', 'Exporter tous mes cahiers', 'Sauvegarde de secours (.json)', exportBackup),
         row('upload', '#8e8e93', 'Importer une sauvegarde', '', importBackup))));
+  document.querySelectorAll('body > .nb-selbar').forEach((x) => x.remove());
+  if (selecting) document.body.append(selectionBar()); // hors de .page (transformée) pour rester fixée en bas
   if (focusSel != null) { const s = libRoot.querySelector('#nbsearch'); if (s) { s.focus(); try { s.setSelectionRange(focusSel, focusSel); } catch (_) {} } }
 }
+window.addEventListener('hashchange', () => { if (location.hash !== '#cahiers') { selecting = false; selSet.clear(); document.querySelectorAll('body > .nb-selbar').forEach((x) => x.remove()); } });
 N.renderLib = () => { if (libRoot && libRoot.isConnected && idx) renderLib(); };
 
+function selToggle(key) { if (selSet.has(key)) selSet.delete(key); else selSet.add(key); renderLib(); }
+const selMark = (key) => (selecting ? h('span', { class: 'nb-check' + (selSet.has(key) ? ' on' : ''), 'aria-hidden': 'true' }, ico('check')) : null);
 function nbTile(nb) {
-  const open = () => nb.trashed ? null : openNb(nb.id);
+  const key = 'n:' + nb.id;
+  const open = () => selecting ? selToggle(key) : nb.trashed ? null : openNb(nb.id);
   const opts = (e) => { e.stopPropagation(); nbMenu(nb, e.currentTarget); };
-  return h('div', { class: 'nb-tile' + (nb.trashed ? ' trashed' : '') },
-    h('button', { class: 'nb-tile-open', type: 'button', onclick: open, 'aria-label': `Ouvrir ${nb.title}`, disabled: nb.trashed ? true : null }, coverEl(nb)),
+  return h('div', { class: 'nb-tile' + (nb.trashed ? ' trashed' : '') + (selecting && selSet.has(key) ? ' picked' : '') },
+    h('button', { class: 'nb-tile-open', type: 'button', onclick: open, 'aria-label': selecting ? `Sélectionner ${nb.title}` : `Ouvrir ${nb.title}`, 'aria-pressed': selecting ? String(selSet.has(key)) : null, disabled: nb.trashed && !selecting ? true : null }, coverEl(nb), selMark(key)),
     h('div', { class: 'nb-tile-meta' },
       h('div', { class: 'nb-tile-tx' }, h('b', {}, nb.fav ? ico('star', 'nb-fav') : null, nb.title), h('span', {}, nb.trashed ? `Supprimé · ${Math.max(0, 30 - Math.floor((Date.now() - nb.trashed) / DAY))} j restants` : fmtDate(nb.upd || nb.created))),
       h('button', { class: 'nb-ib nb-more', type: 'button', 'aria-label': `Options de ${nb.title}`, title: 'Options', onclick: opts }, ico('chevdown'))));
 }
 function folderTile(f) {
   const n = nbList().filter((x) => x.folder === f.id && !x.trashed).length + folderList().filter((x) => x.parent === f.id && !x.trashed).length;
-  return h('div', { class: 'nb-tile folder' + (f.trashed ? ' trashed' : '') },
-    h('button', { class: 'nb-tile-open', type: 'button', 'aria-label': `Ouvrir le dossier ${f.name}`, disabled: f.trashed ? true : null, onclick: () => { curFolder = f.id; filter = 'all'; query = ''; renderLib(); } }, h('span', { class: 'nb-folder', 'aria-hidden': 'true' }, ico('folderFill'))),
+  const key = 'f:' + f.id;
+  return h('div', { class: 'nb-tile folder' + (f.trashed ? ' trashed' : '') + (selecting && selSet.has(key) ? ' picked' : '') },
+    h('button', { class: 'nb-tile-open', type: 'button', 'aria-label': selecting ? `Sélectionner le dossier ${f.name}` : `Ouvrir le dossier ${f.name}`, 'aria-pressed': selecting ? String(selSet.has(key)) : null, disabled: f.trashed && !selecting ? true : null, onclick: () => { if (selecting) { selToggle(key); return; } curFolder = f.id; filter = 'all'; query = ''; renderLib(); } }, h('span', { class: 'nb-folder', 'aria-hidden': 'true' }, ico('folderFill'), folderPeek(f)), selMark(key)),
     h('div', { class: 'nb-tile-meta' }, h('div', { class: 'nb-tile-tx' }, h('b', {}, f.name), h('span', {}, f.trashed ? 'Dossier supprimé' : n ? `${n} élément${n > 1 ? 's' : ''}` : 'Vide')),
       h('button', { class: 'nb-ib nb-more', type: 'button', 'aria-label': `Options du dossier ${f.name}`, title: 'Options', onclick: (e) => { e.stopPropagation(); folderMenu(f, e.currentTarget); } }, ico('chevdown'))));
 }
@@ -545,12 +558,64 @@ function folderMenu(f, anchor) {
   if (f.trashed) return menu(anchor, [{ label: 'Restaurer', icon: 'undo', onclick: () => { upd('folders', f, { trashed: 0 }); renderLib(); } },
     { label: 'Supprimer définitivement', icon: 'trash', danger: true, onclick: async () => { if (await confirmDlg('Supprimer le dossier ?', 'Les cahiers qu’il contient retournent à la racine.', 'Supprimer', true)) { nbList().filter((n) => n.folder === f.id).forEach((n) => upd('nbs', n, { folder: '' })); N.setIdx('folders', S().tomb(f.id)); renderLib(); } } }]);
   menu(anchor, [
+    { label: 'Ajouter des PDF', icon: 'upload', onclick: () => addPdfsTo(f.id) },
     { label: 'Renommer', icon: 'text', onclick: async () => { const t = await prompt('Renommer le dossier', f.name); if (t) { upd('folders', f, { name: t }); renderLib(); } } },
     { label: 'Déplacer', icon: 'folder', onclick: () => moveDlg(f, true) },
     { label: 'Mettre à la corbeille', icon: 'trash', danger: true, onclick: () => { upd('folders', f, { trashed: Date.now() }); renderLib(); toast('Dossier mis à la corbeille'); } }
   ], { align: 'right' });
 }
-async function newFolder() { const t = await prompt('Nouveau dossier', '', { label: 'Nom du dossier', placeholder: 'ex. Physique' }); if (t) { N.setIdx('folders', { id: S().uid('f'), name: t, parent: curFolder, trashed: 0 }); renderLib(); } }
+const PDF_ACCEPT = 'application/pdf,.pdf,image/*,.zip,application/zip';
+// Choisir des fichiers tout de suite (dans le geste : obligatoire sur iPad), puis importer dans le dossier
+function addPdfsTo(folderId) { const p = pickFile(PDF_ACCEPT, { multiple: true }); p.then((files) => { if (files.length) importAsNotebook(files, folderId); }); }
+function newFolder(moveKeys) {
+  const inp = h('input', { class: 'search', type: 'text', placeholder: 'ex. Physique, Chimie TP…', 'aria-label': 'Nom du dossier', autocomplete: 'off' });
+  const create = () => { const name = inp.value.trim() || 'Nouveau dossier'; const id = S().uid('f'); N.setIdx('folders', { id, name, parent: curFolder, trashed: 0 }); return id; };
+  const moving = moveKeys && moveKeys.length;
+  const d = dialog({ title: 'Nouveau dossier', body: h('div', { class: 'nb-form' }, h('label', { class: 'nb-field' }, h('span', {}, 'Nom'), inp),
+      h('p', { class: 'muted small' }, moving ? `Les ${moveKeys.length} élément${moveKeys.length > 1 ? 's' : ''} sélectionné${moveKeys.length > 1 ? 's' : ''} seront rangés dedans.` : 'Tu peux y mettre plusieurs PDF d’un coup : chaque PDF devient un document annotable.')),
+    actions: moving ? [{ label: 'Annuler', value: null }, { label: 'Créer et ranger', primary: true, onclick: (api) => { const id = create(); moveKeysTo(moveKeys, id); api.close(); } }]
+      : [{ label: 'Créer vide', value: null, onclick: (api) => { const id = create(); api.close(); curFolder = id; filter = 'all'; query = ''; renderLib(); } },
+        { label: 'Créer et ajouter des PDF', primary: true, onclick: (api) => { const id = create(); addPdfsTo(id); api.close(); curFolder = id; filter = 'all'; query = ''; renderLib(); } }] });
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); d.box.querySelector('.nb-dlg-actions .solid').click(); } });
+}
+function moveKeysTo(keys, folderId) {
+  let n = 0;
+  for (const k of keys) {
+    const [t, id] = [k.slice(0, 1), k.slice(2)];
+    if (t === 'n' && idx.nbs[id] && !idx.nbs[id].gone) { upd('nbs', idx.nbs[id], { folder: folderId, trashed: 0 }); n++; }
+    if (t === 'f' && idx.folders[id] && !idx.folders[id].gone && id !== folderId) { let p = folderId, bad = false, g = 0; while (p && g++ < 30) { if (p === id) { bad = true; break; } p = (idx.folders[p] || {}).parent; } if (!bad) { upd('folders', idx.folders[id], { parent: folderId, trashed: 0 }); n++; } }
+  }
+  selecting = false; selSet.clear(); renderLib();
+  const fo = idx.folders[folderId]; toast(`${n} élément${n > 1 ? 's' : ''} rangé${n > 1 ? 's' : ''} dans « ${fo ? fo.name : 'Cahiers'} »`);
+}
+function moveManyDlg(keys) {
+  const opts = [{ id: '', name: 'Cahiers (racine)' }].concat(folderList().filter((f) => !f.trashed && !keys.includes('f:' + f.id)).sort((a, b) => a.name.localeCompare(b.name, 'fr')));
+  const d = dialog({ title: `Ranger ${keys.length} élément${keys.length > 1 ? 's' : ''}`, body: h('div', { class: 'nb-list' },
+    h('button', { class: 'nb-row', type: 'button', onclick: () => { d.close(); newFolder(keys); } }, ico('plus'), h('span', {}, h('b', {}, 'Nouveau dossier…'))),
+    opts.map((f) => h('button', { class: 'nb-row', type: 'button', onclick: () => { d.close(); moveKeysTo(keys, f.id); } }, ico(f.id ? 'folder' : 'pages'), h('span', {}, f.name)))) });
+}
+function selectionBar() {
+  const keys = [...selSet], n = keys.length;
+  const trash = () => { for (const k of keys) { const id = k.slice(2); if (k[0] === 'n' && idx.nbs[id]) upd('nbs', idx.nbs[id], { trashed: Date.now() }); if (k[0] === 'f' && idx.folders[id]) upd('folders', idx.folders[id], { trashed: Date.now() }); } selecting = false; selSet.clear(); renderLib(); toast(`${n} élément${n > 1 ? 's' : ''} mis à la corbeille`); };
+  return h('div', { class: 'nb-selbar', role: 'toolbar', 'aria-label': 'Actions sur la sélection' },
+    h('span', { class: 'nb-selbar-n' }, n ? `${n} sélectionné${n > 1 ? 's' : ''}` : 'Touche des cahiers ou des PDF'),
+    h('button', { class: 'btn solid', type: 'button', disabled: n ? null : true, onclick: () => moveManyDlg(keys) }, ico('folder'), 'Ranger dans un dossier'),
+    h('button', { class: 'btn danger', type: 'button', disabled: n ? null : true, onclick: trash, 'aria-label': 'Mettre la sélection à la corbeille' }, ico('trash')));
+}
+function folderPeek(f) {
+  // aperçu : petites couvertures des cahiers du dossier
+  const kids = nbList().filter((x) => x.folder === f.id && !x.trashed).sort((a, b) => (b.upd || 0) - (a.upd || 0)).slice(0, 3);
+  if (!kids.length) return null;
+  return h('span', { class: 'nb-peek' }, kids.map((k) => h('i', { class: 'c-' + (k.kind === 'pdf' ? 'pdf' : (k.cover || 'other')) })));
+}
+function folderBar() {
+  const f = idx.folders[curFolder]; if (!f || f.gone) return null;
+  const n = nbList().filter((x) => x.folder === f.id && !x.trashed).length;
+  return h('div', { class: 'nb-card nb-folderbar' }, h('span', { class: 'nb-grow-ic', style: '--t:#0a84ff' }, ico('folderFill')),
+    h('div', { class: 'tx' }, h('b', {}, f.name), h('span', {}, n ? `${n} document${n > 1 ? 's' : ''}` : 'Dossier vide : ajoute tes PDF')),
+    h('button', { class: 'btn solid', type: 'button', onclick: () => addPdfsTo(f.id) }, ico('upload'), 'Ajouter des PDF'),
+    h('button', { class: 'nb-ib', type: 'button', 'aria-label': `Options du dossier ${f.name}`, onclick: (e) => folderMenu(f, e.currentTarget) }, ico('more')));
+}
 function moveDlg(obj, isFolder) {
   const desc = (fid) => { const out = new Set([fid]); let grow = true; while (grow) { grow = false; for (const f of folderList()) if (!out.has(f.id) && out.has(f.parent)) { out.add(f.id); grow = true; } } return out; };
   const banned = isFolder ? desc(obj.id) : new Set();
