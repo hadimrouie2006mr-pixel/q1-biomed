@@ -145,3 +145,9 @@ body::before { content: ""; position: fixed; inset: -10vmax; z-index: -1; pointe
 
 /* les entrées latérales ne doivent jamais créer de défilement horizontal */
 #view { overflow-x: clip; }
+
+/* Semaine : la bande des jours laisse respirer les ombres (plus de rectangle coupé) */
+.days { padding: 8px 10px 20px; margin: -8px -10px -12px; scrollbar-width: none; }
+.days::-webkit-scrollbar { display: none; }
+.daybtn { box-shadow: 0 2px 8px rgba(0,0,0,.05), inset 0 1px 0 var(--glass-edge) !important; }
+.daybtn[aria-pressed="true"] { box-shadow: 0 6px 16px color-mix(in srgb, var(--focus) 32%, transparent) !important; }

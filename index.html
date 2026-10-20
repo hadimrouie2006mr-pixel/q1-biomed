@@ -1060,8 +1060,20 @@ function pomoReset() {
   if (pomo.phase === 'focus') credit(Math.floor((LEN.focus * 60 - remaining()) / 60));
   pomo.running = false; pomo.phase = 'focus'; pomo.left = LEN.focus * 60; savePomo(); drawPomo();
 }
+// Mini minuteur visible par-dessus le lecteur PDF et l'éditeur de cahier, pendant un bloc
+const pomoMini = h('button', { class: 'pomo-mini', id: 'pomoMini', type: 'button', hidden: true, onclick: () => { const b = $('#pomo'); b.classList.add('over'); b.hidden = false; $('#pomoFab').setAttribute('aria-expanded', 'true'); drawPomo(); } });
+document.body.append(pomoMini);
+function drawMini(r) {
+  const inDoc = !$('#reader').hidden || !!document.querySelector('#ne:not([hidden])');
+  const show = inDoc && (pomo.running || r !== LEN[pomo.phase] * 60);
+  pomoMini.hidden = !show; if (!show) return;
+  pomoMini.className = 'pomo-mini' + (pomo.phase === 'focus' ? '' : ' brk') + (pomo.running ? '' : ' paused');
+  pomoMini.replaceChildren(svgEl('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/>'), h('span', { class: 'num' }, mmss(r)));
+  pomoMini.setAttribute('aria-label', `Minuteur : ${pomo.phase === 'focus' ? '' : 'pause, '}${mmss(r)} restantes${pomo.running ? '' : ' (en pause)'}. Ouvrir le minuteur`);
+}
 function drawFab() {
   const fab = $('#pomoFab'), r = remaining();
+  drawMini(r);
   fab.classList.toggle('run', pomo.running && pomo.phase === 'focus'); fab.classList.toggle('brk', pomo.running && pomo.phase !== 'focus');
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('aria-hidden', 'true');
   s.innerHTML = '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/>';
@@ -1088,7 +1100,7 @@ function drawPomo() {
   }
   box.dataset.k = key;
   box.replaceChildren(
-    pBtn('close', 'Fermer le minuteur', () => { box.hidden = true; $('#pomoFab').setAttribute('aria-expanded', 'false'); }, 'pclose'),
+    pBtn('close', 'Fermer le minuteur', () => { box.hidden = true; box.classList.remove('over'); $('#pomoFab').setAttribute('aria-expanded', 'false'); }, 'pclose'),
     dial(r, total),
     h('div', { class: 'pomo-actions' },
       pBtn('stop', 'Arrêter', pomoReset),
