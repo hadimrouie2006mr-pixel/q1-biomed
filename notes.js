@@ -48,6 +48,9 @@ const I = {
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
   star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/>',
   folder: '<path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/>',
+  folderFill: '<path d="M2.5 7A2.5 2.5 0 0 1 5 4.5h4.2l2.1 2.3H19A2.5 2.5 0 0 1 21.5 9.3V17.5A2.5 2.5 0 0 1 19 20H5a2.5 2.5 0 0 1-2.5-2.5z" fill="currentColor" stroke="none"/><path d="M2.5 9.6h19" stroke="rgba(255,255,255,.45)" stroke-width="1.2"/>',
+  chev: '<path d="M9 6l6 6-6 6"/>',
+  chevdown: '<path d="M7 10l5 5 5-5"/>',
   trash: '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/>',
   search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>',
   bookmark: '<path d="M7 3.5h10v17l-5-4-5 4z"/>',
@@ -403,15 +406,18 @@ function coverEl(nb, small) {
     N.thumbFor && N.thumbFor(nb.id).then((url) => { if (url) { const t = el.querySelector('.nb-cover-thumb'); t.style.backgroundImage = `url(${url})`; t.classList.add('on'); } }).catch(() => {});
     el.append(h('span', { class: 'nb-cover-tag' }, 'PDF'));
   } else {
-    el.append(h('span', { class: 'nb-cover-spine' }), h('span', { class: 'nb-cover-label' }, nb.title));
+    el.append(h('span', { class: 'nb-cover-spine' }), h('span', { class: 'nb-cover-label' }, h('span', {}, nb.title)), h('span', { class: 'nb-cover-band' }));
   }
   if (nb.lock) el.append(h('span', { class: 'nb-cover-lock' }, ico('lock')));
   return el;
 }
 N.coverEl = coverEl;
 
-function statusPill() {
-  const s = S().status(), el = h('span', { class: 'nb-status st-' + s, role: 'status' }, ico(s === 'synced' ? 'cloud' : s === 'error' ? 'close' : s === 'offline' ? 'cloud' : 'check'), S().statusText(s));
+function statusPill(still) {
+  const s = S().status(), icon = ico(s === 'synced' ? 'cloud' : s === 'error' ? 'close' : s === 'syncing' ? 'sync' : s === 'offline' || s === 'pending' ? 'cloud' : 'check');
+  const label = !S().hasToken() && s === 'local' ? 'Sur cet appareil' : S().statusText(s);
+  const el = still ? h('span', { class: 'nb-status st-' + s, role: 'status' }, icon, h('span', {}, label))
+    : h('button', { class: 'nb-status st-' + s, type: 'button', onclick: syncSettings, 'aria-label': `Synchronisation : ${label}. Ouvrir les réglages` }, icon, h('span', {}, label));
   if (s === 'error') el.title = S().statusMsg();
   return el;
 }
@@ -458,35 +464,44 @@ function renderLib() {
       crumbs.append(h('button', { class: 'nb-crumb', type: 'button', onclick: () => { curFolder = ''; renderLib(); } }, ico('back'), 'Cahiers'));
       path.forEach((fo, i) => crumbs.append(h('span', { class: 'nb-crumb-sep', 'aria-hidden': 'true' }, '/'), i === path.length - 1 ? h('b', {}, fo.name) : h('button', { class: 'nb-crumb', type: 'button', onclick: () => { curFolder = fo.id; renderLib(); } }, fo.name)));
     }
+    if (filter === 'all' && !q) grid.append(h('div', { class: 'nb-tile nb-newtile' }, h('button', { class: 'nb-tile-open', type: 'button', 'aria-label': 'Créer un nouveau cahier', onclick: newNotebookDlg }, h('span', { class: 'nb-newcover', 'aria-hidden': 'true' }, ico('plus'))), h('div', { class: 'nb-tile-meta' }, h('div', { class: 'nb-tile-tx' }, h('b', {}, 'Nouveau'), h('span', {}, 'Cahier ou PDF')))));
     folders.forEach((f) => grid.append(folderTile(f)));
     nbs.forEach((n) => grid.append(nbTile(n)));
     if (!folders.length && !nbs.length) grid.append(h('div', { class: 'nb-empty' }, filter === 'trash' ? 'La corbeille est vide. Les éléments supprimés y restent 30 jours.' : q ? `Aucun cahier ne correspond à « ${query} ».` : filter === 'fav' ? 'Aucun favori. Touche ⋯ sur un cahier › Favori.' : filter === 'pdf' ? 'Aucun PDF annoté. Ouvre un PDF dans l’onglet PDF puis touche « Annoter ».' : curFolder ? 'Ce dossier est vide.' : 'Aucun cahier pour l’instant. Crée ton premier cahier.'));
   }
   renderGrid();
+  const nN = nbList().filter((n) => !n.trashed).length, fN = folderList().filter((f) => !f.trashed).length;
+  const addMenu = (e) => menu(e.currentTarget, [
+    { label: 'Nouveau cahier', icon: 'plus', onclick: newNotebookDlg },
+    { label: 'Nouveau dossier', icon: 'folder', onclick: newFolder },
+    { label: 'Importer PDF, images ou .zip', icon: 'upload', onclick: async () => importAsNotebook(await pickFile('application/pdf,image/*,.zip,application/zip', { multiple: true })) },
+    { label: 'Transférer depuis Goodnotes', icon: 'download', onclick: goodnotesHelp },
+    '-',
+    { label: 'Nouvelle carte de révision', icon: 'cards', onclick: () => N.cards.newCard() }
+  ], { align: 'right' });
+  const row = (icon, tint, title, sub, onclick) => h('button', { class: 'nb-grow', type: 'button', onclick }, h('span', { class: 'nb-grow-ic', style: `--t:${tint}` }, ico(icon)), h('span', { class: 'nb-grow-tx' }, h('b', {}, title), sub ? h('span', {}, sub) : null), ico('chev', 'nb-grow-chev'));
   libRoot.replaceChildren(
-    h('header', { class: 'page-head nb-head' },
-      h('div', { class: 'nb-head-row' }, h('h1', {}, 'Cahiers'), h('div', { class: 'nb-head-actions' }, statusPill(), h('button', { class: 'btn', type: 'button', onclick: syncSettings, 'aria-label': 'Réglages de synchronisation' }, ico('sync'), 'Synchronisation'))),
-      h('p', {}, 'Écris, annote tes PDF et révise. Tout reste sur cet appareil et se synchronise, chiffré, avec tes autres appareils.')),
-    !S().hasToken() && !bannerHidden ? h('div', { class: 'sheet nb-banner' }, ico('cloud'), h('span', {}, 'Active la synchronisation pour retrouver tes cahiers sur tous tes appareils.'),
+    h('header', { class: 'nb-hero' },
+      h('div', { class: 'nb-hero-row' },
+        h('div', { class: 'nb-hero-tx' }, h('h1', {}, 'Cahiers'), h('p', { class: 'nb-sub' }, nN ? `${nN} cahier${nN > 1 ? 's' : ''}${fN ? ` · ${fN} dossier${fN > 1 ? 's' : ''}` : ''}` : 'Écris, annote tes PDF et révise.')),
+        h('div', { class: 'nb-hero-actions' }, statusPill(),
+          h('button', { class: 'nb-pbtn', type: 'button', onclick: addMenu, 'aria-label': 'Créer ou importer', 'aria-haspopup': 'menu' }, ico('plus'), h('span', {}, 'Nouveau'))))),
+    !S().hasToken() && !bannerHidden ? h('div', { class: 'nb-card nb-banner' }, h('span', { class: 'nb-grow-ic', style: '--t:#0a84ff' }, ico('cloud')), h('div', { class: 'tx' }, h('b', {}, 'Synchronise tes appareils'), h('span', {}, 'Retrouve tes cahiers sur l’iPad, le téléphone et le PC.')),
       h('button', { class: 'btn solid', type: 'button', onclick: syncSettings }, 'Activer'), ibtn('close', 'Masquer ce message', () => { lpSave({ hideBanner: true }); renderLib(); })) : null,
-    totalCards ? h('div', { class: 'sheet nb-due' }, ico('cards'), h('div', { class: 'tx' }, h('b', {}, due ? `${due} carte${due > 1 ? 's' : ''} à revoir aujourd’hui` : 'Aucune carte à revoir aujourd’hui'), h('span', { class: 'muted small' }, `${totalCards} carte${totalCards > 1 ? 's' : ''} de révision`)),
-      h('button', { class: 'btn' + (due ? ' solid' : ''), type: 'button', onclick: () => N.cards.review() }, due ? 'Réviser' : 'Voir les cartes')) : null,
-    h('div', { class: 'nb-actions' },
-      h('button', { class: 'btn solid', type: 'button', onclick: newNotebookDlg }, ico('plus'), 'Nouveau cahier'),
-      h('button', { class: 'btn', type: 'button', onclick: newFolder }, ico('folder'), 'Dossier'),
-      h('button', { class: 'btn', type: 'button', onclick: async () => importAsNotebook(await pickFile('application/pdf,image/*,.zip,application/zip', { multiple: true })) }, ico('upload'), 'Importer (PDF, images, Goodnotes)'),
-      h('button', { class: 'btn', type: 'button', onclick: () => N.cards.newCard() }, ico('cards'), 'Carte')),
-    h('div', { class: 'filters' }, h('div', { class: 'nb-searchrow' }, search, sortSeg), filters),
+    totalCards ? h('div', { class: 'nb-card nb-due' }, h('span', { class: 'nb-grow-ic', style: '--t:#30b45f' }, ico('cards')), h('div', { class: 'tx' }, h('b', {}, due ? `${due} carte${due > 1 ? 's' : ''} à revoir aujourd’hui` : 'Aucune carte à revoir aujourd’hui'), h('span', {}, `${totalCards} carte${totalCards > 1 ? 's' : ''} de révision`)),
+      h('button', { class: 'btn' + (due ? ' solid' : ''), type: 'button', onclick: () => N.cards.review() }, due ? 'Réviser' : 'Voir')) : null,
+    h('div', { class: 'nb-toolbar' }, h('label', { class: 'nb-searchwrap' }, ico('search'), search), sortSeg),
+    h('div', { class: 'nb-filters' }, filters),
     crumbs,
     filter === 'trash' && (nbList().some((n) => n.trashed) || folderList().some((f) => f.trashed)) ? h('div', {}, h('button', { class: 'btn danger', type: 'button', onclick: emptyTrash }, ico('trash'), 'Vider la corbeille')) : null,
     grid,
-    h('section', { class: 'block nb-backup' }, h('h2', {}, 'Venir de Goodnotes'),
-      h('p', { class: 'muted small' }, 'Récupère tous tes cahiers Goodnotes en PDF : un cahier par fichier, dossiers compris.'),
-      h('div', { class: 'nb-actions' }, h('button', { class: 'btn', type: 'button', onclick: goodnotesHelp }, ico('upload'), 'Transférer depuis Goodnotes'))),
-    h('section', { class: 'block nb-backup' }, h('h2', {}, 'Sauvegarde de secours'),
-      h('p', { class: 'muted small' }, 'En plus de la synchronisation : un fichier avec tous tes cahiers, images et cartes.'),
-      h('div', { class: 'nb-actions' }, h('button', { class: 'btn', type: 'button', onclick: exportBackup }, ico('download'), 'Exporter tous mes cahiers'),
-        h('button', { class: 'btn', type: 'button', onclick: importBackup }, ico('upload'), 'Importer une sauvegarde'))));
+    h('section', { class: 'nb-group' }, h('h2', {}, 'Plus'),
+      h('div', { class: 'nb-glist' },
+        row('folder', '#0a84ff', 'Nouveau dossier', 'Range tes cahiers par matière', newFolder),
+        row('download', '#ff9f0a', 'Transférer depuis Goodnotes', 'Tous tes cahiers en PDF, dossiers compris', goodnotesHelp),
+        row('cards', '#30b45f', 'Nouvelle carte de révision', 'Recto / verso, répétition espacée', () => N.cards.newCard()),
+        row('share', '#5e5ce6', 'Exporter tous mes cahiers', 'Sauvegarde de secours (.json)', exportBackup),
+        row('upload', '#8e8e93', 'Importer une sauvegarde', '', importBackup))));
   if (focusSel != null) { const s = libRoot.querySelector('#nbsearch'); if (s) { s.focus(); try { s.setSelectionRange(focusSel, focusSel); } catch (_) {} } }
 }
 N.renderLib = () => { if (libRoot && libRoot.isConnected && idx) renderLib(); };
@@ -498,14 +513,14 @@ function nbTile(nb) {
     h('button', { class: 'nb-tile-open', type: 'button', onclick: open, 'aria-label': `Ouvrir ${nb.title}`, disabled: nb.trashed ? true : null }, coverEl(nb)),
     h('div', { class: 'nb-tile-meta' },
       h('div', { class: 'nb-tile-tx' }, h('b', {}, nb.fav ? ico('star', 'nb-fav') : null, nb.title), h('span', {}, nb.trashed ? `Supprimé · ${Math.max(0, 30 - Math.floor((Date.now() - nb.trashed) / DAY))} j restants` : fmtDate(nb.upd || nb.created))),
-      h('button', { class: 'nb-ib', type: 'button', 'aria-label': `Options de ${nb.title}`, title: 'Options', onclick: opts }, ico('more'))));
+      h('button', { class: 'nb-ib nb-more', type: 'button', 'aria-label': `Options de ${nb.title}`, title: 'Options', onclick: opts }, ico('chevdown'))));
 }
 function folderTile(f) {
   const n = nbList().filter((x) => x.folder === f.id && !x.trashed).length + folderList().filter((x) => x.parent === f.id && !x.trashed).length;
   return h('div', { class: 'nb-tile folder' + (f.trashed ? ' trashed' : '') },
-    h('button', { class: 'nb-tile-open', type: 'button', 'aria-label': `Ouvrir le dossier ${f.name}`, disabled: f.trashed ? true : null, onclick: () => { curFolder = f.id; filter = 'all'; query = ''; renderLib(); } }, h('span', { class: 'nb-folder', 'aria-hidden': 'true' }, ico('folder'), h('span', {}, `${n} élément${n > 1 ? 's' : ''}`))),
-    h('div', { class: 'nb-tile-meta' }, h('div', { class: 'nb-tile-tx' }, h('b', {}, f.name), h('span', {}, f.trashed ? 'Dossier supprimé' : 'Dossier')),
-      h('button', { class: 'nb-ib', type: 'button', 'aria-label': `Options du dossier ${f.name}`, title: 'Options', onclick: (e) => { e.stopPropagation(); folderMenu(f, e.currentTarget); } }, ico('more'))));
+    h('button', { class: 'nb-tile-open', type: 'button', 'aria-label': `Ouvrir le dossier ${f.name}`, disabled: f.trashed ? true : null, onclick: () => { curFolder = f.id; filter = 'all'; query = ''; renderLib(); } }, h('span', { class: 'nb-folder', 'aria-hidden': 'true' }, ico('folderFill'))),
+    h('div', { class: 'nb-tile-meta' }, h('div', { class: 'nb-tile-tx' }, h('b', {}, f.name), h('span', {}, f.trashed ? 'Dossier supprimé' : n ? `${n} élément${n > 1 ? 's' : ''}` : 'Vide')),
+      h('button', { class: 'nb-ib nb-more', type: 'button', 'aria-label': `Options du dossier ${f.name}`, title: 'Options', onclick: (e) => { e.stopPropagation(); folderMenu(f, e.currentTarget); } }, ico('chevdown'))));
 }
 const upd = (coll, obj, patch) => N.setIdx(coll, Object.assign({}, obj, patch));
 function nbMenu(nb, anchor) {
@@ -650,7 +665,7 @@ function syncSettings() {
       const ls = S().lastSync();
       body.append(
         h('div', { class: 'nb-sync-ok' }, ico('cloud'), h('div', {}, h('b', {}, 'Cet appareil est synchronisé'), h('span', { class: 'muted small' }, ls ? 'Dernière synchro : ' + new Date(ls).toLocaleString('fr-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Première synchro en cours…'))),
-        h('div', {}, statusPill()),
+        h('div', {}, statusPill(true)),
         S().status() === 'error' ? h('p', { class: 'nb-err' }, S().statusMsg()) : null,
         h('p', { class: 'muted small' }, `Tes cahiers sont envoyés chiffrés dans la branche « ${S().branch} » du dépôt ${S().repo()}. Sans ton mot de passe, personne ne peut les lire.`),
         h('div', { class: 'nb-actions' },
@@ -769,7 +784,7 @@ N.boot = async (app) => {
   N.app = app;
   try { await S().init(app.key); await loadIndex(); } catch (e) { console.warn('Cahiers indisponibles', e); }
   bootResolve();
-  S().on('status', () => { document.querySelectorAll('.nb-lib .nb-status').forEach((el) => el.replaceWith(statusPill())); N.editor && N.editor.onStatus && N.editor.onStatus(); });
+  S().on('status', () => { document.querySelectorAll('.nb-lib .nb-hero .nb-status').forEach((el) => el.replaceWith(statusPill())); N.editor && N.editor.onStatus && N.editor.onStatus(); });
   S().on('change', async (paths) => {
     if (paths.includes(IDX)) { idx = await S().get(IDX); ['nbs', 'folders', 'elements', 'cards', 'tpls'].forEach((k) => { idx[k] = idx[k] || {}; }); N.renderLib(); }
     N.editor && N.editor.onRemote && N.editor.onRemote(paths);
