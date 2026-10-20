@@ -142,3 +142,6 @@ body::before { content: ""; position: fixed; inset: -10vmax; z-index: -1; pointe
   .ne-tcard { transition: box-shadow .2s, transform .35s var(--spring); }
   .ne:not([hidden]) { animation: moSheet .45s var(--ease) both; }
 }
+
+/* les entrées latérales ne doivent jamais créer de défilement horizontal */
+#view { overflow-x: clip; }

@@ -1,0 +1,87 @@
+/* Pages Quiz, PDF et Cours : lecture plus claire (statuts en clair, dates lisibles, filtres titrés). */
+:root { --warn-t: #fff3e0; --live: #248a3d; --live-t: #e8f5ec; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --warn-t: #3a2608; --live: #30d158; --live-t: #11301b; } }
+:root[data-theme="dark"] { --warn-t: #3a2608; --live: #30d158; --live-t: #11301b; }
+
+.page-head p { font-size: 16px; line-height: 1.4; }
+.ext { width: 15px; height: 15px; flex: none; opacity: .75; }
+.empty-line { color: var(--soft); padding: 4px 2px; }
+.lead-line { color: var(--soft); font-size: 15px; }
+.empty-box { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; color: var(--soft); }
+.newdot { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; font-size: 12px; font-weight: 600; color: var(--focus); vertical-align: middle; white-space: nowrap; }
+.newdot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.segn { margin-left: 6px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--focus); color: #fff; font-size: 12px; font-weight: 700; display: inline-grid; place-items: center; }
+.seg .chip { min-height: 40px; }
+
+/* Filtres titrés */
+.fgroup { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.flabel { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--soft); padding-left: 4px; }
+
+/* Tuile de date */
+.dtile { width: 48px; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 0; border-radius: 12px; background: var(--fill2, rgba(120,120,128,.12)); line-height: 1.05; }
+.dtile b { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.dtile small { font-size: 11px; color: var(--soft); text-transform: capitalize; }
+.dtile.live { background: var(--live); color: #fff; }
+.dtile.live small { color: rgba(255,255,255,.85); }
+
+/* ---------- Quiz ---------- */
+.qrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px 14px; align-items: center; padding: 14px 16px; }
+.qrow + .qrow { background-image: linear-gradient(var(--rule), var(--rule)); background-size: calc(100% - 78px) .5px; background-position: right top; background-repeat: no-repeat; }
+.qmain { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.qmain .title { font-weight: 600; font-size: 16px; line-height: 1.3; }
+.qmain .title .soft { color: var(--soft); font-weight: 400; }
+.qmain .line { font-size: 14px; color: var(--soft); line-height: 1.35; }
+.qmain .line.s-live { color: var(--live); font-weight: 600; }
+.qmain .line.s-bad { color: var(--bad); }
+.qmain .line.s-warn { color: var(--warn); }
+.qside { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.qside .btn { min-height: 40px; gap: 6px; }
+.qside .bar { width: 4.5rem; }
+.pill.p-live { background: var(--live-t); color: var(--live); }
+.pill.p-ok { background: var(--ok-t); color: var(--ok); }
+.pill.p-bad { background: var(--bad-t); color: var(--bad); }
+.pill.p-warn { background: var(--warn-t); color: var(--warn); }
+.primary-btn { background: var(--live) !important; color: #fff !important; border-color: transparent !important; }
+.qrow.is-live { background-color: color-mix(in srgb, var(--live) 7%, transparent); }
+@media (max-width: 520px) {
+  .qrow { grid-template-columns: auto minmax(0, 1fr); }
+  .qside { grid-column: 2; flex-direction: row; align-items: center; justify-content: flex-start; flex-wrap: wrap; }
+  .qside .grade { font-size: 1.15rem; }
+}
+
+.qhero .k { display: inline-flex; align-items: center; gap: 8px; }
+.qhero .s { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 15px; }
+.qhero .hint { font-size: 13px; color: var(--soft); }
+.qhero .btn { align-self: flex-start; display: inline-flex; gap: 6px; }
+.qhero.is-live .k { color: var(--live) !important; }
+.qhero.is-live .btn { background: var(--live) !important; }
+.livedot { width: 8px; height: 8px; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 0 var(--live); }
+@media (prefers-reduced-motion: no-preference) {
+  .livedot { animation: livePulse 1.8s ease-out infinite; }
+  @keyframes livePulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--live) 60%, transparent); } 100% { box-shadow: 0 0 0 9px transparent; } }
+}
+.kpi { gap: 2px; }
+.kpi .kl { font-size: 12px !important; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--soft); }
+.kpi span:last-child { font-size: 13px; line-height: 1.3; }
+
+/* ---------- PDF ---------- */
+.prow .ico { position: relative; }
+.prow .ico em { position: absolute; left: 0; right: 0; bottom: 4px; font-style: normal; font-size: 9px; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: .02em; }
+.prow .ico:has(em) svg { margin-top: -10px; }
+.prow .tx b { display: block; }
+.prow .tx > span { line-height: 1.35; }
+.pz .group-head h3:not([style])::before, .cz .group-head h3:not([style])::before { display: none; }
+.prow .tx .newdot { color: var(--focus); font-size: 12px; font-weight: 600; }
+
+/* ---------- Cours ---------- */
+.news { position: relative; }
+.news.imp { box-shadow: inset 3px 0 0 var(--bad); }
+.news.other { opacity: .72; }
+.news a { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; align-self: flex-start; }
+.news .when { color: var(--soft); }
+.course { text-decoration: none; color: inherit; min-height: 44px; }
+.course .chead { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.course .chead .ext { color: var(--soft); }
+.course .cinfo { display: flex; flex-direction: column; gap: 3px; font-size: 14px; color: var(--soft); margin-top: 2px; }
+.course .cinfo b { color: var(--ink); font-weight: 600; }
+.course .seen { font-size: 13px !important; }

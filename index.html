@@ -380,6 +380,7 @@ button.item:hover { background: var(--paper); }
 <link rel="stylesheet" href="notes.css">
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="glass.css">
+<link rel="stylesheet" href="pages.css">
 </head>
 <body>
 
@@ -739,124 +740,228 @@ function pageWeek() {
     viewSwitch, gcalBox, listView);
 }
 
+/* ---------- Aides communes (Quiz, PDF, Cours) ---------- */
+const EXT_SVG = '<path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>';
+const mins = (a, b) => Math.round((P(b) - P(a)) / 6e4);
+const dur = (m) => m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}`;
+const ago = (s, now) => { const m = mins(s, now); if (m < 1) return 'à l’instant'; if (m < 60) return `il y a ${m} min`; if (m < 24 * 60 && dd(s, now) === 0) return `il y a ${Math.floor(m / 60)} h`; const n = dd(s, now); return n === 1 ? 'hier' : n < 7 ? `il y a ${n} jours` : `le ${fDay(s)}`; };
+const inDays = (s, now) => { const n = dd(now, s); return n === 0 ? "aujourd'hui" : n === 1 ? 'demain' : `dans ${n} jours`; };
+const dateTile = (s, kind) => h('span', { class: 'dtile' + (kind ? ' ' + kind : ''), 'aria-hidden': 'true' },
+  h('small', {}, P(s).toLocaleDateString('fr-BE', { weekday: 'short' }).replace('.', '')), h('b', { class: 'num' }, String(P(s).getDate())), h('small', {}, P(s).toLocaleDateString('fr-BE', { month: 'short' }).replace('.', '')));
+const matChipsEl = (box, list, all, cur, count, set) => box.replaceChildren(...['Tout', ...list].map((m) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(m === cur), style: m === 'Tout' ? '' : `--c:var(--${MAT[m] || 'other'})`, onclick: () => set(m) },
+  m === 'Tout' ? null : h('span', { class: 'sw' }), m, h('span', { class: 'n num' }, String(m === 'Tout' ? all.length : all.filter(count(m)).length)))));
+const segEl = (opts, cur, set, label) => h('div', { class: 'seg', role: 'group', 'aria-label': label, style: `grid-template-columns:repeat(${opts.length},minmax(0,1fr))` },
+  opts.map(([k, t, n]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(cur === k), onclick: () => set(k) }, t, n ? h('span', { class: 'segn num' }, String(n)) : null)));
+
 /* ---------- Page : Quiz ---------- */
+// Où en est un quiz, en phrase simple : [libellé court, phrase, genre]
+function quizState(q, now) {
+  const n = note(q), open = String(q.ouverture) <= now && String(q.fermeture) > now;
+  if (n !== null) return ['Fait', `Note : ${String(n).replace('.', ',')}/20`, 'ok'];
+  if (q.statut === 'fait') return ['Fait', 'Note pas encore publiée', 'ok'];
+  if (String(q.fermeture) <= now) return q.statut === 'à venir' ? ['Note à venir', 'Fermé, la note n’est pas encore là', 'muted'] : ['Manqué', 'Pas fait avant la fermeture', 'bad'];
+  if (open) return ['Ouvert', `Ferme à ${hh(q.fermeture)}, il te reste ${dur(mins(now, q.fermeture))}`, 'live'];
+  const d = dd(now, q.ouverture);
+  return [d === 0 ? 'Aujourd’hui' : d === 1 ? 'Demain' : `Dans ${d} j`, `S’ouvre ${rel(q.ouverture, now)}${d > 1 && d < 7 ? ' ' + fDay(q.ouverture) : ''} à ${hh(q.ouverture)}, ferme à ${hh(q.fermeture)}`, d <= 1 ? 'warn' : 'muted'];
+}
 function pageQuiz() {
   const now = nowL();
   let mat = prefs.quizMat || 'Tout';
   const mats = ORDER.filter((m) => quiz.some((q) => q.matiere === m));
+  if (mat !== 'Tout' && !mats.includes(mat)) mat = 'Tout';
   const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrer par matière' });
   const body = h('div', { class: 'filters' });
+  const row = (q) => {
+    const [st, line, kind] = quizState(q, now), n = note(q);
+    const live = kind === 'live', todo = String(q.fermeture) > now;
+    return h('div', { class: 'qrow ' + mcls(q.matiere) + (live ? ' is-live' : ''), style: `--c:var(--${MAT[q.matiere] || 'other'})` },
+      dateTile(q.ouverture, live ? 'live' : ''),
+      h('div', { class: 'qmain' },
+        h('div', { class: 'top' }, label(q.matiere)),
+        h('span', { class: 'title' }, q.titre, q.sujet ? h('span', { class: 'soft' }, ' · ' + q.sujet) : null),
+        h('span', { class: 'line s-' + kind }, line)),
+      h('div', { class: 'qside' },
+        n !== null ? h('span', { class: 'grade num', 'aria-label': `${n} sur 20` }, String(n).replace('.', ','), h('small', {}, '/20')) : h('span', { class: 'pill p-' + kind }, st),
+        n !== null ? h('span', { class: 'bar', 'aria-hidden': 'true' }, h('i', { style: `width:${n * 5}%` })) : null,
+        todo && q.lien ? h('a', { class: 'btn' + (live ? ' primary-btn' : ''), href: q.lien, target: '_blank', rel: 'noopener', 'aria-label': `${live ? 'Faire' : 'Voir'} ${q.titre} de ${q.matiere} sur l’UV` }, live ? 'Faire le quiz' : 'Voir', svgEl(EXT_SVG, 'ext')) : null));
+  };
   const draw = () => {
-    chips.replaceChildren(...['Tout', ...mats].map((m) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(m === mat), style: m === 'Tout' ? '' : `--c:var(--${MAT[m]})`, onclick: () => { mat = m; prefs.quizMat = m; savePrefs(); draw(); } },
-      m === 'Tout' ? null : h('span', { class: 'sw' }), m, h('span', { class: 'n num' }, String(m === 'Tout' ? quiz.length : quiz.filter((q) => q.matiere === m).length)))));
+    matChipsEl(chips, mats, quiz, mat, (m) => (q) => q.matiere === m, (m) => { mat = m; prefs.quizMat = m; savePrefs(); draw(); });
     const sel = quiz.filter((q) => mat === 'Tout' || q.matiere === mat);
-    const up = sel.filter((q) => String(q.fermeture) >= now);
-    const past = sel.filter((q) => String(q.fermeture) < now).reverse();
-    const row = (q) => {
-      const [st, kind] = quizStatus(q, now); const n = note(q);
-      return h('div', { class: 'item ' + mcls(q.matiere) },
-        h('div', {}, h('div', { class: 'top' }, label(q.matiere), h('span', { class: 'title' }, q.titre)), h('div', { class: 'sub' }, q.sujet), h('div', { class: 'sub num' }, `${cap(fShort(q.ouverture))}, ${hh(q.ouverture)}–${hh(q.fermeture)}`)),
-        h('div', { class: 'right' }, n !== null ? h('span', { class: 'grade num' }, String(n).replace('.', ','), h('small', {}, '/20')) : (String(q.fermeture) >= now ? null : h('span', { class: 'pill' + (kind === 'bad' ? ' bad' : kind === 'ok' ? ' ok' : '') }, st)),
-          n !== null ? h('span', { class: 'bar', role: 'img', 'aria-label': `${n} sur 20` }, h('i', { style: `width:${n * 5}%` })) : (String(q.fermeture) >= now ? h('a', { class: 'btn', href: q.lien, target: '_blank', rel: 'noopener' }, 'Moodle') : null)));
-    };
+    const up = sel.filter((q) => String(q.fermeture) > now);
+    const past = sel.filter((q) => String(q.fermeture) <= now).reverse();
     body.replaceChildren(
-      h('section', { class: 'block' }, h('h2', {}, 'À venir', h('span', { class: 'count num' }, String(up.length))), up.length ? h('div', { class: 'sheet list' }, up.map(row)) : h('p', { class: 'muted' }, 'Aucun quiz à venir.')),
-      h('section', { class: 'block' }, h('h2', {}, 'Passés', h('span', { class: 'count num' }, String(past.length))), past.length ? h('div', { class: 'sheet list' }, past.map(row)) : h('p', { class: 'muted' }, 'Aucun quiz passé.')));
+      h('section', { class: 'block' }, h('h2', {}, 'À faire', h('span', { class: 'count num' }, up.length ? `${up.length} quiz` : '')),
+        up.length ? h('div', { class: 'sheet list' }, up.map(row)) : h('p', { class: 'empty-line' }, 'Aucun quiz prévu pour l’instant. Tu es à jour.')),
+      h('section', { class: 'block' }, h('h2', {}, 'Terminés', h('span', { class: 'count num' }, past.length ? `${past.length} quiz` : '')),
+        past.length ? h('div', { class: 'sheet list' }, past.map(row)) : h('p', { class: 'empty-line' }, 'Aucun quiz terminé pour l’instant.')));
   };
   draw();
-  const done = quiz.filter((q) => note(q) !== null);
-  const avg = done.length ? Math.round(done.reduce((s, q) => s + note(q), 0) / done.length * 10) / 10 : null;
-  const missed = quiz.filter((q) => quizStatus(q, now)[0] === 'manqué').length;
-  const nq = quiz.find((q) => String(q.fermeture) >= now);
-  return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'Quiz'), h('p', {}, mats.length === 1 ? `Tes quiz de ${mats[0].toLowerCase()} sur l’UV.` : 'Tes quiz sur l’UV.')),
-    h('div', { class: 'kpis' },
-      h('div', { class: 'sheet kpi' }, h('b', { class: 'num' }, avg === null ? '—' : String(avg).replace('.', ',')), h('span', {}, 'moyenne /20')),
-      h('div', { class: 'sheet kpi' }, h('b', { class: 'num' }, String(done.length)), h('span', {}, 'faits')),
-      h('div', { class: 'sheet kpi' + (missed ? ' bad' : '') }, h('b', { class: 'num' }, String(missed)), h('span', {}, missed > 1 ? 'manqués' : 'manqué'))),
-    nq ? h('section', { class: 'hero', 'aria-label': 'Prochain quiz' }, h('span', { class: 'k' }, `Prochain quiz · ${rel(nq.ouverture, now)} ${dd(now, nq.ouverture) > 1 ? fDay(nq.ouverture) : ''}`.trim()),
-      h('span', { class: 't' }, `${nq.titre} : ${nq.sujet}`), h('span', { class: 's num' }, `De ${hh(nq.ouverture)} à ${hh(nq.fermeture)} · 1 tentative`),
-      h('a', { class: 'btn', href: nq.lien, target: '_blank', rel: 'noopener' }, 'Ouvrir sur l’UV')) : null,
+  const closed = quiz.filter((q) => String(q.fermeture) <= now);
+  const graded = quiz.filter((q) => note(q) !== null);
+  const doneN = quiz.filter((q) => quizState(q, now)[0] === 'Fait').length;
+  const avg = graded.length ? Math.round(graded.reduce((s, q) => s + note(q), 0) / graded.length * 10) / 10 : null;
+  const missed = quiz.filter((q) => quizState(q, now)[0] === 'Manqué').length;
+  const live = quiz.find((q) => quizState(q, now)[2] === 'live');
+  const nq = live || quiz.find((q) => String(q.ouverture) > now);
+  let hero = null;
+  if (nq) {
+    const [, line, kind] = quizState(nq, now), isLive = kind === 'live';
+    hero = h('section', { class: 'hero qhero' + (isLive ? ' is-live' : ''), 'aria-label': isLive ? 'Quiz ouvert maintenant' : 'Prochain quiz' },
+      h('span', { class: 'k' }, isLive ? h('span', { class: 'livedot', 'aria-hidden': 'true' }) : null, isLive ? 'Ouvert maintenant' : `Prochain quiz · ${inDays(nq.ouverture, now)}`),
+      h('span', { class: 't' }, `${nq.titre}${nq.sujet ? ' : ' + nq.sujet : ''}`),
+      h('span', { class: 's' }, label(nq.matiere), ' ', line),
+      h('span', { class: 'hint' }, 'Une seule tentative. Prévois un moment calme avant la fermeture.'),
+      nq.lien ? h('a', { class: 'btn', href: nq.lien, target: '_blank', rel: 'noopener' }, isLive ? 'Faire le quiz sur l’UV' : 'Voir sur l’UV', svgEl(EXT_SVG, 'ext')) : null);
+  }
+  return h('div', { class: 'page qz' },
+    h('header', { class: 'page-head' }, h('h1', {}, 'Quiz'), h('p', {}, 'Tes quiz Moodle. Chacun n’est ouvert qu’une journée et tu n’as qu’une tentative.')),
+    hero,
+    h('section', { class: 'block', 'aria-label': 'Ton bilan' },
+      h('div', { class: 'kpis' },
+        h('div', { class: 'sheet kpi' }, h('span', { class: 'kl' }, 'Moyenne'), h('b', { class: 'num' }, avg === null ? '—' : String(avg).replace('.', ',')), h('span', {}, avg === null ? 'pas encore de note' : `sur 20, ${graded.length} note${graded.length > 1 ? 's' : ''}`)),
+        h('div', { class: 'sheet kpi' }, h('span', { class: 'kl' }, 'Faits'), h('b', { class: 'num' }, String(doneN)), h('span', {}, `sur ${closed.length} terminé${closed.length > 1 ? 's' : ''}`)),
+        h('div', { class: 'sheet kpi' + (missed ? ' bad' : '') }, h('span', { class: 'kl' }, 'Manqués'), h('b', { class: 'num' }, String(missed)), h('span', {}, missed ? 'à rattraper en révisant' : 'bravo, aucun')))),
     mats.length > 1 ? chips : null, body);
 }
 
 /* ---------- Page : PDF ---------- */
+const TYPE_INFO = { 'Prépa': 'à lire avant la séance', 'TP': 'travaux pratiques', 'Résumé': 'synthèse du cours', 'Correctif': 'corrigé', 'Exercices': 'pour s’entraîner', 'Cours': 'support du cours', 'Slides': 'diapos du cours' };
 function pagePdf() {
-  let mat = prefs.pdfMat || 'Tout', typ = 'Tous', q = '';
-  const mats = ORDER.filter((m) => pdfs.some((p) => p.matiere === m));
-  const types = [...new Set(pdfs.map((p) => p.type))];
+  let mat = prefs.pdfMat || 'Tout', typ = 'Tous', q = '', sort = prefs.pdfSort === 'recent' ? 'recent' : 'mat';
+  const seen = prefs.pdfSeen || {};
+  const mats = ORDER.filter((m) => pdfs.some((p) => p.matiere === m)).concat(pdfs.some((p) => !ORDER.includes(p.matiere)) ? ['Autre'] : []);
+  if (mat !== 'Tout' && !mats.includes(mat)) mat = 'Tout';
+  const matOf = (p) => ORDER.includes(p.matiere) ? p.matiere : 'Autre';
+  const types = [...new Set(pdfs.map((p) => p.type).filter(Boolean))];
+  const now = nowL(), today = now.slice(0, 10);
+  const isNew = (p) => !seen[p.id] && p.date && dd(p.date, today) <= 7;
   const matChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrer par matière' });
   const typeChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrer par type' });
   const search = h('input', { class: 'search', type: 'search', id: 'pdfsearch', placeholder: 'Chercher un PDF (ex. cinématique, TP1)', 'aria-label': 'Chercher un PDF', oninput: (e) => { q = e.target.value.trim().toLowerCase(); drawList(); } });
+  const sortBox = h('div', {});
   const out = h('div', { class: 'filters' });
+  const open = (p) => { if (!seen[p.id]) { seen[p.id] = 1; prefs.pdfSeen = seen; savePrefs(); } openPdf(p); setTimeout(drawList, 400); };
   const drawChips = () => {
-    matChips.replaceChildren(...['Tout', ...mats].map((m) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(m === mat), style: m === 'Tout' ? '' : `--c:var(--${MAT[m]})`, onclick: () => { mat = m; prefs.pdfMat = m; savePrefs(); drawChips(); drawList(); } },
-      m === 'Tout' ? null : h('span', { class: 'sw' }), m, h('span', { class: 'n num' }, String(m === 'Tout' ? pdfs.length : pdfs.filter((p) => p.matiere === m).length)))));
+    matChipsEl(matChips, mats, pdfs, mat, (m) => (p) => matOf(p) === m, (m) => { mat = m; prefs.pdfMat = m; savePrefs(); drawChips(); drawList(); });
     typeChips.replaceChildren(...(types.length > 1 ? ['Tous', ...types] : []).map((t) => h('button', { class: 'chip small', type: 'button', 'aria-pressed': String(t === typ), onclick: () => { typ = t; drawChips(); drawList(); } }, t)));
+    sortBox.replaceChildren(segEl([['mat', 'Par matière'], ['recent', 'Les plus récents']], sort, (k) => { sort = k; prefs.pdfSort = k; savePrefs(); drawChips(); drawList(); }, 'Ordre des PDF'));
   };
-  const row = (p, sub) => h('button', { class: 'prow', type: 'button', style: `--c:var(--${MAT[p.matiere] || 'other'});--t:var(--${MAT[p.matiere] || 'other'}-t)`, onclick: () => openPdf(p) },
-    h('span', { class: 'ico' }, svgEl(FILE_SVG)),
-    h('span', { class: 'tx' }, h('b', {}, p.titre), h('span', {}, sub || `${p.type} · ${fDay(p.date + 'T12:00')}`)),
+  const linked = (p) => p.seance_id ? hor.find((x) => String(x.id) === String(p.seance_id)) : null;
+  const meta = (p) => {
+    const s = linked(p), bits = [];
+    if (p.type) bits.push(p.type + (TYPE_INFO[p.type] && !s ? ` (${TYPE_INFO[p.type]})` : ''));
+    if (s && String(s.debut) >= now) bits.push(`pour ${(s.type || 'la séance').toLowerCase()} ${rel(s.debut, now)} ${hh(s.debut)}`);
+    if (p.date) bits.push(`ajouté ${dd(p.date, today) <= 1 ? (dd(p.date, today) === 0 ? "aujourd'hui" : 'hier') : 'le ' + fDay(p.date + 'T12:00')}`);
+    return bits.join(' · ');
+  };
+  const row = (p, sub, showMat) => h('button', { class: 'prow', type: 'button', style: `--c:var(--${MAT[p.matiere] || 'other'});--t:var(--${MAT[p.matiere] || 'other'}-t)`, onclick: () => open(p), 'aria-label': `Ouvrir ${p.titre}${isNew(p) ? ', nouveau' : ''}` },
+    h('span', { class: 'ico' }, svgEl(FILE_SVG), p.type ? h('em', {}, p.type.slice(0, 4)) : null),
+    h('span', { class: 'tx' }, h('b', {}, p.titre, isNew(p) ? h('span', { class: 'newdot' }, 'Nouveau') : null), h('span', {}, showMat ? `${matOf(p)} · ${sub || meta(p)}` : (sub || meta(p)))),
     svgEl(CHEV_SVG, 'chev'));
-  const now = nowL(), today = now.slice(0, 10);
-  const soon = prep.filter((x) => x.pdf && x.pdf.enc && String(x.debut) >= now && x.jour <= addD(today, 7));
+  const soon = prep.filter((x) => x.pdf && String(x.debut) >= now && x.jour <= addD(today, 7));
   const drawList = () => {
-    const sel = pdfs.filter((p) => (mat === 'Tout' || p.matiere === mat) && (typ === 'Tous' || p.type === typ) && (!q || (p.titre + ' ' + p.fichier + ' ' + p.type).toLowerCase().includes(q)));
+    const sel = pdfs.filter((p) => (mat === 'Tout' || matOf(p) === mat) && (typ === 'Tous' || p.type === typ) && (!q || (p.titre + ' ' + p.fichier + ' ' + p.type + ' ' + p.matiere).toLowerCase().includes(q)));
     out.replaceChildren();
-    if (!sel.length) { out.append(h('p', { class: 'muted' }, q ? `Aucun PDF ne correspond à « ${q} ».` : 'Aucun PDF dans cette catégorie pour l’instant.')); return; }
-    if (mat === 'Tout' && typ === 'Tous' && !q && soon.length) {
-      out.append(h('section', { class: 'group' }, h('div', { class: 'group-head' }, h('h3', { style: '--c:var(--ok)' }, 'Pour cette semaine')),
-        h('div', { class: 'sheet list' }, soon.map((x) => row(x.pdf, `${x.matiere} · prépa pour ${rel(x.debut, now)} ${hh(x.debut)}`)))));
+    if (!sel.length) {
+      out.append(h('div', { class: 'empty-box' }, h('p', {}, q ? `Aucun PDF ne correspond à « ${q} ».` : 'Aucun PDF dans cette catégorie pour l’instant.'),
+        h('button', { class: 'btn', type: 'button', onclick: () => { q = ''; search.value = ''; mat = 'Tout'; typ = 'Tous'; prefs.pdfMat = 'Tout'; savePrefs(); drawChips(); drawList(); } }, 'Tout afficher')));
+      return;
     }
-    if (mat === 'Tout') {
-      ORDER.concat(['Autre']).forEach((m) => {
-        const g = sel.filter((p) => (ORDER.includes(p.matiere) ? p.matiere : 'Autre') === m); if (!g.length) return;
-        out.append(h('section', { class: 'group' }, h('div', { class: 'group-head' }, h('h3', { style: `--c:var(--${MAT[m] || 'other'})` }, m), h('span', { class: 'n num' }, `${g.length} PDF`)), h('div', { class: 'sheet list' }, g.map((p) => row(p)))));
+    if (mat === 'Tout' && typ === 'Tous' && !q && soon.length) {
+      out.append(h('section', { class: 'group soon' }, h('div', { class: 'group-head' }, h('h3', {}, 'À lire avant tes séances')),
+        h('div', { class: 'sheet list' }, soon.map((x) => row(x.pdf, `${x.matiere} · ${(x.type || 'séance').toLowerCase()} ${rel(x.debut, now)} à ${hh(x.debut)}`)))));
+    }
+    if (sort === 'recent') {
+      out.append(h('section', { class: 'group' }, h('div', { class: 'group-head' }, h('h3', {}, q ? 'Résultats' : 'Tous les PDF'), h('span', { class: 'n num' }, `${sel.length} PDF`)),
+        h('div', { class: 'sheet list' }, sel.map((p) => row(p, null, true)))));
+    } else if (mat === 'Tout') {
+      mats.forEach((m) => {
+        const g = sel.filter((p) => matOf(p) === m); if (!g.length) return;
+        out.append(h('section', { class: 'group' }, h('div', { class: 'group-head' }, h('h3', { class: 'gdot', style: `--c:var(--${MAT[m] || 'other'})` }, m), h('span', { class: 'n num' }, `${g.length} PDF`)), h('div', { class: 'sheet list' }, g.map((p) => row(p)))));
       });
     } else out.append(h('div', { class: 'sheet list' }, sel.map((p) => row(p))));
   };
   drawChips(); drawList();
-  return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'PDF de révision'),
-      h('span', { class: 'offline-note' }, `${pdfs.length} PDF${'serviceWorker' in navigator ? ', lisibles même hors ligne' : ''}`)),
-    h('div', { class: 'filters' }, search, matChips, typeChips), out);
+  const nNew = pdfs.filter(isNew).length;
+  return h('div', { class: 'page pz' },
+    h('header', { class: 'page-head' }, h('h1', {}, 'PDF'),
+      h('p', {}, 'Tes supports de cours, rangés par matière. Touche un PDF pour le lire, puis « Annoter » pour écrire dessus.'),
+      h('span', { class: 'offline-note' }, `${pdfs.length} PDF${nNew ? `, dont ${nNew} nouveau${nNew > 1 ? 'x' : ''}` : ''}${'serviceWorker' in navigator ? ' · lisibles hors ligne' : ''}`)),
+    h('div', { class: 'filters' }, search, sortBox,
+      h('div', { class: 'fgroup' }, h('span', { class: 'flabel' }, 'Matière'), matChips),
+      types.length > 1 ? h('div', { class: 'fgroup' }, h('span', { class: 'flabel' }, 'Type'), typeChips) : null),
+    out);
 }
 
 /* ---------- Annonce (élément) ---------- */
-function newsEl(a, now) {
-  return h('article', { class: 'news' + (a.pour_toi ? '' : ' other') },
-    h('div', { class: 'top' }, label(a.matiere), h('span', { class: 'when' }, cap(rel(a.date, now)) + ' à ' + hh(a.date)), a.important ? h('span', { class: 'flag' }, 'Important') : null, a.pour_toi ? null : h('span', { class: 'when' }, 'autre groupe')),
-    h('span', { class: 'title' }, a.titre), h('p', {}, a.resume), h('a', { href: a.lien, target: '_blank', rel: 'noopener' }, 'Lire sur Moodle'));
+function newsEl(a, now, fresh) {
+  return h('article', { class: 'news' + (a.pour_toi ? '' : ' other') + (fresh ? ' fresh' : '') + (a.important ? ' imp' : ''), style: `--c:var(--${MAT[a.matiere] || 'other'})` },
+    h('div', { class: 'top' }, label(a.matiere), h('span', { class: 'when' }, ago(a.date, now)),
+      fresh ? h('span', { class: 'newdot' }, 'Nouveau') : null, a.important ? h('span', { class: 'flag' }, 'Important') : null, a.pour_toi ? null : h('span', { class: 'when' }, '· autre groupe')),
+    h('span', { class: 'title' }, a.titre), a.resume ? h('p', {}, a.resume) : null,
+    a.lien ? h('a', { href: a.lien, target: '_blank', rel: 'noopener' }, 'Lire sur Moodle', svgEl(EXT_SVG, 'ext')) : null);
 }
 
 /* ---------- Page : Cours ---------- */
 function pageCours() {
   const now = nowL();
-  const groups = [['Ce quadrimestre', (c) => String(c.quadri).startsWith('Q1')], ['Deuxième quadrimestre', (c) => c.quadri === 'Q2'], ['Soutien et remédiation', (c) => !String(c.quadri).startsWith('Q')]];
+  const seenAt = prefs.newsSeenAt || addD(now.slice(0, 10), -3) + 'T00:00';
+  const fresh = (a) => a.pour_toi && String(a.date) > seenAt;
+  const nFresh = annonces.filter(fresh).length;
+  // la prochaine fois, seules les annonces arrivées après maintenant seront « nouvelles »
+  const latest = annonces.reduce((m, a) => (String(a.date) > m ? String(a.date) : m), seenAt);
+  prefs.newsSeenAt = latest > now ? now : latest; savePrefs();
+  let tab = prefs.coursTab === 'cours' ? 'cours' : 'news';
   let nMat = prefs.newsMat || 'Tout', others = !!prefs.newsOthers, nMax = 8;
   const nMats = ORDER.filter((m) => annonces.some((a) => a.matiere === m));
   const nChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrer les annonces' });
-  const nList = h('div', {});
+  const nList = h('div', { class: 'filters' });
   const drawNews = () => {
     const base = annonces.filter((a) => others || a.pour_toi);
-    nChips.replaceChildren(...['Tout', ...nMats].map((m) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(m === nMat), style: m === 'Tout' ? '' : `--c:var(--${MAT[m]})`, onclick: () => { nMat = m; prefs.newsMat = m; savePrefs(); drawNews(); } },
-      m === 'Tout' ? null : h('span', { class: 'sw' }), m, h('span', { class: 'n num' }, String(m === 'Tout' ? base.length : base.filter((a) => a.matiere === m).length)))));
-    const all = base.filter((a) => nMat === 'Tout' || a.matiere === nMat), sel = all.slice(0, nMax);
-    nList.replaceChildren(sel.length ? h('div', { class: 'sheet' }, sel.map((a) => newsEl(a, now))) : h('p', { class: 'muted' }, 'Aucune annonce pour cette matière.'),
-      all.length > nMax ? h('button', { class: 'btn', type: 'button', style: 'margin-top:10px', onclick: () => { nMax += 10; drawNews(); } }, `Voir ${Math.min(10, all.length - nMax)} annonces de plus`) : null);
+    if (nMat !== 'Tout' && !nMats.includes(nMat)) nMat = 'Tout';
+    matChipsEl(nChips, nMats, base, nMat, (m) => (a) => a.matiere === m, (m) => { nMat = m; prefs.newsMat = m; savePrefs(); drawNews(); });
+    const all = base.filter((a) => nMat === 'Tout' || a.matiere === nMat);
+    const pin = all.filter((a) => a.important && dd(a.date, now) <= 14), rest = all.filter((a) => !pin.includes(a)), sel = rest.slice(0, nMax);
+    nList.replaceChildren(
+      pin.length ? h('section', { class: 'group' }, h('div', { class: 'group-head' }, h('h3', {}, 'Important'), h('span', { class: 'n' }, '14 derniers jours')), h('div', { class: 'sheet' }, pin.map((a) => newsEl(a, now, fresh(a))))) : null,
+      sel.length ? h('section', { class: 'group' }, pin.length ? h('div', { class: 'group-head' }, h('h3', {}, 'Toutes les annonces')) : null, h('div', { class: 'sheet' }, sel.map((a) => newsEl(a, now, fresh(a))))) : (pin.length ? null : h('p', { class: 'empty-line' }, 'Aucune annonce pour cette matière.')),
+      rest.length > nMax ? h('button', { class: 'btn', type: 'button', onclick: () => { nMax += 10; drawNews(); } }, `Voir ${Math.min(10, rest.length - nMax)} annonces de plus`) : null);
   };
-  drawNews();
   const othersToggle = h('label', { class: 'toggle' }, h('input', { type: 'checkbox', id: 'newsothers', checked: others || null, onchange: (e) => { others = e.target.checked; prefs.newsOthers = others; savePrefs(); drawNews(); } }), 'Afficher aussi les annonces des autres groupes');
-  return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'Cours et annonces'), h('p', {}, 'Les annonces des profs qui te concernent (groupe B6), puis tes cours sur l’UV.')),
-    h('section', { class: 'block' }, h('h2', {}, 'Annonces des profs'), nChips, othersToggle, nList),
+  const newsView = h('div', { class: 'filters' },
+    h('p', { class: 'lead-line' }, nFresh ? `${nFresh} nouvelle${nFresh > 1 ? 's' : ''} annonce${nFresh > 1 ? 's' : ''} depuis ta dernière visite.` : 'Pas de nouvelle annonce depuis ta dernière visite.'),
+    nChips, othersToggle, nList);
+  // Cours : prochaine séance et prochain quiz pour chaque cours
+  const nextSess = (c) => hor.find((x) => x.code === c.code && String(x.debut) >= now && x.type !== 'Congé');
+  const nextQuiz = (c) => String(c.quadri).startsWith('Q') && quiz.find((q) => q.matiere === c.matiere && String(q.fermeture) > now);
+  const card = (c) => {
+    const s = nextSess(c), qz = nextQuiz(c);
+    return h('a', { class: 'sheet course ' + mcls(c.matiere), href: c.lien, target: '_blank', rel: 'noopener', style: `--c:var(--${MAT[c.matiere] || 'other'})`, 'aria-label': `${c.nom} (${c.code}), ouvrir sur l’UV` },
+      h('span', { class: 'chead' }, h('span', { class: 'code' }, c.code), svgEl(EXT_SVG, 'ext')),
+      h('span', { class: 'name' }, c.nom),
+      h('span', { class: 'cinfo' },
+        s ? h('span', {}, h('b', {}, 'Prochaine séance'), ` ${s.type ? s.type.toLowerCase() + ', ' : ''}${rel(s.debut, now)} ${hh(s.debut)}`) : null,
+        qz ? h('span', {}, h('b', {}, 'Prochain quiz'), ` ${qz.titre}, ${rel(qz.ouverture, now)}`) : null,
+        h('span', { class: 'seen' }, c.dernier_acces ? `Dernière visite sur l’UV ${ago(c.dernier_acces, now)}` : 'Pas encore ouvert sur l’UV')));
+  };
+  const groups = [['Ce quadrimestre', (c) => String(c.quadri).startsWith('Q1')], ['Deuxième quadrimestre', (c) => c.quadri === 'Q2'], ['Soutien et remédiation', (c) => !String(c.quadri).startsWith('Q')]];
+  const coursView = h('div', { class: 'filters' },
+    h('p', { class: 'lead-line' }, 'Touche un cours pour l’ouvrir sur l’UV (Moodle).'),
     groups.map(([title, f]) => {
       const list = cours.filter(f).sort((a, b) => (ORDER.indexOf(a.matiere) + 1 || 99) - (ORDER.indexOf(b.matiere) + 1 || 99) || a.code.localeCompare(b.code));
       if (!list.length) return null;
-      return h('section', { class: 'block' }, h('h2', {}, title, h('span', { class: 'count num' }, String(list.length))),
-        h('div', { class: 'courses' }, list.map((c) => h('a', { class: 'sheet course ' + mcls(c.matiere), href: c.lien, target: '_blank', rel: 'noopener', style: `--c:var(--${MAT[c.matiere] || 'other'})` },
-          h('span', { class: 'code' }, c.code), h('span', { class: 'name' }, c.nom), h('span', { class: 'seen' }, c.dernier_acces ? `Ouvert ${rel(c.dernier_acces, now)}` : 'Jamais ouvert')))));
+      return h('section', { class: 'group' }, h('div', { class: 'group-head' }, h('h3', {}, title), h('span', { class: 'n num' }, `${list.length} cours`)), h('div', { class: 'courses' }, list.map(card)));
     }));
+  const segBox = h('div', {});
+  const drawTab = () => {
+    segBox.replaceChildren(segEl([['news', 'Annonces', nFresh], ['cours', 'Mes cours']], tab, (k) => { tab = k; prefs.coursTab = k; savePrefs(); drawTab(); }, 'Partie à afficher'));
+    newsView.hidden = tab !== 'news'; coursView.hidden = tab !== 'cours';
+  };
+  drawNews(); drawTab();
+  return h('div', { class: 'page cz' },
+    h('header', { class: 'page-head' }, h('h1', {}, 'Cours'), h('p', {}, 'Les annonces de tes profs (groupe B6) et l’accès direct à tes cours sur l’UV.')),
+    segBox, newsView, coursView);
 }
 
 /* ---------- Lecteur PDF ---------- */
