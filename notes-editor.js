@@ -385,7 +385,7 @@ function navUp(e) {
     const dur = now() - nav.t0, zoomed = Math.abs(E.zoom - nav.startZoom) > .02;
     if (!nav.moved && !zoomed && dur < 320) {
       if (nav.max === 2) undo(); else if (nav.max >= 3) redo();
-      else if (nav.max === 1 && e.type === 'pointerup') tapAt(e.clientX, e.clientY, e.pointerType);
+      else if (nav.max === 1 && e.type === 'pointerup') { if (!tapAt(e.clientX, e.clientY, e.pointerType)) quickTap(e.clientX, e.clientY); }
     } else if (nav.max === 1 && nav.moved && e.type === 'pointerup' && now() - (nav.lastMoveWall || 0) < 1e9) startInertia();
     if (E.present && nav.moved) X.presentSnap && X.presentSnap(nav.vx);
     nav.pinch = null; requestVisible();
@@ -409,11 +409,31 @@ function tapAt(cx, cy, ptype) {
   const p = toPage(pv, cx, cy), r = 6 / E.scale;
   const items = itemsOf(pv.id);
   const ln = items.slice().reverse().find((it) => it.type === 'ln' && R().inBox(it, p.x, p.y, r));
-  if (ln) { followLink(ln); return; }
+  if (ln) { followLink(ln); return true; }
   const tp = items.slice().reverse().find((it) => it.type === 'tp' && R().hit(it, p.x, p.y, r));
-  if (tp) { toggleTape(pv.id, tp); return; }
-  if (E.present) X.presentTap && X.presentTap(cx);
+  if (tp) { toggleTape(pv.id, tp); return true; }
+  if (E.present) { X.presentTap && X.presentTap(cx); return true; }
+  return false;
 }
+// Double-tap au doigt = raccourci façon Apple Pencil (gomme ↔ outil, ou outil précédent).
+// Safari ne transmet pas le double-tap ni le « squeeze » du Pencil aux sites web : on le reproduit au doigt.
+let lastTap = null;
+function quickTap(cx, cy) {
+  const t = now();
+  if (lastTap && t - lastTap.t < 380 && Math.hypot(cx - lastTap.x, cy - lastTap.y) < 45) { lastTap = null; quickSwitch(); return; }
+  lastTap = { t, x: cx, y: cy };
+}
+function quickSwitch(mode = TP.dblTap || 'eraser') {
+  if (!E || mode === 'off' || !canEdit()) return;
+  const NAMES = { pen: 'Stylo', hl: 'Surligneur', eraser: 'Gomme', lasso: 'Lasso', shape: 'Formes', text: 'Texte', tape: 'Ruban', laser: 'Laser' };
+  let next;
+  if (mode === 'prev') next = TP.lastTool && TP.lastTool !== TP.tool ? TP.lastTool : (TP.tool === 'pen' ? 'eraser' : 'pen');
+  else next = TP.tool === 'eraser' ? (TP.backTool && TP.backTool !== 'eraser' ? TP.backTool : 'pen') : 'eraser';
+  if (next === 'eraser' && TP.tool !== 'eraser') TP.backTool = TP.tool;
+  setTool(next); flashMsg(NAMES[next] || next);
+  try { navigator.vibrate && navigator.vibrate(10); } catch (_) {}
+}
+X.quickSwitch = quickSwitch;
 function followLink(ln) {
   if (ln.page) { const pg = E.pages.find((p) => p.id === ln.page); if (pg) goPage(pg.id); else U().toast('Page introuvable'); }
   else if (ln.href) window.open(ln.href, '_blank', 'noopener');
@@ -433,7 +453,9 @@ function onWheel(e) {
 }
 
 function startGesture(e) {
-  const tool = E.present ? 'laser' : (E.readonly && TP.tool !== 'laser') ? null : TP.tool;
+  // bout « gomme » d'un stylet (bouton 5) ou bouton latéral (bouton 2) : gomme le temps du geste
+  const penEraser = e.pointerType === 'pen' && (e.button === 5 || (e.buttons & 32) || ((e.button === 2 || (e.buttons & 2)) && (TP.barrel || 'eraser') === 'eraser'));
+  const tool = E.present ? 'laser' : (E.readonly && TP.tool !== 'laser') ? null : penEraser ? 'eraser' : TP.tool;
   if (!tool) { if (e.pointerType !== 'mouse') navDown(e); return; }
   if (tool === 'laser') { G = { kind: 'laser', pid: e.pointerId, ptype: e.pointerType, t0: now(), cx: e.clientX, cy: e.clientY }; X.laserPoint(e.clientX, e.clientY, true); capture(e); return; }
   const pv = pvAtClient(e.clientX, e.clientY);
@@ -684,6 +706,7 @@ function onKey(e) {
   if (e.key === 'Escape') { if (E.sel) X.clearSel(); else if (X.closePanels && X.closePanels()) {} else close(); return; }
   const k = e.key.toLowerCase();
   if (KEYS[k] && (canEdit() || KEYS[k] === 'laser')) { setTool(KEYS[k]); return; }
+  if (k === 'g' && canEdit()) { quickSwitch(); return; }
   if (k === 'i' && canEdit()) { X.insertImageMenu && X.insertImageMenu(); return; }
   if (['1', '2', '3'].includes(k) && toolCfg().sizes) { toolCfg().si = +k - 1; saveTP(); X.renderTools(); return; }
   if (k === '=' || k === '+') { zoomAt(E.zoom * 1.25, E.sc.clientWidth / 2, E.sc.clientHeight / 2, false); return; }
@@ -702,6 +725,7 @@ function setTool(t) {
   if (!E) return;
   if (t !== 'lasso' && E.sel) X.clearSel();
   X.commitText && X.commitText();
+  if (t !== TP.tool) TP.lastTool = TP.tool;
   TP.tool = t; saveTP(); X.renderTools();
 }
 X.setTool = setTool;
