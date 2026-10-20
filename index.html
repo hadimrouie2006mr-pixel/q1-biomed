@@ -402,7 +402,7 @@ button.item:hover { background: var(--paper); }
 <!-- App -->
 <div class="shell" id="app" hidden>
   <nav class="rail" aria-label="Navigation">
-    <div class="brand">Mon Q1 Biomed<small>BA1 sciences biomédicales · B6</small></div>
+    <div class="brand">Mon Q1 Biomed<small id="brandsub">BA1 sciences biomédicales</small></div>
     <div id="railTabs"></div>
     <div class="spacer"></div>
     <div class="meta" id="maj"></div>
@@ -459,25 +459,44 @@ async function deriveKey(pw, cfg) {
   return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b64(cfg.salt), iterations: cfg.iter, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
 }
 const decrypt = (buf) => { const u = new Uint8Array(buf); return crypto.subtle.decrypt({ name: 'AES-GCM', iv: u.slice(0, 12) }, KEY, u.slice(12)); };
+/* ---------- Profils : chaque profil a son dossier, son mot de passe et ses données chiffrées ----------
+   « sans » = ce qui n'existe pas pour ce profil (pas d'accès à son Moodle, à son Google Agenda ni d'agent prépa). */
+const PROFILES = [
+  { dir: '', id: '', nom: 'Hadi', groupe: 'B6', sans: [] },
+  { dir: 'ayah/', id: 'ayah', nom: 'Ayah', groupe: 'B7', sans: ['quiz', 'annonces', 'agenda', 'prepa', 'visites'] }
+];
+let PROF = PROFILES[0];
+const has = (f) => !PROF.sans.includes(f);
 const fetchBuf = (u) => fetch(u, { cache: 'no-cache' }).then((r) => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); });
-async function unlockWith(k) { KEY = k; D = JSON.parse(new TextDecoder().decode(await decrypt(await fetchBuf('data.enc')))); }
+const fetchEnc = (u) => fetchBuf(PROF.dir + u);
+async function unlockWith(k, prof) {
+  const u = new Uint8Array(await fetchBuf(prof.dir + 'data.enc'));
+  const d = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: u.slice(0, 12) }, k, u.slice(12))));
+  KEY = k; D = d; PROF = prof;
+}
 async function tryStored() {
   try {
     const raw = localStorage.getItem(KEYSTORE); if (!raw) return false;
-    await unlockWith(await crypto.subtle.importKey('raw', b64(raw), { name: 'AES-GCM' }, true, ['encrypt', 'decrypt'])); return true;
-  } catch (_) { try { localStorage.removeItem(KEYSTORE); } catch (__) {} return false; }
+    const prof = PROFILES.find((p) => p.id === (localStorage.getItem(KEYSTORE + '.profil') || '')) || PROFILES[0];
+    await unlockWith(await crypto.subtle.importKey('raw', b64(raw), { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']), prof); return true;
+  } catch (_) { try { localStorage.removeItem(KEYSTORE); localStorage.removeItem(KEYSTORE + '.profil'); } catch (__) {} return false; }
 }
 $('#login').addEventListener('submit', async (ev) => {
   ev.preventDefault(); $('#err').textContent = ''; const go = $('#go'); go.disabled = true; go.textContent = 'Ouverture…';
   try {
-    const cfg = await fetch('cfg.json', { cache: 'no-cache' }).then((r) => r.json());
-    const k = await deriveKey($('#pw').value, cfg); await unlockWith(k);
-    if ($('#remember').checked) { try { const raw = new Uint8Array(await crypto.subtle.exportKey('raw', k)); localStorage.setItem(KEYSTORE, btoa(String.fromCharCode(...raw))); } catch (_) {} }
+    // on essaie le mot de passe sur chaque profil : celui qui déchiffre est le bon
+    let k = null, online = false;
+    for (const prof of PROFILES) {
+      let cfg; try { cfg = await fetch(prof.dir + 'cfg.json', { cache: 'no-cache' }).then((r) => { if (!r.ok) throw 0; return r.json(); }); online = true; } catch (_) { continue; }
+      try { const kk = await deriveKey($('#pw').value, cfg); await unlockWith(kk, prof); k = kk; break; } catch (_) {}
+    }
+    if (!k) throw new Error(online ? 'pw' : 'net');
+    if ($('#remember').checked) { try { const raw = new Uint8Array(await crypto.subtle.exportKey('raw', k)); localStorage.setItem(KEYSTORE, btoa(String.fromCharCode(...raw))); localStorage.setItem(KEYSTORE + '.profil', PROF.id); } catch (_) {} }
     start();
   } catch (_) { $('#err').textContent = 'Mot de passe incorrect, ou pas de connexion. Vérifie et réessaie.'; }
   finally { go.disabled = false; go.textContent = 'Ouvrir'; }
 });
-document.addEventListener('click', (e) => { if (e.target.closest('[data-logout]')) { try { localStorage.removeItem(KEYSTORE); } catch (_) {} location.hash = ''; location.reload(); } });
+document.addEventListener('click', (e) => { if (e.target.closest('[data-logout]')) { try { localStorage.removeItem(KEYSTORE); localStorage.removeItem(KEYSTORE + '.profil'); } catch (_) {} location.hash = ''; location.reload(); } });
 
 /* ---------- Outils ---------- */
 const MAT = { Bio: 'bio', Chimie: 'chimie', Maths: 'maths', Physique: 'physique', Anatomie: 'anat' };
@@ -523,14 +542,14 @@ const icon = (k) => { const s = document.createElementNS('http://www.w3.org/2000
 /* ---------- Données dérivées ---------- */
 let quiz = [], hor = [], pdfs = [], cours = [], prep = [], agenda = [], annonces = [];
 function prepare() {
-  quiz = (D.quiz || []).slice().sort((a, b) => String(a.ouverture).localeCompare(String(b.ouverture)));
-  hor = (D.horaire || []).slice().sort((a, b) => String(a.debut).localeCompare(String(b.debut)));
+  quiz = (has('quiz') ? D.quiz || [] : []).slice().sort((a, b) => String(a.ouverture).localeCompare(String(b.ouverture)));
+  hor = (D.horaire || []).map((x) => (has('prepa') ? x : { ...x, a_preparer: false })).sort((a, b) => String(a.debut).localeCompare(String(b.debut)));
   pdfs = (D.pdfs || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
   cours = (D.cours || []).slice();
-  annonces = (D.annonces || []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
-  prep = hor.filter((x) => x.a_preparer === true).map((x) => ({ ...x, pdf: pdfs.find((p) => String(p.seance_id) === String(x.id)) || null }));
+  annonces = (has('annonces') ? D.annonces || [] : []).slice().sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  prep = hor.filter((x) => has('prepa') && x.a_preparer === true).map((x) => ({ ...x, pdf: pdfs.find((p) => String(p.seance_id) === String(x.id)) || null }));
   // Google Agenda : on retire ce qui fait doublon avec l'horaire TimeEdit
-  agenda = (D.agenda || []).filter((e) => {
+  agenda = (has('agenda') ? D.agenda || [] : []).filter((e) => {
     const day = String(e.debut).slice(0, 10);
     const code = (String(e.titre).match(/^([A-Z]{4}G?\d{4})/) || [])[1];
     if (code && hor.some((x) => x.code === code && x.debut === e.debut)) return false;
@@ -575,14 +594,16 @@ const quizStatus = (q, now) => {
 
 /* ---------- Navigation ---------- */
 function buildTabs() {
-  const mk = () => TABS.map(([id, txt, ic]) => h('a', { class: 'tab', href: '#' + id, 'data-tab': id }, icon(ic), txt));
+  const mk = () => TABS.filter(([id]) => has(id)).map(([id, txt, ic]) => h('a', { class: 'tab', href: '#' + id, 'data-tab': id }, icon(ic), txt));
   $('#railTabs').replaceChildren(...mk()); $('#bottomTabs').replaceChildren(...mk());
+  $('#bottomTabs').style.setProperty('grid-template-columns', `repeat(${TABS.filter(([id]) => has(id)).length}, 1fr)`, 'important');
 }
 function route() {
   const hash = location.hash.slice(1);
   if (hash.startsWith('cahier-') && window.Q1Notes) { show('cahiers'); Q1Notes.openFromHash(hash.slice(7)); return; }
   if (hash.startsWith('pdf-')) { const p = pdfs.find((x) => 'pdf-' + x.id === hash); if (p) { show('pdf'); openPdf(p); return; } }
-  const tab = TABS.some((t) => t[0] === hash) ? hash : (prefs.tab && TABS.some((t) => t[0] === prefs.tab) ? prefs.tab : 'aujourdhui');
+  const ok = (t) => TABS.some((x) => x[0] === t) && has(t);
+  const tab = ok(hash) ? hash : (prefs.tab && ok(prefs.tab) ? prefs.tab : 'aujourdhui');
   show(tab);
 }
 function show(tab) {
@@ -672,10 +693,10 @@ function pageToday() {
   const first = todos[0];
   const sub = first ? (first.kind === 'quiz' ? `En premier : ${first.q.titre}, ${rel(first.q.ouverture, now)} à ${hh(first.q.ouverture)}.` : `En premier : préparer la séance de ${first.p.matiere.toLowerCase()}, ${rel(first.p.debut, now)}.`) : (nextPrep ? `Prochaine séance à préparer : ${nextPrep.matiere.toLowerCase()}, ${rel(nextPrep.debut, now)}.` : 'Rien d’urgent.');
   return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('span', { class: 'eyebrow' }, greeting), h('h1', {}, 'Bonjour Hadi'),
+    h('header', { class: 'page-head' }, h('span', { class: 'eyebrow' }, greeting), h('h1', {}, 'Bonjour ' + PROF.nom),
       h('p', {}, nToday ? `${nToday} cours aujourd'hui${nPrepToday ? `, dont ${nPrepToday} à préparer` : ''}. ${sub}` : sub)),
     nowCard,
-    h('section', { class: 'block' }, h('h2', {}, 'À faire', h('span', { class: 'count' }, '3 prochains jours')), todoList),
+    has('quiz') || has('prepa') ? h('section', { class: 'block' }, h('h2', {}, 'À faire', h('span', { class: 'count' }, '3 prochains jours')), todoList) : null,
     h('section', { class: 'block' }, h('h2', {}, showDay === today ? "Programme d'aujourd'hui" : `Programme ${rel(showDay + 'T12:00', now) === 'demain' ? 'de demain' : 'du ' + fLong(showDay + 'T12:00')}`), tl),
     freshNews.length ? h('section', { class: 'block' }, h('h2', {}, importantNews.length ? (importantNews.length > 1 ? 'Annonces importantes' : 'Annonce importante') : 'Dernière annonce', h('a', { class: 'count', href: '#cours', style: 'font-weight:700;color:var(--ink)' }, 'Toutes')), h('div', { class: 'sheet' }, freshNews.map((a) => newsEl(a, now)))) : null);
 }
@@ -685,7 +706,7 @@ function pageWeek() {
   const now = nowL(), today = now.slice(0, 10);
   const days = Array.from({ length: 7 }, (_, i) => addD(today, i));
   let sel = days.includes(prefs.day) ? prefs.day : today;
-  let onlyPrep = !!prefs.onlyPrep;
+  let onlyPrep = has('prepa') && !!prefs.onlyPrep;
   const strip = h('div', { class: 'days', role: 'group', 'aria-label': 'Choisir un jour' });
   const listBox = h('div', { class: 'sheet timeline' });
   const drawStrip = () => strip.replaceChildren(...days.map((d) => {
@@ -707,9 +728,9 @@ function pageWeek() {
   const toggle = h('label', { class: 'toggle' }, h('input', { type: 'checkbox', id: 'onlyprep', checked: onlyPrep || null, onchange: (e) => { onlyPrep = e.target.checked; prefs.onlyPrep = onlyPrep; savePrefs(); drawList(); } }), 'Seulement ce qui est à préparer');
   drawStrip(); drawList();
   // Vue Google Agenda (intégré) ou vue liste. L'adresse de l'agenda reste sur l'appareil.
-  let mode = prefs.weekMode === 'liste' ? 'liste' : 'agenda';
+  let mode = !has('agenda') || prefs.weekMode === 'liste' ? 'liste' : 'agenda';
   let gcalForce = false;
-  const listView = h('div', { class: 'filters' }, strip, toggle, h('section', { class: 'block' }, head, listBox));
+  const listView = h('div', { class: 'filters' }, strip, has('prepa') ? toggle : null, h('section', { class: 'block' }, head, listBox));
   const gcalBox = h('div', { class: 'gcal' });
   const drawGcal = () => {
     gcalBox.replaceChildren();
@@ -754,7 +775,7 @@ function pageWeek() {
   drawSwitch();
   return h('div', { class: 'page' },
     h('header', { class: 'page-head' }, h('span', { class: 'eyebrow' }, 'Les 7 prochains jours'), h('h1', {}, `${P(days[0]).getDate()}${P(days[0]).getMonth() === P(days[6]).getMonth() ? '' : ' ' + P(days[0]).toLocaleDateString('fr-BE', { month: 'short' })} – ${P(days[6]).toLocaleDateString('fr-BE', { day: 'numeric', month: 'long' })}`)),
-    viewSwitch, gcalBox, listView);
+    has('agenda') ? viewSwitch : null, gcalBox, listView);
 }
 
 /* ---------- Aides communes (Quiz, PDF, Cours) ---------- */
@@ -929,7 +950,7 @@ function pageCours() {
   // la prochaine fois, seules les annonces arrivées après maintenant seront « nouvelles »
   const latest = annonces.reduce((m, a) => (String(a.date) > m ? String(a.date) : m), seenAt);
   prefs.newsSeenAt = latest > now ? now : latest; savePrefs();
-  let tab = prefs.coursTab === 'cours' ? 'cours' : 'news';
+  let tab = !has('annonces') || prefs.coursTab === 'cours' ? 'cours' : 'news';
   let nMat = prefs.newsMat || 'Tout', others = !!prefs.newsOthers, nMax = 8;
   const nMats = ORDER.filter((m) => annonces.some((a) => a.matiere === m));
   const nChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrer les annonces' });
@@ -960,7 +981,7 @@ function pageCours() {
       h('span', { class: 'cinfo' },
         s ? h('span', {}, h('b', {}, 'Prochaine séance'), ` ${s.type ? s.type.toLowerCase() + ', ' : ''}${rel(s.debut, now)} ${hh(s.debut)}`) : null,
         qz ? h('span', {}, h('b', {}, 'Prochain quiz'), ` ${qz.titre}, ${rel(qz.ouverture, now)}`) : null,
-        h('span', { class: 'seen' }, c.dernier_acces ? `Dernière visite sur l’UV ${ago(c.dernier_acces, now)}` : 'Pas encore ouvert sur l’UV')));
+        !has('visites') ? null : h('span', { class: 'seen' }, c.dernier_acces ? `Dernière visite sur l’UV ${ago(c.dernier_acces, now)}` : 'Pas encore ouvert sur l’UV')));
   };
   const groups = [['Ce quadrimestre', (c) => String(c.quadri).startsWith('Q1')], ['Deuxième quadrimestre', (c) => c.quadri === 'Q2'], ['Soutien et remédiation', (c) => !String(c.quadri).startsWith('Q')]];
   const coursView = h('div', { class: 'filters' },
@@ -977,8 +998,8 @@ function pageCours() {
   };
   drawNews(); drawTab();
   return h('div', { class: 'page cz' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'Cours'), h('p', {}, 'Les annonces de tes profs (groupe B6) et l’accès direct à tes cours sur l’UV.')),
-    segBox, newsView, coursView);
+    h('header', { class: 'page-head' }, h('h1', {}, 'Cours'), h('p', {}, has('annonces') ? `Les annonces de tes profs (groupe ${PROF.groupe}) et l’accès direct à tes cours sur l’UV.` : 'L’accès direct à tes cours sur l’UV.')),
+    has('annonces') ? segBox : null, newsView, coursView);
 }
 
 /* ---------- Lecteur PDF ---------- */
@@ -992,7 +1013,7 @@ async function openPdf(p) {
   const pages = $('#pages'); pages.replaceChildren(h('p', { class: 'msg' }, 'Ouverture du PDF…'));
   if (!p.enc) { pages.replaceChildren(h('p', { class: 'msg' }, 'Ce PDF n’est pas encore en ligne. Il le sera après la prochaine mise à jour du site.')); return; }
   try {
-    const buf = await decrypt(await fetchBuf(p.enc)); if (cur !== p) return;
+    const buf = await decrypt(await fetchEnc(p.enc)); if (cur !== p) return;
     doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
     $('#rinfo').textContent = doc.numPages + ' p.'; zoom = 1; layout();
   } catch (_) { pages.replaceChildren(h('p', { class: 'msg' }, 'Impossible d’ouvrir ce PDF. Vérifie ta connexion, puis réessaie.')); }
@@ -1165,14 +1186,14 @@ if ('serviceWorker' in navigator) {
 }
 function cacheForOffline() {
   if (!swReady) return;
-  swReady.then((reg) => { if (!reg || !reg.active) return; reg.active.postMessage({ type: 'cache', urls: pdfs.filter((p) => p.enc).map((p) => p.enc) }); });
+  swReady.then((reg) => { if (!reg || !reg.active) return; reg.active.postMessage({ type: 'cache', urls: pdfs.filter((p) => p.enc).map((p) => PROF.dir + p.enc) }); });
 }
 
 /* ---------- Démarrage ---------- */
 function start() {
-  prepare(); buildTabs(); netState(); $('#pomoFab').hidden = false; drawFab(); cacheForOffline();
+  prepare(); $('#brandsub').textContent = 'BA1 sciences biomédicales · ' + PROF.groupe; document.documentElement.dataset.profil = PROF.id || 'principal'; buildTabs(); netState(); $('#pomoFab').hidden = false; drawFab(); cacheForOffline();
   if (D.maj) $('#maj').textContent = 'Mis à jour le ' + new Date(D.maj).toLocaleString('fr-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-  if (window.Q1Notes && Q1Notes.boot) Q1Notes.boot({ key: KEY, pdfs: () => pdfs, decrypt, fetchBuf });
+  if (window.Q1Notes && Q1Notes.boot) Q1Notes.boot({ key: KEY, pdfs: () => pdfs, decrypt, fetchBuf: fetchEnc, profile: PROF.id });
   $('#lock').hidden = true; $('#app').hidden = false; route();
 }
 tryStored().then((ok) => { if (ok) start(); else $('#pw').focus(); });

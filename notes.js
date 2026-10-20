@@ -860,7 +860,7 @@ N.cards = cards;
 let bootResolve; N.ready = new Promise((r) => { bootResolve = r; });
 N.boot = async (app) => {
   N.app = app;
-  try { await S().init(app.key); await loadIndex(); } catch (e) { console.warn('Cahiers indisponibles', e); }
+  try { S().setProfile(app.profile); await S().init(app.key); await loadIndex(); } catch (e) { console.warn('Cahiers indisponibles', e); }
   bootResolve();
   S().on('status', () => { document.querySelectorAll('.nb-lib .nb-hero .nb-status').forEach((el) => el.replaceWith(statusPill())); N.editor && N.editor.onStatus && N.editor.onStatus(); });
   S().on('change', async (paths) => {

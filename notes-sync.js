@@ -7,12 +7,21 @@
 (() => {
 'use strict';
 const N = window.Q1Notes = window.Q1Notes || {};
-const DBNAME = 'q1notes', TOKKEY = 'q1biomed.ghtok', CFGKEY = 'q1biomed.notesync', DEVKEY = 'q1biomed.dev';
-const API = 'https://api.github.com', BRANCH = 'notes';
+let DBNAME = 'q1notes', TOKKEY = 'q1biomed.ghtok', CFGKEY = 'q1biomed.notesync';
+const DEVKEY = 'q1biomed.dev';
+let BRANCH = 'notes';
+const API = 'https://api.github.com';
 const DEFAULT_REPO = 'hadimrouie2006mr-pixel/q1-biomed';
 
 let KEY = null, token = null;
-const cfg = (() => { try { return JSON.parse(localStorage.getItem(CFGKEY)) || {}; } catch (_) { return {}; } })();
+let cfg = {};
+const loadCfg = () => { try { cfg = JSON.parse(localStorage.getItem(CFGKEY)) || {}; } catch (_) { cfg = {}; } };
+loadCfg();
+// Autre profil (ex. « ayah ») : base locale, jeton, réglages et branche à part
+function setProfile(id) {
+  if (!id || dbp) return;
+  DBNAME = 'q1notes-' + id; TOKKEY = 'q1biomed.ghtok.' + id; CFGKEY = 'q1biomed.notesync.' + id; BRANCH = 'notes-' + id; loadCfg();
+}
 const saveCfg = () => { try { localStorage.setItem(CFGKEY, JSON.stringify(cfg)); } catch (_) {} };
 const repo = () => cfg.repo || DEFAULT_REPO;
 const dev = (() => { try { let d = localStorage.getItem(DEVKEY); if (!d) { d = Math.random().toString(36).slice(2, 8); localStorage.setItem(DEVKEY, d); } return d; } catch (_) { return Math.random().toString(36).slice(2, 8); } })();
@@ -396,7 +405,7 @@ N.store = {
   init, get, ensure, put, setObj, tomb, flush, stamp, uid, dev, on, mergeInto,
   blobPut, blobGet, syncNow, setActive, setToken, disconnect, testToken,
   hasToken: () => !!token, status: () => status, statusMsg: () => statusMsg, statusText: (s) => STATUS_TEXT[s || status] || '',
-  repo, setRepo: (r) => { cfg.repo = r; saveCfg(); }, lastSync: () => cfg.lastSync || 0, branch: BRANCH,
+  repo, setRepo: (r) => { cfg.repo = r; saveCfg(); }, lastSync: () => cfg.lastSync || 0, get branch() { return BRANCH; }, setProfile,
   exportAll, importAll, allDocPaths: () => idbKeys('docs'),
   _debug: () => ({ st, dirty: [...dirty] })
 };
