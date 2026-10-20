@@ -54,33 +54,56 @@ X.renderTools = () => {
       tool('laser', 'Pointeur laser', 'laser')));
     return;
   }
-  const t = X.TP.tool;
-  const tools = h('div', { class: 'ne-tgroup', role: 'group', 'aria-label': 'Outils' }, TOOLS.map(([k, l, ic]) => tool(k, l, ic)),
+  const t = X.TP.tool, cfg = X.toolCfg(t);
+  // 1re ligne : les outils (pastille = couleur actuelle de l'outil)
+  const row = h('div', { class: 'ne-trow', role: 'group', 'aria-label': 'Outils' }, TOOLS.map(([k, l, ic]) => tool(k, l, ic)),
     h('span', { class: 'ne-sep', 'aria-hidden': 'true' }),
     ib('image', 'Insérer une image', (ev) => X.insertImageMenu(ev.currentTarget)),
     ib('sticker', 'Éléments', () => elementsPanel()),
     ib('zoomwin', 'Fenêtre de zoom', () => toggleZw(), { 'aria-pressed': String(!!(e.zw)), class: 'nb-ib' + (e.zw ? ' on' : '') }));
-  const opts = h('div', { class: 'ne-ogroup', role: 'group', 'aria-label': 'Réglages de l’outil' });
-  const cfg = X.toolCfg(t);
-  if (cfg.sizes) opts.append(h('div', { class: 'ne-sizes' }, cfg.sizes.map((s, i) => h('button', { class: 'ne-size' + (cfg.si === i ? ' on' : ''), type: 'button', 'aria-label': `Épaisseur ${SIZE_LABEL[i].toLowerCase()} (${s} pt)`, 'aria-pressed': String(cfg.si === i), title: `${SIZE_LABEL[i]} · ${s} pt`, onclick: () => { if (cfg.si === i) toolOptions(); else { cfg.si = i; X.saveTP(); X.renderTools(); } } }, h('i', { style: `width:${6 + i * 5}px;height:${6 + i * 5}px` })))));
-  if (cfg.color) {
+  // 2e ligne : l'inspecteur de l'outil actif (maquette Claude Design « Barre d'outils »)
+  const insp = h('div', { class: 'ne-insp', role: 'group', 'aria-label': 'Réglages de l’outil' });
+  const sep = () => h('span', { class: 'ne-isep', 'aria-hidden': 'true' });
+  const seg = (key, list, lbl, onSet) => h('div', { class: 'seg ne-iseg', role: 'group', 'aria-label': lbl }, list.map(([k, l]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(cfg[key] === k), onclick: () => { cfg[key] = k; X.saveTP(); onSet && onSet(k); X.renderTools(); } }, l)));
+  const chip = (on, label, onclick, extra = {}) => h('button', Object.assign({ class: 'ne-ichip' + (on ? ' on' : ''), type: 'button', 'aria-pressed': on == null ? null : String(!!on), onclick }, extra), label);
+  const sizes = () => h('div', { class: 'ne-sizes', role: 'group', 'aria-label': 'Épaisseur' }, cfg.sizes.map((sz, i) => {
+    let mark;
+    if (t === 'eraser') { const d = clamp(sz * .55 + 5, 7, 24); mark = h('i', { class: 'ring', style: `width:${d}px;height:${d}px` }); }
+    else { const th = t === 'hl' ? clamp(sz * .45, 4, 14) : t === 'tape' ? clamp(sz * .4, 4, 12) : clamp(sz * 1.7, 2, 11); mark = h('i', { class: 'bar' + (t === 'hl' ? ' hl' : ''), style: `height:${th}px;--c:${cfg.color || 'currentColor'}` }); }
+    return h('button', { class: 'ne-size' + (cfg.si === i ? ' on' : ''), type: 'button', 'aria-label': `Épaisseur ${SIZE_LABEL[i].toLowerCase()} (${sz} pt)`, 'aria-pressed': String(cfg.si === i), title: `${SIZE_LABEL[i]} · ${sz} pt (touche à nouveau pour régler)`, onclick: () => { if (cfg.si === i) toolOptions(); else { cfg.si = i; X.saveTP(); X.renderTools(); } } }, mark);
+  }));
+  const colors = () => {
     const pal = t === 'hl' ? X.HLC : t === 'tape' ? X.TAPEC : X.PENC;
-    const sw = (c, fav) => h('button', { class: 'ne-color' + (cfg.color.toLowerCase() === c.toLowerCase() ? ' on' : ''), type: 'button', style: `--c:${c}`, 'aria-label': `Couleur ${c}${fav ? ' (favorite)' : ''}`, 'aria-pressed': String(cfg.color.toLowerCase() === c.toLowerCase()), title: c, onclick: () => { cfg.color = c; X.saveTP(); X.renderTools(); }, oncontextmenu: fav ? (ev) => { ev.preventDefault(); X.TP.favColors = X.TP.favColors.filter((x) => x !== c); X.saveTP(); X.renderTools(); } : null });
-    const custom = h('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(cfg.color) ? cfg.color : '#000000', 'aria-label': 'Couleur personnalisée', title: 'Couleur personnalisée', class: 'ne-colorinp', onchange: (ev) => { cfg.color = ev.target.value; X.saveTP(); X.renderTools(); } });
-    opts.append(h('div', { class: 'ne-colors' }, pal.map((c) => sw(c)), X.TP.favColors.filter((c) => !pal.includes(c)).map((c) => sw(c, true)),
-      h('label', { class: 'ne-color custom', title: 'Couleur personnalisée' }, ico('palette'), custom)));
-  }
-  if (t === 'eraser') opts.append(h('div', { class: 'seg ne-seg' }, [['stroke', 'Trait'], ['partial', 'Partielle'], ['hl', 'Surligneur']].map(([k, l]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(cfg.mode === k), onclick: () => { cfg.mode = k; X.saveTP(); X.renderTools(); } }, l))));
-  if (t === 'lasso') opts.append(h('span', { class: 'ne-hint' }, e.sel ? `${e.sel.ids.length} élément${e.sel.ids.length > 1 ? 's' : ''} sélectionné${e.sel.ids.length > 1 ? 's' : ''}` : 'Entoure ce que tu veux déplacer, modifier ou copier.'));
-  if (t === 'laser') opts.append(h('span', { class: 'ne-hint' }, 'Le trait disparaît tout seul.'));
-  if (t === 'text') opts.append(h('span', { class: 'ne-hint' }, 'Touche la page pour écrire.'));
-  // outils favoris
+    const sw = (c, fav) => h('button', { class: 'ne-color' + (cfg.color.toLowerCase() === c.toLowerCase() ? ' on' : ''), type: 'button', style: `--c:${c}`, 'aria-label': `Couleur ${c}${fav ? ' (favorite, clic droit pour retirer)' : ''}`, 'aria-pressed': String(cfg.color.toLowerCase() === c.toLowerCase()), title: c, onclick: () => { cfg.color = c; X.saveTP(); X.renderTools(); }, oncontextmenu: fav ? (ev) => { ev.preventDefault(); X.TP.favColors = X.TP.favColors.filter((x) => x !== c); X.saveTP(); X.renderTools(); } : null });
+    const custom = h('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(cfg.color) ? cfg.color : '#000000', 'aria-label': 'Couleur personnalisée', class: 'ne-colorinp', onchange: (ev) => { cfg.color = ev.target.value; X.saveTP(); X.renderTools(); } });
+    const isCustom = !pal.concat(X.TP.favColors).some((c) => c.toLowerCase() === cfg.color.toLowerCase());
+    return h('div', { class: 'ne-colors', role: 'group', 'aria-label': 'Couleur' }, pal.map((c) => sw(c)), X.TP.favColors.filter((c) => !pal.includes(c)).map((c) => sw(c, true)),
+      h('label', { class: 'ne-color custom' + (isCustom ? ' on' : ''), title: 'Couleur personnalisée', style: isCustom ? `--c:${cfg.color}` : '' }, custom));
+  };
+  const hint = (txt) => h('span', { class: 'ne-hint' }, txt);
+  if (t === 'pen') insp.append(seg('pen', [['fountain', 'Plume'], ['ball', 'Bille'], ['brush', 'Pinceau']], 'Type de stylo'), sep(), sizes(), sep(), colors());
+  else if (t === 'hl') insp.append(chip(cfg.straight, 'Trait droit', () => { cfg.straight = !cfg.straight; X.saveTP(); X.renderTools(); }), sep(), sizes(), sep(), colors());
+  else if (t === 'eraser') insp.append(seg('mode', [['stroke', 'Trait entier'], ['partial', 'Partielle'], ['hl', 'Surligneur']], 'Type de gomme'), sep(), sizes(), sep(), chip(null, 'Effacer la page', () => clearPage(), { class: 'ne-ichip danger' }));
+  else if (t === 'shape') insp.append(seg('kind', [['auto', 'Auto'], ['line', 'Ligne'], ['arrow', 'Flèche'], ['rect', 'Rect.'], ['ellipse', 'Ellipse'], ['tri', 'Tri.']], 'Forme'), sep(), chip(cfg.fill, 'Remplir', () => { cfg.fill = !cfg.fill; X.saveTP(); X.renderTools(); }), sep(), sizes(), sep(), colors());
+  else if (t === 'text') insp.append(seg('font', [['sans', 'Sans'], ['serif', 'Serif'], ['mono', 'Machine']], 'Police'), sep(),
+    h('button', { class: 'ne-ichip', type: 'button', 'aria-label': 'Texte plus petit', onclick: () => { cfg.fs = Math.max(6, cfg.fs - 2); X.saveTP(); X.renderTools(); } }, 'A−'), h('span', { class: 'ne-hint num' }, cfg.fs + ' pt'),
+    h('button', { class: 'ne-ichip', type: 'button', 'aria-label': 'Texte plus grand', onclick: () => { cfg.fs = Math.min(96, cfg.fs + 2); X.saveTP(); X.renderTools(); } }, 'A+'),
+    chip(cfg.bold, h('b', {}, 'G'), () => { cfg.bold = !cfg.bold; X.saveTP(); X.renderTools(); }, { 'aria-label': 'Gras' }),
+    chip(cfg.italic, h('i', { style: 'font-family:Georgia,serif;font-weight:700' }, 'I'), () => { cfg.italic = !cfg.italic; X.saveTP(); X.renderTools(); }, { 'aria-label': 'Italique' }), sep(), colors());
+  else if (t === 'tape') insp.append(sizes(), sep(), colors(), sep(), chip(null, 'Tout révéler', () => setAllTapes(true)), chip(null, 'Tout masquer', () => setAllTapes(false)));
+  else if (t === 'lasso') insp.append(hint(e.sel ? `${e.sel.ids.length} élément${e.sel.ids.length > 1 ? 's' : ''} sélectionné${e.sel.ids.length > 1 ? 's' : ''}` : 'Entoure ce que tu veux déplacer, modifier ou copier'),
+    sep(), chip(null, 'Tout sélectionner', () => X.selectItems(e.cur, X.itemsOf(e.cur).map((i) => i.id))), X.hasClip() ? chip(null, 'Coller', () => X.paste()) : null);
+  else if (t === 'laser') insp.append(hint('Le trait rouge s’efface tout seul'), sep(), chip(null, 'Présentation', () => enterPresent()));
   const presets = X.TP.presets || [];
-  if (presets.length) opts.append(h('div', { class: 'ne-presets', role: 'group', 'aria-label': 'Outils favoris' }, presets.map((p, i) => h('button', { class: 'ne-preset', type: 'button', style: `--c:${p.color}`, 'aria-label': `Outil favori : ${p.label}`, title: p.label + ' (clic droit pour retirer)', onclick: () => applyPreset(p), oncontextmenu: (ev) => { ev.preventDefault(); X.TP.presets.splice(i, 1); X.saveTP(); X.renderTools(); } }, ico(p.tool === 'hl' ? 'hl' : p.tool === 'shape' ? 'shape' : 'pen'), h('i')))));
-  opts.append(ib('more', 'Réglages de l’outil', () => toolOptions(), { class: 'nb-ib ne-optbtn' }));
-  bar.replaceChildren(tools, opts);
+  if (presets.length && ['pen', 'hl', 'shape'].includes(t)) insp.append(sep(), h('div', { class: 'ne-presets', role: 'group', 'aria-label': 'Outils favoris' }, presets.map((p, i) => h('button', { class: 'ne-preset', type: 'button', style: `--c:${p.color}`, 'aria-label': `Outil favori : ${p.label}`, title: p.label + ' (clic droit pour retirer)', onclick: () => applyPreset(p), oncontextmenu: (ev) => { ev.preventDefault(); X.TP.presets.splice(i, 1); X.saveTP(); X.renderTools(); } }, ico(p.tool === 'hl' ? 'hl' : p.tool === 'shape' ? 'shape' : 'pen'), h('i')))));
+  insp.append(ib('more', 'Plus de réglages pour cet outil', () => toolOptions(), { class: 'nb-ib ne-optbtn' }));
+  bar.replaceChildren(h('div', { class: 'ne-tcard' }, row, insp));
 };
-function tool(k, l, ic) { const on = X.TP.tool === k; return h('button', { class: 'ne-tool' + (on ? ' on' : ''), type: 'button', 'aria-label': l, title: l, 'aria-pressed': String(on), onclick: () => { if (on && k !== 'laser') toolOptions(); else X.setTool(k); } }, ico(ic)); }
+function tool(k, l, ic) {
+  const on = X.TP.tool === k, c = X.TP[k] && X.TP[k].color;
+  return h('button', { class: 'ne-tool' + (on ? ' on' : ''), type: 'button', 'aria-label': l, title: l, 'aria-pressed': String(on), onclick: () => { if (on && k !== 'laser') toolOptions(); else X.setTool(k); } },
+    ico(ic), h('span', { class: 'ne-pill', style: c && k !== 'laser' ? `--c:${c}` : '', 'aria-hidden': 'true' }));
+}
 function applyPreset(p) { const c = X.TP[p.tool]; Object.assign(c, { color: p.color }); if (p.pen) c.pen = p.pen; if (c.sizes) { c.sizes[c.si] = p.size; } X.TP.tool = p.tool; X.saveTP(); X.setTool(p.tool); }
 function toolOptions() {
   const t = X.TP.tool, cfg = X.toolCfg(t);
