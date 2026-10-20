@@ -56,11 +56,22 @@ X.renderTools = () => {
   }
   const t = X.TP.tool, cfg = X.toolCfg(t);
   // 1re ligne : les outils (pastille = couleur actuelle de l'outil)
-  const row = h('div', { class: 'ne-trow', role: 'group', 'aria-label': 'Outils' }, TOOLS.map(([k, l, ic]) => tool(k, l, ic)),
-    h('span', { class: 'ne-sep', 'aria-hidden': 'true' }),
-    ib('image', 'Insérer une image', (ev) => X.insertImageMenu(ev.currentTarget)),
-    ib('sticker', 'Éléments', () => elementsPanel()),
-    ib('zoomwin', 'Fenêtre de zoom', () => toggleZw(), { 'aria-pressed': String(!!(e.zw)), class: 'nb-ib' + (e.zw ? ' on' : '') }));
+  const insertMenu = (ev) => U().menu(ev.currentTarget, [
+    { label: 'Image ou photo', icon: 'image', onclick: () => X.insertImageMenu(X.root().querySelector('.ne-addbtn')) },
+    { label: 'Éléments', icon: 'sticker', onclick: () => elementsPanel() },
+    { label: e.zw ? 'Fermer la fenêtre de zoom' : 'Fenêtre de zoom', icon: 'zoomwin', onclick: () => toggleZw() },
+    '-',
+    { label: 'Remettre la barre en haut', icon: 'fit', onclick: () => { X.TP.bar = { fx: .5, fy: 0, vert: false }; X.saveTP(); X.renderTools(); } }
+  ]);
+  const quick = [];
+  if (cfg.sizes) quick.push(h('span', { class: 'ne-sep', 'aria-hidden': 'true' }), h('div', { class: 'ne-qsizes' }));
+  if (cfg.color) quick.push(h('div', { class: 'ne-qcolors' }));
+  const row = h('div', { class: 'ne-trow', role: 'group', 'aria-label': 'Outils' },
+    h('button', { class: 'ne-grip', type: 'button', 'aria-label': 'Déplacer la barre d’outils (glisser), toucher deux fois pour la remettre en haut', title: 'Glisser pour déplacer' }, ico('grip')),
+    TOOLS.map(([k, l, ic]) => tool(k, l, ic)),
+    ib('plus', 'Insérer : image, élément, fenêtre de zoom', insertMenu, { class: 'nb-ib ne-addbtn' + (e.zw ? ' on' : '') }),
+    quick,
+    ib(X.TP.inspOpen ? 'chevdown' : 'more', X.TP.inspOpen ? 'Masquer les réglages de l’outil' : 'Afficher tous les réglages de l’outil', () => { X.TP.inspOpen = !X.TP.inspOpen; X.saveTP(); X.renderTools(); }, { class: 'nb-ib ne-qmore' + (X.TP.inspOpen ? ' on' : ''), 'aria-expanded': String(!!X.TP.inspOpen) }));
   // 2e ligne : l'inspecteur de l'outil actif (maquette Claude Design « Barre d'outils »)
   const insp = h('div', { class: 'ne-insp', role: 'group', 'aria-label': 'Réglages de l’outil' });
   const sep = () => h('span', { class: 'ne-isep', 'aria-hidden': 'true' });
@@ -97,12 +108,64 @@ X.renderTools = () => {
   const presets = X.TP.presets || [];
   if (presets.length && ['pen', 'hl', 'shape'].includes(t)) insp.append(sep(), h('div', { class: 'ne-presets', role: 'group', 'aria-label': 'Outils favoris' }, presets.map((p, i) => h('button', { class: 'ne-preset', type: 'button', style: `--c:${p.color}`, 'aria-label': `Outil favori : ${p.label}`, title: p.label + ' (clic droit pour retirer)', onclick: () => applyPreset(p), oncontextmenu: (ev) => { ev.preventDefault(); X.TP.presets.splice(i, 1); X.saveTP(); X.renderTools(); } }, ico(p.tool === 'hl' ? 'hl' : p.tool === 'shape' ? 'shape' : 'pen'), h('i')))));
   insp.append(ib('more', 'Plus de réglages pour cet outil', () => toolOptions(), { class: 'nb-ib ne-optbtn' }));
-  bar.replaceChildren(h('div', { class: 'ne-tcard' }, row, insp));
+  // réglages rapides dans la barre compacte : 3 épaisseurs + 3 couleurs
+  const qs = row.querySelector('.ne-qsizes'); if (qs) qs.replaceWith(Object.assign(sizes(), { className: 'ne-sizes ne-qsizes' }));
+  const qc = row.querySelector('.ne-qcolors');
+  if (qc) {
+    const pal = (t === 'hl' ? X.HLC : t === 'tape' ? X.TAPEC : X.PENC).slice(0, 3);
+    if (!pal.some((c) => c.toLowerCase() === cfg.color.toLowerCase())) pal[2] = cfg.color;
+    qc.replaceChildren(...pal.map((c) => h('button', { class: 'ne-color' + (cfg.color.toLowerCase() === c.toLowerCase() ? ' on' : ''), type: 'button', style: `--c:${c}`, 'aria-label': `Couleur ${c}`, 'aria-pressed': String(cfg.color.toLowerCase() === c.toLowerCase()), onclick: () => { cfg.color = c; X.saveTP(); X.renderTools(); } })));
+  }
+  const pos = X.TP.bar || { fx: .5, fy: 0, vert: false };
+  const card = h('div', { class: 'ne-tcard' + (pos.vert ? ' vert' : '') + (pos.fx > .5 ? ' right' : '') + (X.TP.inspOpen ? ' open' : '') }, row, X.TP.inspOpen ? insp : null);
+  bar.replaceChildren(card);
+  placeBar(card);
+  dragBar(card);
 };
 function tool(k, l, ic) {
   const on = X.TP.tool === k, c = X.TP[k] && X.TP[k].color;
-  return h('button', { class: 'ne-tool' + (on ? ' on' : ''), type: 'button', 'aria-label': l, title: l, 'aria-pressed': String(on), onclick: () => { if (on && k !== 'laser') toolOptions(); else X.setTool(k); } },
+  return h('button', { class: 'ne-tool' + (on ? ' on' : ''), type: 'button', 'aria-label': l, title: l, 'aria-pressed': String(on), onclick: () => { if (on && k !== 'laser') { X.TP.inspOpen = !X.TP.inspOpen; X.saveTP(); X.renderTools(); } else X.setTool(k); } },
     ico(ic), h('span', { class: 'ne-pill', style: c && k !== 'laser' ? `--c:${c}` : '', 'aria-hidden': 'true' }));
+}
+// Barre flottante : position en fraction de la zone de travail, déplaçable au doigt / stylet / souris
+function placeBar(card) {
+  const rootR = X.root().getBoundingClientRect(), b = X.root().querySelector('.ne-scroll').getBoundingClientRect();
+  const pos = X.TP.bar || { fx: .5, fy: 0, vert: false };
+  const cw = card.offsetWidth, ch = card.offsetHeight, m = 8;
+  const left = b.left - rootR.left + m + clamp(pos.fx, 0, 1) * Math.max(0, b.width - cw - 2 * m);
+  const top = b.top - rootR.top + m + clamp(pos.fy, 0, 1) * Math.max(0, b.height - ch - 2 * m);
+  card.style.left = left + 'px'; card.style.top = top + 'px';
+}
+X.placeBar = () => { const c = X.root() && X.root().querySelector('.ne-tcard'); if (c) placeBar(c); };
+function dragBar(card) {
+  const grip = card.querySelector('.ne-grip'); let lastTap = 0;
+  const start = (ev) => {
+    if (ev.target.closest('button:not(.ne-grip), input, label, .ne-insp')) return;
+    ev.preventDefault(); try { card.setPointerCapture(ev.pointerId); } catch (_) {}
+    const rootR = X.root().getBoundingClientRect(), b = X.root().querySelector('.ne-scroll').getBoundingClientRect();
+    const sx = ev.clientX, sy = ev.clientY, l0 = parseFloat(card.style.left) || 0, t0 = parseFloat(card.style.top) || 0; let moved = false;
+    card.classList.add('dragging');
+    const mv = (m) => {
+      const dx = m.clientX - sx, dy = m.clientY - sy; if (Math.hypot(dx, dy) > 4) moved = true;
+      card.style.left = clamp(l0 + dx, b.left - rootR.left, b.right - rootR.left - card.offsetWidth) + 'px';
+      card.style.top = clamp(t0 + dy, b.top - rootR.top, b.bottom - rootR.top - card.offsetHeight) + 'px';
+    };
+    const up = (u) => {
+      card.removeEventListener('pointermove', mv); card.removeEventListener('pointerup', up); card.removeEventListener('pointercancel', up); card.classList.remove('dragging');
+      if (!moved) { const t = performance.now(); if (t - lastTap < 350) { X.TP.bar = { fx: .5, fy: 0, vert: false }; X.saveTP(); X.renderTools(); } lastTap = t; return; }
+      const m = 8, cw = card.offsetWidth, chh = card.offsetHeight;
+      const left = parseFloat(card.style.left) - (b.left - rootR.left) - m, top = parseFloat(card.style.top) - (b.top - rootR.top) - m;
+      // posé contre un bord gauche/droit : barre verticale ; sinon horizontale
+      const nearSide = u.clientX < b.left + 70 ? 0 : u.clientX > b.right - 70 ? 1 : null;
+      const vert = innerWidth >= 700 && nearSide !== null;
+      const fx = vert ? nearSide : clamp(left / Math.max(1, b.width - cw - 2 * m), 0, 1);
+      const fy = clamp(top / Math.max(1, b.height - chh - 2 * m), 0, 1);
+      X.TP.bar = { fx, fy, vert }; X.saveTP(); X.renderTools();
+    };
+    card.addEventListener('pointermove', mv); card.addEventListener('pointerup', up); card.addEventListener('pointercancel', up);
+  };
+  card.addEventListener('pointerdown', start);
+  void grip;
 }
 function applyPreset(p) { const c = X.TP[p.tool]; Object.assign(c, { color: p.color }); if (p.pen) c.pen = p.pen; if (c.sizes) { c.sizes[c.si] = p.size; } X.TP.tool = p.tool; X.saveTP(); X.setTool(p.tool); }
 function toolOptions() {
@@ -418,7 +481,7 @@ function toggleSide(force) {
   X.root().classList.toggle('side-open', !side.hidden);
   const b = X.root().querySelector('[aria-label="Pages"]'); if (b) b.setAttribute('aria-pressed', String(!side.hidden));
   if (!side.hidden) renderSide();
-  setTimeout(() => X.layout(), 0);
+  setTimeout(() => { X.layout(); X.placeBar(); }, 0);
 }
 X.toggleSide = toggleSide;
 X.closePanels = () => { const side = X.root().querySelector('.ne-side'); if (!side.hidden) { toggleSide(false); return true; } if (E().zw) { closeZw(); return true; } return false; };

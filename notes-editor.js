@@ -142,7 +142,7 @@ function buildRoot() {
   sc.addEventListener('touchstart', (e) => { if (e.touches.length > 1 || G) e.preventDefault(); }, { passive: false });
   sc.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
   sc.addEventListener('gesturestart', (e) => e.preventDefault());
-  window.addEventListener('resize', () => { if (E) { const a = anchorNow(); layout(); restoreAnchor(a); } });
+  window.addEventListener('resize', () => { if (E) { const a = anchorNow(); layout(); restoreAnchor(a); X.placeBar && X.placeBar(); } });
   document.addEventListener('keydown', onKey);
   document.addEventListener('paste', onPaste);
   window.addEventListener('hashchange', () => { if (E && !location.hash.startsWith('#cahier-')) close({ keepHash: true }); });
