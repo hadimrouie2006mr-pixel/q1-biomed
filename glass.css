@@ -1,0 +1,144 @@
+/* =====================================================================
+   Style B « Verre » (maquette Claude Design « Mon Q1 Biomed : refonte Apple », style B)
+   Couches de verre dépoli sur un fond de couleurs douces + animations soignées.
+   Chargé après theme.css.
+   ===================================================================== */
+:root {
+  --glass-bg: rgba(255,255,255,.58); --glass-bg2: rgba(255,255,255,.72); --glass-line: rgba(255,255,255,.75); --glass-edge: rgba(255,255,255,.9);
+  --glass-shadow: 0 10px 34px rgba(40,52,96,.12), 0 1px 2px rgba(40,52,96,.06);
+  --glass-blur: blur(26px) saturate(185%);
+  --wall: #e4eaf6; --blob1: #a9c8ff; --blob2: #ffd1b0; --blob3: #cbbcff; --blob4: #b8ecd8;
+  --soft: #4f5560; --faint: #565c66; /* plus foncés : lisibles sur le verre */
+  --spring: cubic-bezier(.34, 1.4, .64, 1); --ease: cubic-bezier(.2, .8, .2, 1);
+  --nb-card: rgba(255,255,255,.62); --nb-glass: rgba(255,255,255,.72); --nb-grouped: transparent;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --glass-bg: rgba(44,46,58,.5); --glass-bg2: rgba(54,56,70,.62); --glass-line: rgba(255,255,255,.09); --glass-edge: rgba(255,255,255,.14);
+  --glass-shadow: 0 12px 40px rgba(0,0,0,.45), 0 1px 2px rgba(0,0,0,.3);
+  --wall: #0b0d16; --blob1: #1d3f8f; --blob2: #6b2f4f; --blob3: #3b2a7a; --blob4: #0f4a45;
+  --soft: #b4b6c0; --faint: #a8aab4;
+  --nb-card: rgba(44,46,58,.55); --nb-glass: rgba(40,42,54,.78); --nb-grouped: transparent; } }
+:root[data-theme="dark"] {
+  --glass-bg: rgba(44,46,58,.5); --glass-bg2: rgba(54,56,70,.62); --glass-line: rgba(255,255,255,.09); --glass-edge: rgba(255,255,255,.14);
+  --glass-shadow: 0 12px 40px rgba(0,0,0,.45), 0 1px 2px rgba(0,0,0,.3);
+  --wall: #0b0d16; --blob1: #1d3f8f; --blob2: #6b2f4f; --blob3: #3b2a7a; --blob4: #0f4a45;
+  --soft: #b4b6c0; --faint: #a8aab4;
+  --nb-card: rgba(44,46,58,.55); --nb-glass: rgba(40,42,54,.78); --nb-grouped: transparent; }
+
+/* ---------- Fond : couleurs douces, fixes, qui respirent lentement ---------- */
+html, body { background: var(--wall); }
+body::before { content: ""; position: fixed; inset: -10vmax; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(38vmax 38vmax at 12% 8%, var(--blob1), transparent 70%),
+    radial-gradient(34vmax 34vmax at 92% 42%, var(--blob2), transparent 70%),
+    radial-gradient(36vmax 36vmax at 18% 96%, var(--blob3), transparent 70%),
+    radial-gradient(28vmax 28vmax at 78% 98%, var(--blob4), transparent 70%);
+  opacity: .9; animation: wall 38s ease-in-out infinite alternate; }
+@keyframes wall { 0% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-2vmax, 1.5vmax, 0) scale(1.05); } 100% { transform: translate3d(1.5vmax, -1vmax, 0) scale(1.02); } }
+.lock, .shell, .view, .rail { background: transparent !important; }
+
+/* ---------- Matière « verre » ---------- */
+.sheet, .stat, .kpi, .hero, .course, .daybtn, .nb-card, .nb-glist, .pomo-week, .gcal-frame,
+.lock .tags, .field input, .themefab, .pomo-fab:not(.run):not(.brk) {
+  background: var(--glass-bg) !important; border: 1px solid var(--glass-line) !important;
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-edge) !important;
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+.sheet, .stat, .kpi, .hero, .course, .nb-card, .nb-glist { border-radius: 26px !important; }
+.sheet.stats { background: none !important; border: 0 !important; box-shadow: none !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.sheet.stats .stat { border-radius: 24px !important; }
+.nowcard .prog, .bar { background: rgba(60,60,67,.12); height: 6px; border-radius: 3px; }
+.nowcard .prog i, .bar i { border-radius: 3px; }
+.hero .t, .nowcard .what, .page-head h1 { letter-spacing: -.035em; }
+.page-head h1 { font-weight: 800; }
+.search { background: var(--glass-bg) !important; border: 1px solid var(--glass-line) !important; -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: inset 0 1px 0 var(--glass-edge); }
+.chip { background: var(--glass-bg); border: 1px solid var(--glass-line); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+.chip[aria-pressed="true"] { background: var(--ink); border-color: transparent; }
+.seg { background: var(--glass-bg); border: 1px solid var(--glass-line); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border-radius: 14px; padding: 3px; position: relative; }
+.seg .chip { background: transparent !important; border: 0 !important; -webkit-backdrop-filter: none; backdrop-filter: none; border-radius: 11px; position: relative; z-index: 1; }
+.seg .chip[aria-pressed="true"] { background: var(--glass-bg2) !important; color: var(--ink); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.btn { -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.daybtn { border-radius: 18px !important; }
+.daybtn[aria-pressed="true"] { background: var(--focus) !important; border-color: transparent !important; color: #fff; box-shadow: 0 8px 22px color-mix(in srgb, var(--focus) 40%, transparent) !important; }
+.slot.cur { background-color: rgba(0,113,227,.08); }
+
+/* ---------- Barre latérale (iPad, ordi) : panneau de verre flottant ---------- */
+@media (min-width: 821px) {
+  .shell { grid-template-columns: 276px 1fr; }
+  .rail { position: sticky; top: 12px; height: calc(100vh - 24px); margin: 12px 0 12px 12px; border-radius: 30px; border: 1px solid var(--glass-line) !important;
+    background: var(--glass-bg) !important; box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-edge); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); padding: 24px 12px; }
+  #railTabs { position: relative; display: flex; flex-direction: column; gap: 2px; }
+  .rail .tab { position: relative; z-index: 1; background: none !important; transition: color .3s var(--ease); }
+  .rail .tab[aria-current="page"] { color: var(--focus); }
+  .rail .tab:hover { background: rgba(120,120,128,.08) !important; }
+}
+.tab-ind { position: absolute; left: 0; top: 0; z-index: 0; border-radius: 14px; background: var(--glass-bg2); box-shadow: 0 6px 18px rgba(30,40,80,.12), inset 0 1px 0 var(--glass-edge); border: 1px solid var(--glass-line);
+  transition: transform .55s var(--spring), width .55s var(--spring), height .55s var(--spring), opacity .2s; pointer-events: none; will-change: transform; }
+
+/* ---------- Barre d'onglets (iPhone) : capsule de verre qui flotte ---------- */
+@media (max-width: 820px) {
+  .bottom { left: 12px !important; right: 12px !important; bottom: calc(10px + env(safe-area-inset-bottom)) !important; border-radius: 32px; padding: 6px !important; border: 1px solid var(--glass-line) !important;
+    background: var(--glass-bg) !important; box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-edge); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+  .bottom .tab { position: relative; z-index: 1; border-radius: 26px; padding: 7px 0 !important; color: var(--ink) !important; opacity: .72; transition: opacity .25s, color .3s; }
+  .bottom .tab[aria-current="page"] { color: var(--focus) !important; opacity: 1; }
+  .bottom .tab-ind { border-radius: 26px; }
+  .view { padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
+  .pomo-fab { bottom: calc(94px + env(safe-area-inset-bottom)); }
+}
+
+/* ---------- Verrou ---------- */
+.lock form { padding: 30px 24px; border-radius: 32px; background: var(--glass-bg); border: 1px solid var(--glass-line); box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-edge); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+.lock .tags { border-radius: 20px; }
+.field input { border-radius: 14px; }
+.primary { border-radius: 14px; box-shadow: 0 8px 22px color-mix(in srgb, var(--focus) 35%, transparent); }
+
+/* ---------- Lecteur, minuteur, hors ligne, dialogues ---------- */
+.reader { background: var(--wall); }
+.reader-bar { background: var(--glass-bg2); }
+.pomo { background: var(--glass-bg2) !important; border: 1px solid var(--glass-line); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border-radius: 30px; }
+@media (max-width: 820px) { .pomo { background: var(--wall) !important; border-radius: 0; } }
+.nb-dlg { background: var(--glass-bg2); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); border: 1px solid var(--glass-line); }
+.nb-backdrop { background: rgba(10,14,30,.25); }
+.nb-hero h1 { font-weight: 800; letter-spacing: -.035em; }
+.nb-grow + .nb-grow::before { background: rgba(120,120,128,.18); }
+
+/* =====================================================================
+   Animations
+   ===================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  .page { animation: none !important; }
+  /* entrée des éléments d'une page (déclenchée par motion.js) */
+  .mo-in { animation: moIn .62s var(--ease) both; animation-delay: calc(var(--i, 0) * 45ms); }
+  .mo-in.from-r { animation-name: moInR; } .mo-in.from-l { animation-name: moInL; }
+  @keyframes moIn { from { opacity: 0; transform: translate3d(0, 18px, 0) scale(.985); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+  @keyframes moInR { from { opacity: 0; transform: translate3d(28px, 6px, 0) scale(.99); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+  @keyframes moInL { from { opacity: 0; transform: translate3d(-28px, 6px, 0) scale(.99); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+  /* appui : petite compression élastique, comme sur iOS */
+  .btn, .chip, .tab, .daybtn, .prow, button.item, .course, .nb-tile-open, .nb-grow, .primary, .pomo-fab, .themefab, .nb-pbtn, .nb-ib, .ne-tool {
+    transition: transform .45s var(--spring), background-color .25s, box-shadow .3s var(--ease), color .25s, opacity .25s; }
+  .btn:active, .chip:active, .tab:active, .daybtn:active, .prow:active, button.item:active, .course:active, .nb-grow:active, .primary:active, .pomo-fab:active, .themefab:active, .nb-pbtn:active, .nb-ib:active, .ne-tool:active { transform: scale(.955); transition-duration: .12s; }
+  .nb-tile-open:active { transform: scale(.97); transition-duration: .12s; }
+  @media (hover: hover) { .course:hover, .sheet.nowcard:hover, .hero:hover { transform: translateY(-2px); } }
+  /* barres de progression qui se remplissent */
+  .mo-fill { animation: moFill 1.1s var(--ease) both; animation-delay: .25s; transform-origin: left center; }
+  @keyframes moFill { from { transform: scaleX(0); } }
+  /* lecteur PDF : s'ouvre en douceur */
+  .reader.mo-open { animation: moSheet .5s var(--ease) both; }
+  .reader.mo-open .pg { animation: moIn .6s var(--ease) both; }
+  @keyframes moSheet { from { opacity: 0; transform: translate3d(0, 4%, 0) scale(.985); } to { opacity: 1; transform: none; } }
+  /* minuteur : jaillit depuis son bouton */
+  .pomo.mo-open { animation: moPop .5s var(--spring) both; transform-origin: bottom right; }
+  @keyframes moPop { from { opacity: 0; transform: scale(.86) translateY(12px); } to { opacity: 1; transform: none; } }
+  @media (max-width: 820px) { .pomo.mo-open { animation-name: moSheet; } }
+  /* dialogues et menus des Cahiers : ressort */
+  .nb-dlg { animation: moPop .48s var(--spring) both !important; transform-origin: center; }
+  @media (max-width: 600px) { .nb-dlg { animation: moUp .45s var(--ease) both !important; } }
+  @keyframes moUp { from { transform: translateY(100%); } to { transform: none; } }
+  .nb-menu { animation: moPop .36s var(--spring) both !important; }
+  .nb-toast.on { transition: opacity .25s, transform .5s var(--spring); }
+  /* jour sélectionné */
+  .daybtn[aria-pressed="true"] { animation: moBounce .5s var(--spring); }
+  @keyframes moBounce { 0% { transform: scale(.92); } 100% { transform: none; } }
+  /* éditeur : la barre d'outils glisse */
+  .ne-tcard { transition: box-shadow .2s, transform .35s var(--spring); }
+  .ne:not([hidden]) { animation: moSheet .45s var(--ease) both; }
+}
