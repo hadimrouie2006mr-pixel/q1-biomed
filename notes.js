@@ -306,20 +306,86 @@ async function importPagesInto(nbId, files, afterOrd) {
   return created;
 }
 N.importPagesInto = importPagesInto;
+// Lecture d'un .zip (sans bibliothèque) : renvoie [{ path, file }] pour les PDF et images
+async function unzip(file) {
+  const buf = new Uint8Array(await file.arrayBuffer()), dv = new DataView(buf.buffer);
+  let eocd = -1; for (let i = buf.length - 22; i >= Math.max(0, buf.length - 66000); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error('zip illisible');
+  const n = dv.getUint16(eocd + 10, true); let p = dv.getUint32(eocd + 16, true); const out = [];
+  const utf8 = new TextDecoder(), cp = new TextDecoder('ibm866');
+  for (let k = 0; k < n; k++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const flags = dv.getUint16(p + 8, true), method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true);
+    const nl = dv.getUint16(p + 28, true), xl = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+    const nameB = buf.subarray(p + 46, p + 46 + nl); const name = (flags & 0x800 ? utf8 : (/[\x80-\xff]/.test(String.fromCharCode(...nameB)) && !/\uFFFD/.test(utf8.decode(nameB)) ? utf8 : cp)).decode(nameB);
+    p += 46 + nl + xl + cl;
+    if (/\/$/.test(name) || /(^|\/)(__MACOSX|\.)/.test(name)) continue;
+    const isPdf = /\.pdf$/i.test(name), isImg = /\.(png|jpe?g|heic|webp)$/i.test(name);
+    if (!isPdf && !isImg) continue;
+    const lnl = dv.getUint16(off + 26, true), lxl = dv.getUint16(off + 28, true), start = off + 30 + lnl + lxl;
+    let data = buf.subarray(start, start + csize);
+    if (method === 8) data = new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+    else if (method !== 0) continue;
+    const base = name.split('/').pop();
+    out.push({ path: name, file: new File([data], base, { type: isPdf ? 'application/pdf' : 'image/' + (/png$/i.test(base) ? 'png' : 'jpeg') }) });
+  }
+  return out;
+}
+function folderFor(path, root) {
+  // « Physique/Cinématique/cours.pdf » → dossiers Physique › Cinématique (créés si besoin)
+  let parent = root; const parts = path.split('/').slice(0, -1).filter(Boolean);
+  for (const name of parts) {
+    let f = folderList().find((x) => !x.trashed && (x.parent || '') === parent && x.name === name);
+    if (!f) { f = { id: S().uid('f'), name, parent, trashed: 0 }; N.setIdx('folders', f); }
+    parent = f.id;
+  }
+  return parent;
+}
+async function newNbFrom(files, title, folder) {
+  const isPdf = files.some((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+  const id = S().uid('n');
+  N.setIdx('nbs', { id, title, cover: 'other', kind: isPdf ? 'pdf' : 'notebook', folder, fav: false, created: Date.now(), upd: Date.now(), trashed: 0, def: { tpl: 'blank', color: 'white', size: 'A4', orient: 'port' } });
+  await S().ensure(nbPath(id), { pages: {}, audio: {} });
+  const pids = await importPagesInto(id, files, 0);
+  N.setIdx('nbs', Object.assign({}, idx.nbs[id], { np: pids.length }));
+  return { id, n: pids.length };
+}
 async function importAsNotebook(files) {
   if (!files.length) return;
-  toast('Import en cours…', 8000);
+  toast('Import en cours…', 60000);
   try {
-    const name = files[0].name.replace(/\.[^.]+$/, '') || 'Import';
-    const isPdf = files.some((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
-    const id = S().uid('n');
-    N.setIdx('nbs', { id, title: name, cover: 'other', kind: isPdf ? 'pdf' : 'notebook', folder: curFolder, fav: false, created: Date.now(), upd: Date.now(), trashed: 0, def: { tpl: 'blank', color: 'white', size: 'A4', orient: 'port' } });
-    await S().ensure(nbPath(id), { pages: {}, audio: {} });
-    const pids = await importPagesInto(id, files, 0);
-    N.setIdx('nbs', Object.assign({}, idx.nbs[id], { np: pids.length }));
-    toast(`${pids.length} page${pids.length > 1 ? 's' : ''} importée${pids.length > 1 ? 's' : ''}`);
-    N.editor.open(id);
+    // 1) déplier les .zip (export Goodnotes de plusieurs documents ou d'un dossier)
+    const entries = [];
+    for (const f of files) {
+      if (/\.zip$/i.test(f.name) || f.type === 'application/zip' || f.type === 'application/x-zip-compressed') { const root = files.length > 1 ? f.name.replace(/\.zip$/i, '') + '/' : ''; for (const e of await unzip(f)) entries.push({ path: root + e.path, file: e.file }); }
+      else entries.push({ path: f.name, file: f });
+    }
+    const pdfs = entries.filter((e) => /\.pdf$/i.test(e.path)), imgs = entries.filter((e) => !/\.pdf$/i.test(e.path));
+    if (!pdfs.length && !imgs.length) { toast('Aucun PDF ni image dans ce fichier'); return; }
+    // 2) un cahier par PDF (dans des dossiers si le zip en contient), les images ensemble
+    const made = []; let done = 0;
+    for (const e of pdfs) {
+      toast(`Import ${++done} / ${pdfs.length + (imgs.length ? 1 : 0)} : ${e.file.name}`, 60000);
+      made.push(await newNbFrom([e.file], e.file.name.replace(/\.pdf$/i, '') || 'Import', folderFor(e.path, curFolder)));
+    }
+    if (imgs.length) made.push(await newNbFrom(imgs.map((e) => e.file), imgs.length === 1 ? imgs[0].file.name.replace(/\.[^.]+$/, '') : 'Images importées', curFolder));
+    const pages = made.reduce((a, m) => a + m.n, 0);
+    if (made.length === 1) { toast(`${pages} page${pages > 1 ? 's' : ''} importée${pages > 1 ? 's' : ''}`); N.editor.open(made[0].id); }
+    else { toast(`${made.length} cahiers importés (${pages} pages)`, 4000); renderLib(); }
   } catch (e) { console.warn(e); toast('Import impossible : fichier illisible ?'); }
+}
+N.importAsNotebook = importAsNotebook;
+
+function goodnotesHelp() {
+  const d = dialog({ title: 'Transférer depuis Goodnotes', wide: true, body: h('div', { class: 'nb-form' },
+    h('ol', { class: 'nb-steps' },
+      h('li', {}, 'Dans Goodnotes, onglet ', h('b', {}, 'Documents'), ' : touche ', h('b', {}, 'Sélectionner'), ' et coche tous tes cahiers (ou un dossier entier).'),
+      h('li', {}, 'Touche ', h('b', {}, 'Partager / Exporter'), ', choisis le format ', h('b', {}, 'PDF'), ' (pas « Goodnotes »), avec les pages et les annotations.'),
+      h('li', {}, h('b', {}, 'Enregistrer dans Fichiers'), ' (un dossier « Goodnotes » par exemple). Si tu obtiens un fichier .zip, garde-le tel quel.'),
+      h('li', {}, 'Reviens ici, touche le bouton ci-dessous et sélectionne tous les PDF (ou le .zip) d’un coup.')),
+    h('p', { class: 'muted small' }, 'Chaque PDF devient un cahier, les dossiers du .zip deviennent des dossiers. Ton écriture Goodnotes est « imprimée » dans le PDF : tu peux écrire, surligner et annoter par-dessus, mais plus effacer les anciens traits un par un. Le format .goodnotes n’est pas lisible en dehors de Goodnotes.')),
+    actions: [{ label: 'Fermer', value: null }, { label: 'Choisir les fichiers', primary: true, onclick: async (api) => { api.close(); importAsNotebook(await pickFile('application/pdf,image/*,.zip,application/zip', { multiple: true })); } }] });
+  void d;
 }
 
 /* ---------- Bibliothèque ---------- */
@@ -408,12 +474,15 @@ function renderLib() {
     h('div', { class: 'nb-actions' },
       h('button', { class: 'btn solid', type: 'button', onclick: newNotebookDlg }, ico('plus'), 'Nouveau cahier'),
       h('button', { class: 'btn', type: 'button', onclick: newFolder }, ico('folder'), 'Dossier'),
-      h('button', { class: 'btn', type: 'button', onclick: async () => importAsNotebook(await pickFile('application/pdf,image/*', { multiple: true })) }, ico('upload'), 'Importer PDF ou image'),
+      h('button', { class: 'btn', type: 'button', onclick: async () => importAsNotebook(await pickFile('application/pdf,image/*,.zip,application/zip', { multiple: true })) }, ico('upload'), 'Importer (PDF, images, Goodnotes)'),
       h('button', { class: 'btn', type: 'button', onclick: () => N.cards.newCard() }, ico('cards'), 'Carte')),
     h('div', { class: 'filters' }, h('div', { class: 'nb-searchrow' }, search, sortSeg), filters),
     crumbs,
     filter === 'trash' && (nbList().some((n) => n.trashed) || folderList().some((f) => f.trashed)) ? h('div', {}, h('button', { class: 'btn danger', type: 'button', onclick: emptyTrash }, ico('trash'), 'Vider la corbeille')) : null,
     grid,
+    h('section', { class: 'block nb-backup' }, h('h2', {}, 'Venir de Goodnotes'),
+      h('p', { class: 'muted small' }, 'Récupère tous tes cahiers Goodnotes en PDF : un cahier par fichier, dossiers compris.'),
+      h('div', { class: 'nb-actions' }, h('button', { class: 'btn', type: 'button', onclick: goodnotesHelp }, ico('upload'), 'Transférer depuis Goodnotes'))),
     h('section', { class: 'block nb-backup' }, h('h2', {}, 'Sauvegarde de secours'),
       h('p', { class: 'muted small' }, 'En plus de la synchronisation : un fichier avec tous tes cahiers, images et cartes.'),
       h('div', { class: 'nb-actions' }, h('button', { class: 'btn', type: 'button', onclick: exportBackup }, ico('download'), 'Exporter tous mes cahiers'),

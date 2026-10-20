@@ -1,7 +1,7 @@
 // Mon Q1 Biomed : lecture hors ligne.
 // Pages et données : réseau d'abord, cache si hors ligne.
 // PDF chiffrés et bibliothèques : cache d'abord (mis à jour en arrière-plan).
-const CACHE = 'q1biomed-v5';
+const CACHE = 'q1biomed-v6';
 const SHELL = ['./', 'index.html', 'cfg.json', 'data.enc', 'manifest.webmanifest', 'icon-192.png',
   'vendor/pdf.min.js',
   'vendor/pdf.worker.min.js',
