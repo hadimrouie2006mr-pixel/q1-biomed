@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#f6f6f3" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#141619" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Q1 Biomed">
 <title>Mon Q1 Biomed</title>
@@ -13,9 +13,6 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Hanken+Grotesk:wght@500;600;700&display=swap">
 <style>
 /* Concept : un cahier de labo. Chaque matière a son étiquette de couleur (comme les lames
    au microscope) ; c'est la seule couleur forte. Le reste est calme : encre sur papier gris-bleu.
@@ -381,6 +378,7 @@ button.item:hover { background: var(--paper); }
 .offline { background: var(--ink); }
 </style>
 <link rel="stylesheet" href="notes.css">
+<link rel="stylesheet" href="theme.css">
 </head>
 <body>
 
@@ -914,7 +912,7 @@ function applyTheme() {
   const t = THEMES.includes(prefs.theme) ? prefs.theme : 'auto';
   if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
   const isDark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', isDark ? '#12161b' : '#f2f4f6'));
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', isDark ? '#000000' : '#f5f5f7'));
   document.querySelectorAll('[data-theme-toggle]').forEach((b) => {
     const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = TICON[t];
     b.replaceChildren(s); if (!b.classList.contains('themefab')) b.append(TLABEL[t]);

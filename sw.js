@@ -1,12 +1,12 @@
 // Mon Q1 Biomed : lecture hors ligne.
 // Pages et données : réseau d'abord, cache si hors ligne.
 // PDF chiffrés et bibliothèques : cache d'abord (mis à jour en arrière-plan).
-const CACHE = 'q1biomed-v12';
+const CACHE = 'q1biomed-v13';
 const SHELL = ['./', 'index.html', 'cfg.json', 'data.enc', 'manifest.webmanifest', 'icon-192.png',
   'vendor/pdf.min.js',
   'vendor/pdf.worker.min.js',
   'vendor/perfect-freehand-1.2.2.js', 'vendor/pdf-lib-1.17.1.min.js',
-  'notes.css', 'notes-sync.js', 'notes.js', 'notes-render.js', 'notes-editor.js', 'notes-panels.js'];
+  'notes.css', 'theme.css', 'notes-sync.js', 'notes.js', 'notes-render.js', 'notes-editor.js', 'notes-panels.js'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => Promise.all(SHELL.map((u) => c.add(u).catch(() => null)))).then(() => self.skipWaiting()));
