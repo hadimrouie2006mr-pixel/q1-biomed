@@ -560,3 +560,21 @@ body.ne-open { overflow: hidden; }
 .nb-selbar .btn:disabled { opacity: .45; cursor: default; }
 @media (max-width: 820px) { .nb-selbar { bottom: calc(88px + env(safe-area-inset-bottom)); } }
 @media (max-width: 480px) { .nb-selbar .btn.solid { padding: 0 12px; font-size: .85rem; } }
+/* Dossier « classeur » (maquette Claude Design « Cahiers : dossiers ») */
+.nb-fold { position: relative; display: block; aspect-ratio: 3 / 4; --c: #3a6fd8; }
+.nb-fold.c-bio { --c: #2f74e6; } .nb-fold.c-chimie { --c: #d2662f; } .nb-fold.c-maths { --c: #2a9468; } .nb-fold.c-physique { --c: #c19410; } .nb-fold.c-anat { --c: #8a5cc2; } .nb-fold.c-other { --c: #6c7783; } .nb-fold.c-ink { --c: #3a3a3c; }
+.nb-fold-back { position: absolute; left: 0; right: 0; top: 10%; bottom: 0; border-radius: 16px; background: var(--c); background-image: linear-gradient(rgba(0,0,0,.28), rgba(0,0,0,.28)); }
+.nb-fold-tab { position: absolute; left: 0; top: 4%; width: 42%; height: 14%; border-radius: 12px 12px 0 0; background: var(--c); background-image: linear-gradient(rgba(0,0,0,.28), rgba(0,0,0,.28)); }
+.nb-fold-sheet { position: absolute; top: 14%; height: 54%; left: 12%; right: 18%; border-radius: 3px; background: #fff center top / cover no-repeat; box-shadow: 0 1px 4px rgba(0,0,0,.3); transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+.nb-fold-sheet.s1 { left: 20%; right: 10%; top: 18%; transform: rotate(3deg); }
+.nb-fold-sheet.s2 { transform: rotate(-4deg); }
+.nb-fold-sheet:not(.img)::before { content: ""; position: absolute; left: 12%; right: 30%; top: 12%; height: 5px; border-radius: 2px; background: var(--c); opacity: .8; box-shadow: 0 10px 0 -1px #dcdde2, 0 18px 0 -1px #dcdde2, 0 26px 0 -1px #dcdde2; }
+.nb-fold-front { position: absolute; left: 0; right: 0; bottom: 0; height: 62%; border-radius: 16px; background: var(--c); background-image: linear-gradient(160deg, rgba(255,255,255,.24), rgba(255,255,255,0) 60%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 1px 1px rgba(0,0,0,.1), 0 16px 28px -14px rgba(0,0,0,.45); display: flex; align-items: flex-end; padding: 12px; box-sizing: border-box; }
+.nb-fold-count { background: rgba(255,255,255,.24); color: #fff; font: 700 .72rem var(--nb-font); border-radius: 999px; padding: 4px 10px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); white-space: nowrap; }
+.nb-tile-open:hover .nb-fold-sheet.s1, .nb-tile-open:focus-visible .nb-fold-sheet.s1 { transform: translateY(-8%) rotate(5deg); }
+.nb-tile-open:hover .nb-fold-sheet.s2, .nb-tile-open:focus-visible .nb-fold-sheet.s2 { transform: translateY(-6%) rotate(-6deg); }
+.nb-tile-open:active .nb-fold { transform: scale(.98); }
+.nb-tile.picked .nb-fold-front { outline: 3px solid var(--nb-accent); outline-offset: 3px; }
+.nb-fold-ic { background: var(--c); color: #fff; }
+.nb-fold-ic.c-bio { --c: #2f74e6; } .nb-fold-ic.c-chimie { --c: #d2662f; } .nb-fold-ic.c-maths { --c: #2a9468; } .nb-fold-ic.c-physique { --c: #c19410; } .nb-fold-ic.c-anat { --c: #8a5cc2; } .nb-fold-ic.c-other { --c: #6c7783; } .nb-fold-ic.c-ink { --c: #3a3a3c; }

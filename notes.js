@@ -531,8 +531,8 @@ function folderTile(f) {
   const n = nbList().filter((x) => x.folder === f.id && !x.trashed).length + folderList().filter((x) => x.parent === f.id && !x.trashed).length;
   const key = 'f:' + f.id;
   return h('div', { class: 'nb-tile folder' + (f.trashed ? ' trashed' : '') + (selecting && selSet.has(key) ? ' picked' : '') },
-    h('button', { class: 'nb-tile-open', type: 'button', 'aria-label': selecting ? `Sélectionner le dossier ${f.name}` : `Ouvrir le dossier ${f.name}`, 'aria-pressed': selecting ? String(selSet.has(key)) : null, disabled: f.trashed && !selecting ? true : null, onclick: () => { if (selecting) { selToggle(key); return; } curFolder = f.id; filter = 'all'; query = ''; renderLib(); } }, h('span', { class: 'nb-folder', 'aria-hidden': 'true' }, ico('folderFill'), folderPeek(f)), selMark(key)),
-    h('div', { class: 'nb-tile-meta' }, h('div', { class: 'nb-tile-tx' }, h('b', {}, f.name), h('span', {}, f.trashed ? 'Dossier supprimé' : n ? `${n} élément${n > 1 ? 's' : ''}` : 'Vide')),
+    h('button', { class: 'nb-tile-open', type: 'button', 'aria-label': selecting ? `Sélectionner le dossier ${f.name}` : `Ouvrir le dossier ${f.name}`, 'aria-pressed': selecting ? String(selSet.has(key)) : null, disabled: f.trashed && !selecting ? true : null, onclick: () => { if (selecting) { selToggle(key); return; } curFolder = f.id; filter = 'all'; query = ''; renderLib(); } }, folderArt(f, n), selMark(key)),
+    h('div', { class: 'nb-tile-meta' }, h('div', { class: 'nb-tile-tx' }, h('b', {}, f.name), h('span', {}, f.trashed ? 'Dossier supprimé' : n ? 'Modifié ' + fmtDate(Math.max(0, ...nbList().filter((x) => x.folder === f.id && !x.trashed).map((x) => x.upd || x.created || 0))).toLowerCase() : 'Dossier vide')),
       h('button', { class: 'nb-ib nb-more', type: 'button', 'aria-label': `Options du dossier ${f.name}`, title: 'Options', onclick: (e) => { e.stopPropagation(); folderMenu(f, e.currentTarget); } }, ico('chevdown'))));
 }
 const upd = (coll, obj, patch) => N.setIdx(coll, Object.assign({}, obj, patch));
@@ -560,6 +560,7 @@ function folderMenu(f, anchor) {
   menu(anchor, [
     { label: 'Ajouter des PDF', icon: 'upload', onclick: () => addPdfsTo(f.id) },
     { label: 'Renommer', icon: 'text', onclick: async () => { const t = await prompt('Renommer le dossier', f.name); if (t) { upd('folders', f, { name: t }); renderLib(); } } },
+    { label: 'Couleur', icon: 'palette', onclick: () => { const d = dialog({ title: 'Couleur du dossier', body: h('div', { class: 'nb-swatches' }, COVERS.map(([k, t]) => h('button', { class: 'nb-swatch c-' + k + ((f.color || 'bio') === k ? ' on' : ''), type: 'button', 'aria-label': t, title: t, onclick: () => { upd('folders', f, { color: k }); d.close(); renderLib(); } }))) }); } },
     { label: 'Déplacer', icon: 'folder', onclick: () => moveDlg(f, true) },
     { label: 'Mettre à la corbeille', icon: 'trash', danger: true, onclick: () => { upd('folders', f, { trashed: Date.now() }); renderLib(); toast('Dossier mis à la corbeille'); } }
   ], { align: 'right' });
@@ -569,9 +570,13 @@ const PDF_ACCEPT = 'application/pdf,.pdf,image/*,.zip,application/zip';
 function addPdfsTo(folderId) { const p = pickFile(PDF_ACCEPT, { multiple: true }); p.then((files) => { if (files.length) importAsNotebook(files, folderId); }); }
 function newFolder(moveKeys) {
   const inp = h('input', { class: 'search', type: 'text', placeholder: 'ex. Physique, Chimie TP…', 'aria-label': 'Nom du dossier', autocomplete: 'off' });
-  const create = () => { const name = inp.value.trim() || 'Nouveau dossier'; const id = S().uid('f'); N.setIdx('folders', { id, name, parent: curFolder, trashed: 0 }); return id; };
+  let color = 'bio';
+  const sw = h('div', { class: 'nb-swatches', role: 'group', 'aria-label': 'Couleur du dossier' });
+  const drawSw = () => sw.replaceChildren(...COVERS.map(([k, t]) => h('button', { class: 'nb-swatch c-' + k + (color === k ? ' on' : ''), type: 'button', 'aria-label': 'Couleur ' + t, 'aria-pressed': String(color === k), onclick: () => { color = k; drawSw(); } })));
+  drawSw();
+  const create = () => { const name = inp.value.trim() || 'Nouveau dossier'; const id = S().uid('f'); N.setIdx('folders', { id, name, color, parent: curFolder, trashed: 0 }); return id; };
   const moving = moveKeys && moveKeys.length;
-  const d = dialog({ title: 'Nouveau dossier', body: h('div', { class: 'nb-form' }, h('label', { class: 'nb-field' }, h('span', {}, 'Nom'), inp),
+  const d = dialog({ title: 'Nouveau dossier', body: h('div', { class: 'nb-form' }, h('label', { class: 'nb-field' }, h('span', {}, 'Nom'), inp), h('div', { class: 'nb-field' }, h('span', {}, 'Couleur'), sw),
       h('p', { class: 'muted small' }, moving ? `Les ${moveKeys.length} élément${moveKeys.length > 1 ? 's' : ''} sélectionné${moveKeys.length > 1 ? 's' : ''} seront rangés dedans.` : 'Tu peux y mettre plusieurs PDF d’un coup : chaque PDF devient un document annotable.')),
     actions: moving ? [{ label: 'Annuler', value: null }, { label: 'Créer et ranger', primary: true, onclick: (api) => { const id = create(); moveKeysTo(moveKeys, id); api.close(); } }]
       : [{ label: 'Créer vide', value: null, onclick: (api) => { const id = create(); api.close(); curFolder = id; filter = 'all'; query = ''; renderLib(); } },
@@ -602,16 +607,24 @@ function selectionBar() {
     h('button', { class: 'btn solid', type: 'button', disabled: n ? null : true, onclick: () => moveManyDlg(keys) }, ico('folder'), 'Ranger dans un dossier'),
     h('button', { class: 'btn danger', type: 'button', disabled: n ? null : true, onclick: trash, 'aria-label': 'Mettre la sélection à la corbeille' }, ico('trash')));
 }
-function folderPeek(f) {
-  // aperçu : petites couvertures des cahiers du dossier
-  const kids = nbList().filter((x) => x.folder === f.id && !x.trashed).sort((a, b) => (b.upd || 0) - (a.upd || 0)).slice(0, 3);
-  if (!kids.length) return null;
-  return h('span', { class: 'nb-peek' }, kids.map((k) => h('i', { class: 'c-' + (k.kind === 'pdf' ? 'pdf' : (k.cover || 'other')) })));
+// Dossier « classeur » (maquette Claude Design) : fond + onglet, vraies pages qui dépassent, poche colorée
+function folderArt(f, n) {
+  const kids = nbList().filter((x) => x.folder === f.id && !x.trashed).sort((a, b) => (b.upd || 0) - (a.upd || 0)).slice(0, 2);
+  const sheet = (k, i) => {
+    const el = h('span', { class: 'nb-fold-sheet s' + (i + 1) });
+    if (k.kind !== 'pdf' && k.cover) el.classList.add('cv', 'c-' + k.cover);
+    N.thumbFor && N.thumbFor(k.id).then((url) => { if (url) { el.style.backgroundImage = `url(${url})`; el.classList.add('img'); } }).catch(() => {});
+    return el;
+  };
+  return h('span', { class: 'nb-fold c-' + (f.color || 'bio'), 'aria-hidden': 'true' },
+    h('span', { class: 'nb-fold-back' }), h('span', { class: 'nb-fold-tab' }),
+    kids.map(sheet).reverse(),
+    h('span', { class: 'nb-fold-front' }, h('span', { class: 'nb-fold-count' }, n ? `${n} document${n > 1 ? 's' : ''}` : 'Vide')));
 }
 function folderBar() {
   const f = idx.folders[curFolder]; if (!f || f.gone) return null;
   const n = nbList().filter((x) => x.folder === f.id && !x.trashed).length;
-  return h('div', { class: 'nb-card nb-folderbar' }, h('span', { class: 'nb-grow-ic', style: '--t:#0a84ff' }, ico('folderFill')),
+  return h('div', { class: 'nb-card nb-folderbar' }, h('span', { class: 'nb-grow-ic nb-fold-ic c-' + (f.color || 'bio') }, ico('folderFill')),
     h('div', { class: 'tx' }, h('b', {}, f.name), h('span', {}, n ? `${n} document${n > 1 ? 's' : ''}` : 'Dossier vide : ajoute tes PDF')),
     h('button', { class: 'btn solid', type: 'button', onclick: () => addPdfsTo(f.id) }, ico('upload'), 'Ajouter des PDF'),
     h('button', { class: 'nb-ib', type: 'button', 'aria-label': `Options du dossier ${f.name}`, onclick: (e) => folderMenu(f, e.currentTarget) }, ico('more')));
