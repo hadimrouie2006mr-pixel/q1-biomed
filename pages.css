@@ -115,3 +115,11 @@
 .pomo-mini.paused { background: var(--sheet); color: var(--ink); box-shadow: 0 0 0 .5px var(--rule), 0 6px 18px rgba(0,0,0,.18); }
 .pomo-mini[hidden] { display: none; }
 .pomo.over { z-index: 55 !important; }
+
+/* Google Agenda sur iPad / iPhone */
+.gcal-ios { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+.gcal-ios > b { font-size: 17px; }
+.gcal-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.4; }
+.gcal-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.gcal-actions .btn { min-height: 44px; }
+.linkbtn { align-self: flex-start; background: none; border: 0; padding: 10px 0; min-height: 44px; color: var(--focus); font: inherit; font-size: 14px; cursor: pointer; }

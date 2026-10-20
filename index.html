@@ -708,6 +708,7 @@ function pageWeek() {
   drawStrip(); drawList();
   // Vue Google Agenda (intégré) ou vue liste. L'adresse de l'agenda reste sur l'appareil.
   let mode = prefs.weekMode === 'liste' ? 'liste' : 'agenda';
+  let gcalForce = false;
   const listView = h('div', { class: 'filters' }, strip, toggle, h('section', { class: 'block' }, head, listBox));
   const gcalBox = h('div', { class: 'gcal' });
   const drawGcal = () => {
@@ -718,6 +719,22 @@ function pageWeek() {
         h('b', {}, 'Relier ton Google Agenda'),
         h('p', { class: 'muted small' }, 'Entre l’adresse Gmail de ton agenda. Elle reste seulement sur cet appareil.'),
         inp, h('div', {}, h('button', { class: 'btn solid', type: 'button', onclick: () => { const v = inp.value.trim(); if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { prefs.gcal = v; savePrefs(); drawGcal(); } else inp.focus(); } }, 'Afficher mon agenda'))));
+      return;
+    }
+    // iPhone / iPad : Safari bloque la connexion Google dans un cadre intégré (cookies tiers), surtout dans l'app de l'écran d'accueil
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (ios && !gcalForce) {
+      const nAg = agenda.filter((e) => e.jour >= nowL().slice(0, 10)).length;
+      gcalBox.append(h('div', { class: 'sheet gcal-ios' },
+        h('b', {}, 'Sur iPad et iPhone, Google bloque l’agenda intégré'),
+        h('p', { class: 'muted small' }, 'Apple empêche Google de te reconnaître à l’intérieur d’un autre site. Ce n’est pas réglable dans l’app.'),
+        h('ol', { class: 'gcal-steps' },
+          h('li', {}, h('b', {}, 'Tes événements sont déjà ici : '), `l’onglet « Mes cours » affiche aussi ton Google Agenda (${nAg} événement${nAg > 1 ? 's' : ''} à venir), mis à jour par ton agent.`),
+          h('li', {}, h('b', {}, 'Pour modifier ton agenda : '), 'ouvre l’app Google Agenda.')),
+        h('div', { class: 'gcal-actions' },
+          h('button', { class: 'btn solid', type: 'button', onclick: () => { mode = 'liste'; prefs.weekMode = 'liste'; savePrefs(); drawSwitch(); } }, 'Voir dans « Mes cours »'),
+          h('a', { class: 'btn', href: 'https://calendar.google.com/calendar/r', target: '_blank', rel: 'noopener' }, 'Ouvrir Google Agenda')),
+        h('button', { class: 'linkbtn', type: 'button', onclick: () => { gcalForce = true; drawGcal(); } }, 'Essayer quand même l’agenda intégré')));
       return;
     }
     const narrow = window.innerWidth < 700;
