@@ -91,6 +91,7 @@ function toolOptions() {
     if (t === 'lasso') body.append(h('p', { class: 'muted' }, 'Entoure ce que tu veux modifier. Touche une image ou un texte pour le sélectionner directement. Ensuite : glisse pour déplacer, poignées pour agrandir ou pivoter. Au clavier : Ctrl/Cmd + A, C, X, V, D, Suppr.'));
     if (t === 'laser') body.append(h('p', { class: 'muted' }, 'Le trait rouge s’efface tout seul : idéal en présentation.'));
     if (t === 'pen') body.append(seg('pen', [['fountain', 'Plume'], ['ball', 'Bille'], ['brush', 'Pinceau']], 'Type de stylo'));
+    if (t === 'pen') body.append(h('label', { class: 'toggle' }, h('input', { type: 'checkbox', checked: X.TP.scribble !== false ? true : null, onchange: (ev) => { X.TP.scribble = ev.target.checked; X.saveTP(); } }), 'Hachurer pour effacer (gribouille sur une écriture pour la supprimer)'));
     if (t === 'hl') body.append(tog('straight', 'Trait droit (tu peux aussi maintenir à la fin du trait)'));
     if (t === 'eraser') body.append(seg('mode', [['stroke', 'Trait entier'], ['partial', 'Partielle'], ['hl', 'Surligneur seulement']], 'Gomme'),
       h('button', { class: 'btn danger', type: 'button', onclick: () => { d.close(); clearPage(); } }, 'Effacer toute la page'));

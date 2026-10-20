@@ -610,6 +610,29 @@ function liveItem(g) {
   if (g.straight && pts.length >= 6) { const n = pts.length, x0 = pts[0], y0 = pts[1], x1 = pts[n - 3], y1 = pts[n - 2]; pts = []; for (let i = 0; i <= 8; i++) pts.push(x0 + (x1 - x0) * i / 8, y0 + (y1 - y0) * i / 8, .5); }
   return { type: 's', tool: g.tool === 'hl' ? 'hl' : 'pen', pen: g.pen, color: g.color, size: g.size, pts, sim: g.sim || g.straight };
 }
+// Détecte un gribouillis (va-et-vient serrés) posé sur de l'encre existante ; renvoie les éléments à effacer.
+function scribbleTargets(pts, pv) {
+  const n = pts.length / 3; if (n < 12) return [];
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, L = 0;
+  for (let i = 0; i < pts.length; i += 3) { x0 = Math.min(x0, pts[i]); x1 = Math.max(x1, pts[i]); y0 = Math.min(y0, pts[i + 1]); y1 = Math.max(y1, pts[i + 1]); if (i) L += Math.hypot(pts[i] - pts[i - 3], pts[i + 1] - pts[i - 2]); }
+  const w = x1 - x0, hh = y1 - y0, ext = Math.max(w, hh);
+  if (ext < 6 || L < 2 * ext) return [];
+  // demi-tours francs sur un axe (amplitude ≥ 35 % de l'étendue sur cet axe)
+  const turns = (k, span) => { if (span < 4) return 0; let dir = 0, ext0 = pts[k], c = 0; for (let i = k + 3; i < pts.length; i += 3) { const v = pts[i]; if (dir >= 0) { if (v > ext0) { ext0 = v; dir = 1; } else if (ext0 - v > span * .35) { if (dir === 1) c++; dir = -1; ext0 = v; } } else { if (v < ext0) ext0 = v; else if (v - ext0 > span * .35) { c++; dir = 1; ext0 = v; } } } return c; };
+  if (Math.max(turns(0, w), turns(1, hh)) < 4) return [];
+  const box = { x: x0 - ext * .12, y: y0 - ext * .12, w: w + ext * .24, h: hh + ext * .24 };
+  const out = [];
+  for (const it of itemsOf(pv.id)) {
+    if (!((it.type === 's' && it.tool !== 'hl') || it.type === 'sh')) continue;
+    const b = R().bbox(it);
+    const ix = Math.max(0, Math.min(b.x + b.w, box.x + box.w) - Math.max(b.x, box.x)), iy = Math.max(0, Math.min(b.y + b.h, box.y + box.h) - Math.max(b.y, box.y));
+    if (ix * iy < .5 * Math.max(1, b.w * b.h)) continue; // l'élément doit être surtout sous le gribouillis
+    let touched = false; const r = Math.max(2, it.size);
+    for (let i = 0; i < pts.length && !touched; i += 6) if (R().hit(it, pts[i], pts[i + 1], r)) touched = true;
+    if (touched) out.push(it.id);
+  }
+  return out;
+}
 function finishInk(g) {
   const pv = g.pv; const pts = g.pts;
   if (!pts.length) { clearLive(); return; }
@@ -621,6 +644,16 @@ function finishInk(g) {
     if (tp) { clearLive(); toggleTape(pv.id, tp); return; }
     const ln = itemsOf(pv.id).slice().reverse().find((it) => it.type === 'ln' && R().inBox(it, pts[0], pts[1], 2));
     if (ln) { clearLive(); followLink(ln); return; }
+  }
+  // hachurer une écriture = l'effacer (comme Goodnotes)
+  if (g.tool === 'pen' && !g.shape && TP.scribble !== false) {
+    const ids = scribbleTargets(pts, pv);
+    if (ids.length) {
+      clearLive();
+      commit(ids.map((id) => ({ pid: pv.id, coll: 'items', id, before: E.docs.get(pv.id).items[id], after: null })));
+      flashMsg('Effacé'); try { navigator.vibrate && navigator.vibrate(12); } catch (_) {}
+      return;
+    }
   }
   let it = liveItem(g);
   if (g.tool === 'shape' && it.type === 's') { const sh = R().recognize(pts, true); if (sh) it = Object.assign({ type: 'sh', color: g.color, size: g.size, fill: toolCfg('shape').fill }, sh); }
