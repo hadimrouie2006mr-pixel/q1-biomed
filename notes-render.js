@@ -349,6 +349,27 @@ function splitStroke(it, x, y, r) {
   return parts;
 }
 
+// Gomme partielle sur une forme (ligne, cercle, rectangle…) : on la découpe comme un trait.
+// Renvoie null si rien n'est touché, sinon les morceaux restants [{ pts, end }] (end = contient l'extrémité finale, pour la flèche).
+function splitShape(it, x, y, r) {
+  const p = it.pts; if (!p || p.length < 4) return null;
+  const m = r + it.size / 2, step = Math.max(.8, Math.min(3, r / 3));
+  const seg = []; for (let i = 0; i + 3 < p.length; i += 2) seg.push([p[i], p[i + 1], p[i + 2], p[i + 3]]);
+  if (it.closed) seg.push([p[p.length - 2], p[p.length - 1], p[0], p[1]]);
+  const pts = [];
+  for (const [ax, ay, bx, by] of seg) { const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / step)); for (let k = 0; k < n; k++) pts.push([ax + (bx - ax) * k / n, ay + (by - ay) * k / n]); }
+  if (!it.closed) pts.push([p[p.length - 2], p[p.length - 1]]);
+  const out = pts.map(([px, py]) => Math.hypot(px - x, py - y) <= m);
+  if (!out.some(Boolean)) return null;
+  let order = pts.map((_, i) => i);
+  if (it.closed) { const k = out.indexOf(true); order = order.slice(k).concat(order.slice(0, k)); order.push(order[0]); }
+  const parts = []; let cur = [], hasEnd = false;
+  const flush = () => { if (cur.length >= 4) { const L = cur.reduce((acc, _, i) => i >= 2 && i % 2 === 0 ? acc + Math.hypot(cur[i] - cur[i - 2], cur[i + 1] - cur[i - 1]) : acc, 0); if (L > Math.max(1.5, it.size)) parts.push({ pts: cur.map((v) => Math.round(v * 100) / 100), end: hasEnd }); } cur = []; hasEnd = false; };
+  for (const i of order) { if (out[i]) { flush(); continue; } cur.push(pts[i][0], pts[i][1]); if (!it.closed && i === pts.length - 1) hasEnd = true; }
+  flush();
+  return parts;
+}
+
 /* ---------- Rendu d'une page dans un canvas (miniatures, images de sélection) ---------- */
 async function renderPageImage(pg, items, widthPx, region) {
   const rg = region || { x: 0, y: 0, w: pg.w, h: pg.h };
@@ -463,6 +484,6 @@ async function exportPdf(nbId, pageIds, onProgress) {
   return out.save();
 }
 
-N.R = { tplOps, drawTemplate, paperColor, PAPERC, strokePath, strokeD, livePath, shapePath, shapeD, textLayout, fontCss, FONTS, bbox, itemH, getImg, onImage, drawItem, drawItems, sortItems, hit, inLasso, inBox, pointInPoly, transformItem, mMul, ap, recognize, shapeFrom, snapAngle, tidyShape, splitStroke, renderPageImage, drawBg, exportPdf, loadPdfLib, boxCorners, segDist };
+N.R = { tplOps, drawTemplate, paperColor, PAPERC, strokePath, strokeD, livePath, shapePath, shapeD, textLayout, fontCss, FONTS, bbox, itemH, getImg, onImage, drawItem, drawItems, sortItems, hit, inLasso, inBox, pointInPoly, transformItem, mMul, ap, recognize, shapeFrom, snapAngle, tidyShape, splitStroke, splitShape, renderPageImage, drawBg, exportPdf, loadPdfLib, boxCorners, segDist };
 N.drawTemplate = drawTemplate;
 })();

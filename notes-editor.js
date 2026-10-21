@@ -772,6 +772,13 @@ function eraseAt(x, y) {
       else G.changes.get(it.id).after = null;
       S().setObj(N.paths.pgPath(E.id, pv.id), 'items', S().tomb(it.id));
       for (const pts of parts) { const n = newItem(Object.assign({}, it, { pts, id: undefined, t: undefined, d: undefined })); n.id = S().uid('i'); n.z = it.z; n.c = it.c; delete n.t; delete n.d; S().setObj(N.paths.pgPath(E.id, pv.id), 'items', n); G.changes.set(n.id, { pid: pv.id, coll: 'items', id: n.id, before: null, after: n }); }
+    } else if (mode === 'partial' && it.type === 'sh') {
+      // forme : on n'efface que le morceau sous la gomme (comme pour un trait)
+      const parts = R().splitShape(it, x, y, r); if (!parts) continue;
+      if (!G.changes.has(it.id)) G.changes.set(it.id, { pid: pv.id, coll: 'items', id: it.id, before: orig, after: null });
+      else G.changes.get(it.id).after = null;
+      S().setObj(N.paths.pgPath(E.id, pv.id), 'items', S().tomb(it.id));
+      for (const part of parts) { const n = Object.assign({}, it, { pts: part.pts, kind: 'poly', closed: false, fill: false, arrow: !!(it.arrow && part.end) }); n.id = S().uid('i'); delete n.t; delete n.d; S().setObj(N.paths.pgPath(E.id, pv.id), 'items', n); G.changes.set(n.id, { pid: pv.id, coll: 'items', id: n.id, before: null, after: n }); }
     } else {
       if (!G.changes.has(it.id)) G.changes.set(it.id, { pid: pv.id, coll: 'items', id: it.id, before: orig, after: null });
       else G.changes.get(it.id).after = null;
