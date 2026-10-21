@@ -193,6 +193,8 @@ function zoomAt(z, cx, cy, live = true) {
   const u = (px - pv.ox) / E.scale, v = (py - pv.oy) / E.scale;
   E.zoom = z; layoutSizes();
   sc.scrollLeft = pv.ox + u * E.scale - cx; sc.scrollTop = pv.oy + v * E.scale - cy;
+  if (nav.pinch) return;                                  // pendant le pincement : rendu net seulement au relâchement
+  if (E.dir === 'h') { E.zoomPid = pv.id; clampPan(); }
   if (live) { clearTimeout(E.zt); E.zt = setTimeout(() => requestVisible(), 160); } else requestVisible();
   X.zwRedraw && X.zwRedraw();
 }
@@ -207,7 +209,7 @@ function goPage(pid, smooth = true) {
   const pv = pvOf(pid); if (!pv) return;
   if (E.dir === 'h' || E.present) E.sc.scrollTo({ left: pv.ox - Math.max(PAD, (E.sc.clientWidth - pv.cw) / 2), behavior: smooth ? 'smooth' : 'auto' });
   else E.sc.scrollTo({ top: pv.oy - PAD / 2, behavior: smooth ? 'smooth' : 'auto' });
-  E.cur = pid; requestVisible();
+  E.cur = pid; E.zoomPid = pid; requestVisible();
 }
 X.goPage = goPage;
 
@@ -216,7 +218,7 @@ let visRaf = 0;
 function requestVisible() { if (!visRaf) visRaf = requestAnimationFrame(() => { visRaf = 0; updateVisible(); }); }
 X.requestVisible = requestVisible;
 function updateVisible() {
-  if (!E || !E.pages.length) return;
+  if (!E || !E.pages.length || nav.pinch) return;
   const sc = E.sc, sl = sc.scrollLeft, st = sc.scrollTop, vw = sc.clientWidth, vh = sc.clientHeight;
   let best = null, bestA = -1;
   for (const pg of E.pages) {
@@ -355,7 +357,10 @@ function navDown(e, synthetic) {
   nav.max = Math.max(nav.max, nav.ptrs.size);
   if (nav.ptrs.size === 2) {
     const [a, b] = [...nav.ptrs.values()]; const r = E.sc.getBoundingClientRect();
-    nav.pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: E.zoom, cx: (a.x + b.x) / 2 - r.left, cy: (a.y + b.y) / 2 - r.top };
+    stopInertia();
+    const cx = (a.x + b.x) / 2 - r.left, cy = (a.y + b.y) / 2 - r.top;
+    const pv = pvAtContent(E.sc.scrollLeft + cx, E.sc.scrollTop + cy) || pvOf(E.cur);
+    nav.pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: E.zoom, cx, cy, pid: pv ? pv.id : E.cur, raf: 0, z: E.zoom, nx: cx, ny: cy };
   }
 }
 function onRaw(e) { if (G && e.pointerId === G.pid) { G.raw = true; moveGesture(e); } }
@@ -367,22 +372,22 @@ function onMove(e) {
   p.x = e.clientX; p.y = e.clientY;
   if (Math.hypot(p.x - p.x0, p.y - p.y0) > 8) nav.moved = true;
   if (nav.ptrs.size === 1) {
-    E.sc.scrollLeft -= dx; E.sc.scrollTop -= dy;
+    E.sc.scrollLeft -= dx; E.sc.scrollTop -= dy; clampPan();
     nav.vx = .8 * (-dx / dt) + .2 * nav.vx; nav.vy = .8 * (-dy / dt) + .2 * nav.vy; nav.lastT = e.timeStamp;
   } else if (nav.ptrs.size >= 2 && nav.pinch) {
     const [a, b] = [...nav.ptrs.values()]; const r = E.sc.getBoundingClientRect();
-    const d = Math.hypot(a.x - b.x, a.y - b.y) || 1, cx = (a.x + b.x) / 2 - r.left, cy = (a.y + b.y) / 2 - r.top;
-    E.sc.scrollLeft -= cx - nav.pinch.cx; E.sc.scrollTop -= cy - nav.pinch.cy;
-    nav.pinch.cx = cx; nav.pinch.cy = cy;
-    zoomAt(nav.pinch.z0 * d / nav.pinch.d0, cx, cy);
+    const d = Math.hypot(a.x - b.x, a.y - b.y) || 1, P = nav.pinch;
+    P.nx = (a.x + b.x) / 2 - r.left; P.ny = (a.y + b.y) / 2 - r.top; P.z = P.z0 * d / P.d0;
+    if (!P.raf) P.raf = requestAnimationFrame(pinchFrame);   // une seule mise à jour par image
     nav.vx = nav.vy = 0;
   }
 }
 function navUp(e) {
   const p = nav.ptrs.get(e.pointerId); if (!p) return false;
   nav.ptrs.delete(e.pointerId);
-  if (nav.ptrs.size === 1 && nav.pinch) { nav.pinch = null; const q = [...nav.ptrs.values()][0]; q.x0 = q.x; q.y0 = q.y; }
+  if (nav.ptrs.size === 1 && nav.pinch) { endPinch(); const q = [...nav.ptrs.values()][0]; q.x0 = q.x; q.y0 = q.y; }
   if (!nav.ptrs.size) {
+    if (nav.pinch) endPinch();
     const dur = now() - nav.t0, zoomed = Math.abs(E.zoom - nav.startZoom) > .02;
     if (!nav.moved && !zoomed && dur < 320) {
       if (nav.max === 2) undo(); else if (nav.max >= 3) redo();
@@ -390,9 +395,37 @@ function navUp(e) {
     } else if (nav.max === 1 && nav.moved && !E.present && E.dir === 'h' && E.zoom <= 1.02) snapPage(nav.vx);
     else if (nav.max === 1 && nav.moved && e.type === 'pointerup') startInertia();
     if (E.present && nav.moved) X.presentSnap && X.presentSnap(nav.vx);
-    nav.pinch = null; requestVisible();
+    requestVisible();
   }
   return true;
+}
+/* Pincement : même zoom qu'avant (vraie mise en page, pas de calque géant), mais au plus une fois par image
+   et sans re-dessiner les pages pendant le geste (les canvas sont étirés) ; rendu net au relâchement. */
+function pinchFrame() {
+  const P = nav.pinch; if (!P || !E) return; P.raf = 0;
+  E.sc.scrollLeft -= P.nx - P.cx; E.sc.scrollTop -= P.ny - P.cy; P.cx = P.nx; P.cy = P.ny;
+  zoomAt(P.z, P.cx, P.cy);
+}
+function endPinch() {
+  const P = nav.pinch; if (!P) return;
+  if (P.raf) { cancelAnimationFrame(P.raf); P.raf = 0; pinchFrame(); }
+  nav.pinch = null;
+  if (E.dir === 'h' && !E.present) {
+    const pv = pvOf(P.pid) || pvOf(E.cur);
+    if (pv) { E.zoomPid = pv.id; E.cur = pv.id; }
+    if (E.zoom < 1) zoomAt(1, P.cx, P.cy, false);       // page par page : jamais plus petit que la page entière
+    if (E.zoom <= 1.02 && pv) goPage(pv.id); else clampPan();
+  }
+  requestVisible(); X.zwRedraw && X.zwRedraw();
+}
+// Page par page et zoomé : on se promène dans la page sans glisser sur la voisine. Renvoie true si on a bloqué.
+function clampPan() {
+  if (!E || E.present || E.dir !== 'h' || E.zoom <= 1.02 || nav.pinch) return false;
+  const pv = pvOf(E.zoomPid || E.cur); if (!pv) return false;
+  const sc = E.sc, W = sc.clientWidth;
+  let lo = pv.ox - PAD, hi = pv.ox + pv.cw + PAD - W; if (hi < lo) lo = hi = pv.ox + (pv.cw - W) / 2;
+  const x = clamp(sc.scrollLeft, lo, hi); if (Math.abs(x - sc.scrollLeft) < .5) return false;
+  sc.scrollLeft = x; return true;
 }
 function startInertia() {
   let vx = nav.vx, vy = nav.vy, last = now();
@@ -400,6 +433,7 @@ function startInertia() {
   const step = () => {
     const t = now(), dt = t - last; last = t;
     E.sc.scrollLeft += vx * dt; E.sc.scrollTop += vy * dt;
+    if (clampPan()) vx = 0;
     const k = Math.pow(.94, dt / 16); vx *= k; vy *= k;
     if (Math.hypot(vx, vy) > .03) nav.inertia = requestAnimationFrame(step); else nav.inertia = 0;
   };
