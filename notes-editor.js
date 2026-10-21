@@ -560,10 +560,12 @@ function addPoint(ev) {
 function moveGesture(e) {
   const evs = (e.getCoalescedEvents && e.getCoalescedEvents()) || []; const list = evs.length ? evs : [e];
   if (G.kind === 'ink') {
-    if (G.shape) { return; }
-    for (const ev of list) addPoint(ev);
-    G.pred = [];
-    if (e.getPredictedEvents && G.ptype === 'pen' && !G.straight) { const pr = e.getPredictedEvents(); for (const ev of pr.slice(-1)) { const q = pageXY(ev); G.pred.push(q.x, q.y, pressureOf(ev)); } }
+    if (G.shape) adjustShape(pageXY(list[list.length - 1]));   // forme reconnue : on garde appuyé et on l'ajuste
+    else {
+      for (const ev of list) addPoint(ev);
+      G.pred = [];
+      if (e.getPredictedEvents && G.ptype === 'pen' && !G.straight) { const pr = e.getPredictedEvents(); for (const ev of pr.slice(-1)) { const q = pageXY(ev); G.pred.push(q.x, q.y, pressureOf(ev)); } }
+    }
   } else if (G.kind === 'erase') {
     for (const ev of list) { const q = pageXY(ev); const d = Math.hypot(q.x - G.last.x, q.y - G.last.y), step = Math.max(1, curSize('eraser') / 2); const n = Math.ceil(d / step); for (let i = 1; i <= n; i++) eraseAt(G.last.x + (q.x - G.last.x) * i / n, G.last.y + (q.y - G.last.y) * i / n); G.last = q; }
     G.ex = G.last.x; G.ey = G.last.y;
@@ -619,6 +621,31 @@ function ensureLive(pv) {
 X.ensureLive = ensureLive;
 function clearLive() { if (liveC && livePv && livePv.r) { const x = liveC.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, liveC.width, liveC.height); } }
 X.clearLive = clearLive;
+/* Formes façon Goodnotes : on trace, on garde le stylet immobile → la forme devient propre ;
+   sans lever le stylet, on bouge pour l'ajuster (ligne : l'extrémité suit, avec aimant horizontal/vertical/45° ;
+   autres formes : agrandir/réduire et pivoter autour du centre, avec aimant à l'angle d'origine). */
+function snapShape(sh) {
+  const n = G.pts.length;
+  G.shape = sh; G.shapeBase = { kind: sh.kind, pts: sh.pts.slice() };
+  const P = sh.pts, round = sh.kind === 'circle' || sh.kind === 'ellipse';
+  let cx = 0, cy = 0;
+  if (round) { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (let i = 0; i < P.length; i += 2) { x0 = Math.min(x0, P[i]); x1 = Math.max(x1, P[i]); y0 = Math.min(y0, P[i + 1]); y1 = Math.max(y1, P[i + 1]); } cx = (x0 + x1) / 2; cy = (y0 + y1) / 2; }
+  else { const k = P.length / 2; for (let i = 0; i < P.length; i += 2) { cx += P[i] / k; cy += P[i + 1] / k; } }
+  G.shapeC = { x: cx, y: cy }; G.shapeRef = { x: G.pts[n - 3], y: G.pts[n - 2] };
+  try { navigator.vibrate && navigator.vibrate(8); } catch (_) {}
+}
+function adjustShape(q) {
+  const B = G.shapeBase, sh = G.shape; if (!B) return;
+  const r2 = (v) => Math.round(v * 100) / 100;
+  if (B.kind === 'line') { const e = R().snapAngle(B.pts[0], B.pts[1], q.x, q.y); sh.pts = [B.pts[0], B.pts[1], r2(e.x), r2(e.y)]; return; }
+  const c = G.shapeC, ax = G.shapeRef.x - c.x, ay = G.shapeRef.y - c.y, d0 = Math.hypot(ax, ay); if (d0 < 3) return;
+  const bx = q.x - c.x, by = q.y - c.y, s = clamp(Math.hypot(bx, by) / d0, .15, 8);
+  let th = 0;
+  if (B.kind !== 'circle') { th = Math.atan2(by, bx) - Math.atan2(ay, ax); th = Math.atan2(Math.sin(th), Math.cos(th)); if (Math.abs(th) < 7 * Math.PI / 180) th = 0; }
+  const co = Math.cos(th) * s, si = Math.sin(th) * s, out = new Array(B.pts.length);
+  for (let i = 0; i < B.pts.length; i += 2) { const x = B.pts[i] - c.x, y = B.pts[i + 1] - c.y; out[i] = r2(c.x + x * co - y * si); out[i + 1] = r2(c.y + x * si + y * co); }
+  sh.pts = out;
+}
 function scheduleLive() { if (!liveRaf) liveRaf = requestAnimationFrame(drawLive); }
 X.scheduleLive = scheduleLive;
 function drawLive() {
@@ -627,9 +654,9 @@ function drawLive() {
   const ctx = ctxFor(liveC, pv.r.rect);
   if (G.kind === 'ink') {
     // maintien en fin de trait → forme propre (ou trait droit au surligneur)
-    if (!G.shape && G.tool !== 'shape' && G.pts.length >= 12 && now() - G.lastMoveT > 560) {
+    if (!G.shape && G.tool !== 'shape' && G.pts.length >= 12 && now() - G.lastMoveT > 480) {
       if (G.tool === 'hl') G.straight = true;
-      else { const sh = R().recognize(G.pts); if (sh) { G.shape = sh; try { navigator.vibrate && navigator.vibrate(8); } catch (_) {} } }
+      else { const sh = R().recognize(G.pts); if (sh) snapShape(R().tidyShape(sh)); }
       G.lastMoveT = now() + 1e9;
     }
     const it = liveItem(G);

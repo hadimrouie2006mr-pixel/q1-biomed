@@ -314,6 +314,18 @@ function recognize(flat, force) {
   if (v.length >= 3 && v.length <= 6) return { kind: 'poly', pts: flatten(v), closed: true };
   return null;
 }
+// Aimant d'angle pour les lignes : horizontal, vertical et 45° si on en est à moins de 7°
+function snapAngle(x0, y0, x1, y1) {
+  const len = Math.hypot(x1 - x0, y1 - y0); if (len < 1) return { x: x1, y: y1 };
+  const a = Math.atan2(y1 - y0, x1 - x0), step = Math.PI / 4, m = Math.round(a / step) * step;
+  if (Math.abs(a - m) > 7 * Math.PI / 180) return { x: x1, y: y1 };
+  const l = len * Math.cos(a - m); return { x: x0 + l * Math.cos(m), y: y0 + l * Math.sin(m) };
+}
+// Mise au propre juste après la reconnaissance (ligne presque droite → parfaitement droite)
+function tidyShape(sh) {
+  if (sh.kind === 'line') { const p = sh.pts, e = snapAngle(p[0], p[1], p[2], p[3]); sh.pts = [p[0], p[1], Math.round(e.x * 100) / 100, Math.round(e.y * 100) / 100]; }
+  return sh;
+}
 function shapeFrom(kind, x0, y0, x1, y1) {
   const f = (a) => a.flat().map((v) => Math.round(v * 100) / 100);
   if (kind === 'line' || kind === 'arrow') return { kind: 'line', pts: f([[x0, y0], [x1, y1]]), closed: false, arrow: kind === 'arrow' };
@@ -451,6 +463,6 @@ async function exportPdf(nbId, pageIds, onProgress) {
   return out.save();
 }
 
-N.R = { tplOps, drawTemplate, paperColor, PAPERC, strokePath, strokeD, livePath, shapePath, shapeD, textLayout, fontCss, FONTS, bbox, itemH, getImg, onImage, drawItem, drawItems, sortItems, hit, inLasso, inBox, pointInPoly, transformItem, mMul, ap, recognize, shapeFrom, splitStroke, renderPageImage, drawBg, exportPdf, loadPdfLib, boxCorners, segDist };
+N.R = { tplOps, drawTemplate, paperColor, PAPERC, strokePath, strokeD, livePath, shapePath, shapeD, textLayout, fontCss, FONTS, bbox, itemH, getImg, onImage, drawItem, drawItems, sortItems, hit, inLasso, inBox, pointInPoly, transformItem, mMul, ap, recognize, shapeFrom, snapAngle, tidyShape, splitStroke, renderPageImage, drawBg, exportPdf, loadPdfLib, boxCorners, segDist };
 N.drawTemplate = drawTemplate;
 })();
