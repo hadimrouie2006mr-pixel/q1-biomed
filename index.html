@@ -958,6 +958,23 @@ function pagePlan() {
   const fmtH = (m) => `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}`;
   const dayLabel = (d) => cap(P(d + 'T12:00').toLocaleDateString('fr-BE', { weekday: 'short', day: 'numeric' }).replace('.', ''));
   let sel = (jours.find((j) => j.date === today) || jours.find((j) => j.date > today) || jours[jours.length - 1]).date;
+  // Animations : jour qui glisse dans le bon sens, coche qui « pop », confettis quand une journée est bouclée
+  const calm = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let shown = sel, justDone = null, wasComplete = false;
+  const confetti = (from) => {
+    if (calm() || !from) return;
+    const r = from.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const cols = ['--bio', '--chimie', '--maths', '--physique', '--live'];
+    for (let i = 0; i < 22; i++) {
+      const c = document.createElement('i'); c.className = 'pl-confetti'; c.setAttribute('aria-hidden', 'true');
+      c.style.cssText = `left:${cx}px;top:${cy}px;background:var(${cols[i % cols.length]})`;
+      document.body.append(c);
+      const a = Math.random() * Math.PI * 2, d = 60 + Math.random() * 90;
+      c.animate([{ transform: 'translate(-50%,-50%) scale(1) rotate(0)', opacity: 1 },
+        { transform: `translate(calc(-50% + ${Math.cos(a) * d}px), calc(-50% + ${Math.sin(a) * d + 40}px)) scale(.6) rotate(${Math.random() * 540 - 270}deg)`, opacity: 0 }],
+        { duration: 750 + Math.random() * 350, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' }).onfinish = () => c.remove();
+    }
+  };
   const head = h('header', { class: 'page-head' }, h('h1', {}, "Plan d'études"),
     h('p', {}, `${PL.titre || 'Mon plan'} · ${fDay(PL.du + 'T12:00')} → ${fDay(PL.au + 'T12:00')}`));
   const prog = h('section', { class: 'sheet plan-prog', 'aria-label': 'Avancement' });
@@ -967,9 +984,9 @@ function pagePlan() {
   const row = (b) => {
     const ok = !!done[b.id];
     const pd = (b.pdfs || []).map((id) => pdfs.find((p) => p.id === id)).filter(Boolean);
-    return h('div', { class: 'pblock' + (ok ? ' done' : ''), style: `--c:var(--${MAT[b.matiere] || 'other'})` },
+    return h('div', { class: 'pblock' + (ok ? ' done' : ''), 'data-id': b.id, style: `--c:var(--${MAT[b.matiere] || 'other'})` },
       h('button', { class: 'pcheck', type: 'button', 'aria-pressed': String(ok), 'aria-label': (ok ? 'Marquer comme pas fait : ' : 'Marquer comme fait : ') + b.titre,
-        onclick: () => { if (done[b.id]) delete done[b.id]; else done[b.id] = 1; prefs.planDone = done; savePrefs(); draw(); } }, svgEl('<path d="M5 12.5l4.5 4.5L19 7.5"/>')),
+        onclick: () => { if (done[b.id]) delete done[b.id]; else { done[b.id] = 1; justDone = b.id; } prefs.planDone = done; savePrefs(); draw(); } }, svgEl('<path pathLength="1" d="M5 12.5l4.5 4.5L19 7.5"/>')),
       h('div', { class: 'pmain' },
         h('div', { class: 'ptop' }, h('span', { class: 'ptime num' }, `${b.debut} – ${b.fin}`), label(b.matiere), h('span', { class: 'pdur num' }, `${mins(b)} min`)),
         h('b', { class: 'ptitle' }, b.titre),
@@ -984,16 +1001,31 @@ function pagePlan() {
       h('div', { class: 'prog', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(all.length), 'aria-valuenow': String(nDone) }, h('i', { style: `width:${all.length ? Math.max(nDone ? 3 : 0, nDone / all.length * 100) : 0}%` })));
     chips.replaceChildren(...jours.map((j) => {
       const bl = j.blocs || [], d = bl.filter((b) => done[b.id]).length;
-      return h('button', { class: 'chip' + (j.date === today ? ' is-today' : '') + (bl.length && d === bl.length ? ' is-done' : ''), type: 'button', 'aria-pressed': String(j.date === sel), onclick: () => { sel = j.date; draw(); } },
+      return h('button', { class: 'chip' + (j.date === today ? ' is-today' : '') + (bl.length && d === bl.length ? ' is-done' : ''), type: 'button', 'aria-pressed': String(j.date === sel), onclick: () => { if (sel !== j.date) { sel = j.date; draw(); } } },
         dayLabel(j.date), h('small', { class: 'num' }, `${d}/${bl.length}`));
     }));
     const j = jours.find((x) => x.date === sel), bl = j.blocs || [];
     const left = bl.filter((b) => !done[b.id]);
+    if (shown !== sel) wasComplete = bl.length > 0 && !left.length;
     body.replaceChildren(h('section', { class: 'block' },
       h('h2', {}, cap(fLong(j.date + 'T12:00')), h('span', { class: 'count num' }, fmtH(bl.reduce((s, b) => s + mins(b), 0)))),
       j.note ? h('p', { class: 'lead-line' }, j.note) : null,
       bl.length && !left.length ? h('p', { class: 'plan-win' }, 'Journée terminée. Bien joué !') : null,
       h('div', { class: 'sheet list plan-list' }, bl.map(row))));
+    const complete = bl.length > 0 && !left.length;
+    if (!calm()) {
+      // changement de jour : les blocs arrivent du côté du jour choisi
+      if (shown !== sel) {
+        const dir = jours.findIndex((x) => x.date === sel) > jours.findIndex((x) => x.date === shown) ? 'pl-from-r' : 'pl-from-l';
+        body.querySelectorAll('.block > *').forEach((el, i) => { el.style.setProperty('--i', String(i)); el.classList.add('pl-in', dir); const end = (e) => { if (e.target === el) { el.classList.remove('pl-in', dir); el.removeEventListener('animationend', end); } }; el.addEventListener('animationend', end); });
+      }
+      if (justDone) {
+        const r = body.querySelector(`.pblock[data-id="${justDone}"]`);
+        if (r) { r.classList.add('pl-pop'); const end = (e) => { if (e.target === r) { r.classList.remove('pl-pop'); r.removeEventListener('animationend', end); } }; r.addEventListener('animationend', end); }
+        if (complete && !wasComplete) { confetti(r && r.querySelector('.pcheck')); const w = body.querySelector('.plan-win'); if (w) w.classList.add('pl-win-in'); }
+      }
+    }
+    shown = sel; justDone = null; wasComplete = complete;
   };
   draw();
   return h('div', { class: 'page plan' }, head, prog, chips, body, tip);

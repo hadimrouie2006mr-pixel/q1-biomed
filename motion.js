@@ -4,7 +4,7 @@
 (() => {
   'use strict';
   const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const ORDER = ['aujourdhui', 'semaine', 'quiz', 'pdf', 'cours', 'cahiers'];
+  const ORDER = ['aujourdhui', 'plan', 'semaine', 'quiz', 'pdf', 'cours', 'cahiers'];
   let lastTab = null;
   const curTab = () => { const a = document.querySelector('#bottomTabs [aria-current="page"], #railTabs [aria-current="page"]'); return a ? a.dataset.tab : null; };
 
@@ -51,7 +51,7 @@
       el.addEventListener('animationend', () => el.classList.remove('mo-in', 'from-r', 'from-l'), { once: true });
     });
     page.querySelectorAll('.stat .v, .kpi b, .nb-hero h1 + .nb-sub b').forEach(countUp);
-    page.querySelectorAll('.nowcard .prog i, .bar i').forEach((b) => { b.classList.add('mo-fill'); b.addEventListener('animationend', () => b.classList.remove('mo-fill'), { once: true }); });
+    page.querySelectorAll('.nowcard .prog i, .bar i, .plan-prog .prog i').forEach((b) => { b.classList.add('mo-fill'); b.addEventListener('animationend', () => b.classList.remove('mo-fill'), { once: true }); });
   }
 
   function boot() {

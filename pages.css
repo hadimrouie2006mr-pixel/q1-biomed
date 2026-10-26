@@ -156,3 +156,27 @@
 .pblock.done .ptitle { text-decoration: line-through; }
 .plan-win { color: var(--live); font-weight: 700; }
 .plan-tip { color: var(--soft); font-size: 15px; margin-top: 16px; }
+
+
+/* Plan d'études : animations */
+.pl-confetti { position: fixed; z-index: 9999; width: 8px; height: 12px; border-radius: 2px; pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .plan-prog .prog i { transition: width .7s var(--spring); }
+  .pcheck svg { transition: background-color .25s, transform .45s var(--spring); }
+  .pcheck:active svg { transform: scale(.85); }
+  .pcheck svg path { stroke-dasharray: 1; stroke-dashoffset: 0; }
+  .pl-pop .pcheck svg { animation: plPop .55s var(--spring); }
+  .pl-pop .pcheck svg path { animation: plDraw .4s .08s var(--ease) both; }
+  .pl-pop { animation: plFlash .9s var(--ease); }
+  .pblock .ptitle, .pblock .pdet { transition: opacity .35s var(--ease); }
+  .plan-days .chip[aria-pressed="true"] { animation: moBounce .5s var(--spring); }
+  .plan-days .chip.is-done small::after { display: inline-block; animation: plPop .5s var(--spring); }
+  .pl-in { animation: plInR .5s var(--ease) both; animation-delay: calc(var(--i, 0) * 50ms); }
+  .pl-in.pl-from-l { animation-name: plInL; }
+  .pl-win-in { animation: plPop .6s var(--spring) both; transform-origin: left center; }
+  @keyframes plPop { 0% { transform: scale(.6); } 60% { transform: scale(1.15); } 100% { transform: none; } }
+  @keyframes plDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+  @keyframes plFlash { 0% { background: color-mix(in srgb, var(--c) 18%, transparent); } 100% { background: transparent; } }
+  @keyframes plInR { from { opacity: 0; transform: translate3d(24px, 0, 0); } to { opacity: 1; transform: none; } }
+  @keyframes plInL { from { opacity: 0; transform: translate3d(-24px, 0, 0); } to { opacity: 1; transform: none; } }
+}
