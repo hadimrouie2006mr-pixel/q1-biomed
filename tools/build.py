@@ -41,6 +41,15 @@ def main():
     for name in ("horaire", "quiz", "cours", "pdfs", "agenda", "annonces", "plan"):
         f = src / "data" / f"{name}.json"
         bundle[name] = json.loads(f.read_text(encoding="utf-8")) if f.exists() else []
+    # Plan d'études : s'il n'est pas fourni dans <src>, on garde celui du build précédent
+    if not (src / "data" / "plan.json").exists() and (out / "data.enc").exists() and cfg_path.exists():
+        try:
+            u = (out / "data.enc").read_bytes()
+            prev = json.loads(aes.decrypt(u[:12], u[12:], None))
+            if isinstance(prev.get("plan"), dict):
+                bundle["plan"] = prev["plan"]
+        except Exception:
+            pass
     from datetime import datetime, timezone
     bundle["maj"] = datetime.now(timezone.utc).isoformat(timespec="minutes")
 
