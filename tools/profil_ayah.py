@@ -75,6 +75,9 @@ def main():
     for name, val in (("quiz", quiz), ("cours", cours), ("annonces", annonces),
                       ("pdfs", load(hs / "data/pdfs.json", [])), ("horaire", horaire), ("agenda", [])):
         (d / f"{name}.json").write_text(json.dumps(val, ensure_ascii=False), encoding="utf-8")
+    # Plan d'études : le même que Hadi (s'il est fourni ; sinon build.py garde le précédent)
+    if (hs / "data/plan.json").exists():
+        shutil.copy(hs / "data/plan.json", d / "plan.json")
     if (hs / "pdf").exists():
         shutil.copytree(hs / "pdf", out / "pdf")
     print(f"Ayah : {len(horaire)} séances ({source}), {len(quiz)} quiz, {len(annonces)} annonces")

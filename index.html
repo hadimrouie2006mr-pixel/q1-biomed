@@ -464,7 +464,7 @@ const decrypt = (buf) => { const u = new Uint8Array(buf); return crypto.subtle.d
 const PROFILES = [
   { dir: '', id: '', nom: 'Hadi', groupe: 'B6', sans: [] },
   // Ayah : mêmes quiz, annonces et séminaires que Hadi ; pas ses notes de quiz, pas son Google Agenda, pas ses visites Moodle
-  { dir: 'ayah/', id: 'ayah', nom: 'Ayah', groupe: 'B7', sans: ['notes', 'agenda', 'visites', 'plan'] }
+  { dir: 'ayah/', id: 'ayah', nom: 'Ayah', groupe: 'B7', sans: ['notes', 'agenda', 'visites'] }
 ];
 let PROF = PROFILES[0];
 const has = (f) => !PROF.sans.includes(f) && (f !== 'plan' || !!(D && D.plan && Array.isArray(D.plan.jours) && D.plan.jours.length));
