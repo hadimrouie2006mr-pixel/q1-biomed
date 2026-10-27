@@ -325,6 +325,12 @@ button.item:hover { background: var(--paper); }
 
 /* En ce moment */
 .nowcard { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.badgecard { padding: 16px 18px; display: grid; grid-template-columns: auto 1fr; gap: 12px 16px; align-items: center; }
+.badgecard .tx { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.badgecard .acts { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; }
+.badge-demo { position: relative; width: 52px; height: 52px; }
+.badge-demo img { width: 52px; height: 52px; border-radius: 13px; display: block; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.badge-demo b { position: absolute; top: -7px; right: -9px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: #ff3b30; color: #fff; font-size: .78rem; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--sheet); }
 .nowcard .k { display: flex; align-items: center; gap: 8px; font-size: .84rem; font-weight: 700; color: var(--ok); }
 .nowcard .k::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
 .nowcard .k.next { color: var(--soft); } .nowcard .k.next::before { background: var(--faint); }
@@ -440,7 +446,13 @@ button.item:hover { background: var(--paper); }
 <div class="offline" id="offline" role="status" hidden>Hors ligne : dernière version enregistrée</div>
 
 <script src="vendor/pdf.min.js"></script>
-<script src="vendor/pdf.worker.min.js"></script>
+<!-- Le moteur PDF tourne dans un fil à part (Web Worker) : l'interface reste fluide pendant le rendu.
+     Ne pas inclure aussi pdf.worker.min.js comme script de la page : pdf.js repasserait sur le fil principal. -->
+<script>
+// Un seul fil partagé par tous les PDF (lecteur + Cahiers) ; si le navigateur refuse, pdf.js se débrouille avec workerSrc.
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'vendor/pdf.worker.min.js';
+try { pdfjsLib.GlobalWorkerOptions.workerPort = new Worker('vendor/pdf.worker.min.js'); } catch (e) {}
+</script>
 <script src="vendor/perfect-freehand-1.2.2.js"></script>
 <script src="notes-sync.js"></script>
 <script src="notes.js"></script>
@@ -503,7 +515,7 @@ $('#login').addEventListener('submit', async (ev) => {
   } catch (_) { $('#err').textContent = 'Mot de passe incorrect, ou pas de connexion. Vérifie et réessaie.'; if (window.Q1Motion) Q1Motion.shake($('#login')); }
   finally { go.disabled = false; go.textContent = 'Ouvrir'; }
 });
-document.addEventListener('click', (e) => { if (e.target.closest('[data-logout]')) { try { localStorage.removeItem(KEYSTORE); localStorage.removeItem(KEYSTORE + '.profil'); } catch (_) {} location.hash = ''; location.reload(); } });
+document.addEventListener('click', (e) => { if (e.target.closest('[data-logout]')) { try { if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {}); } catch (_) {} try { localStorage.removeItem(KEYSTORE); localStorage.removeItem(KEYSTORE + '.profil'); } catch (_) {} location.hash = ''; location.reload(); } });
 
 /* ---------- Outils ---------- */
 const MAT = { Bio: 'bio', Chimie: 'chimie', Maths: 'maths', Physique: 'physique', Anatomie: 'anat' };
@@ -715,6 +727,7 @@ function pageToday() {
     h('header', { class: 'page-head' }, h('span', { class: 'eyebrow' }, greeting), h('h1', {}, 'Bonjour ' + PROF.nom),
       h('p', {}, nToday ? `${nToday} cours aujourd'hui${nPrepToday ? `, dont ${nPrepToday} à préparer` : ''}. ${sub}` : sub)),
     nowCard,
+    badgeCard(),
     has('quiz') || has('prepa') ? h('section', { class: 'block' }, h('h2', {}, 'À faire', h('span', { class: 'count' }, '3 prochains jours')), todoList) : null,
     h('section', { class: 'block' }, h('h2', {}, showDay === today ? "Programme d'aujourd'hui" : `Programme ${rel(showDay + 'T12:00', now) === 'demain' ? 'de demain' : 'du ' + fLong(showDay + 'T12:00')}`), tl),
     freshNews.length ? h('section', { class: 'block' }, h('h2', {}, importantNews.length ? (importantNews.length > 1 ? 'Annonces importantes' : 'Annonce importante') : 'Dernière annonce', h('a', { class: 'count', href: '#cours', style: 'font-weight:700;color:var(--ink)' }, 'Toutes')), h('div', { class: 'sheet' }, freshNews.map((a) => newsEl(a, now)))) : null);
@@ -1282,6 +1295,40 @@ setInterval(() => {
   if (!$('#app').hidden) drawPomo();
 }, 1000);
 
+/* ---------- Pastille sur l'icône de l'app ----------
+   Nombre de choses à faire maintenant : quiz qui s'ouvrent aujourd'hui pas encore faits + PDF de prépa en retard.
+   Mis à jour à l'ouverture, au retour dans l'app et chaque minute. Sur iPhone/iPad : app installée sur
+   l'écran d'accueil + notifications autorisées (sinon iOS n'affiche pas la pastille). */
+const badgeOk = () => 'setAppBadge' in navigator;
+const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function badgeItems(now = nowL()) {
+  const today = now.slice(0, 10);
+  const q = quiz.filter((x) => String(x.ouverture).slice(0, 10) === today && String(x.fermeture) > now && note(x) === null && x.statut !== 'fait');
+  const p = prep.filter((x) => String(x.debut) >= now && !(x.pdf && x.pdf.enc) && prepStatus(x, now)[1] === 'bad');
+  return { quiz: q.length, prep: p.length, n: q.length + p.length };
+}
+let lastBadge = -1;
+function updateBadge() {
+  if (!badgeOk() || !D) return;
+  const { n } = badgeItems(); if (n === lastBadge) return; lastBadge = n;
+  try { (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {}); } catch (_) {}
+}
+// Carte « Activer la pastille » : seulement dans l'app installée, tant que les notifications n'ont pas été demandées
+function badgeCard() {
+  if (!badgeOk() || !standalone() || !('Notification' in window) || Notification.permission !== 'default' || prefs.badgeAsked) return null;
+  const done = () => { prefs.badgeAsked = 1; savePrefs(); if (window.Q1Motion) Q1Motion.hide(card); else card.hidden = true; };
+  const card = h('section', { class: 'sheet badgecard' },
+    h('span', { class: 'badge-demo', 'aria-hidden': 'true' }, h('img', { src: 'icon-192.png', alt: '' }), h('b', { class: 'num' }, String(Math.max(1, badgeItems().n)))),
+    h('div', { class: 'tx' }, h('b', {}, 'Pastille sur l’icône de l’app'), h('span', { class: 'muted small' }, 'Le nombre de quiz du jour et de prépas en retard, visible depuis ton écran d’accueil. iOS demande d’autoriser les notifications.')),
+    h('div', { class: 'acts' },
+      h('button', { class: 'btn', type: 'button', onclick: done }, 'Plus tard'),
+      h('button', { class: 'btn solid', type: 'button', onclick: async () => { try { await Notification.requestPermission(); } catch (_) {} lastBadge = -1; updateBadge(); done(); } }, 'Activer')));
+  return card;
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) updateBadge(); });
+let badgeMin = '';
+setInterval(() => { const m = nowL(); if (m !== badgeMin) { badgeMin = m; updateBadge(); } }, 5000);
+
 /* ---------- Hors ligne ---------- */
 const netState = () => { $('#offline').hidden = navigator.onLine !== false; };
 window.addEventListener('online', netState); window.addEventListener('offline', netState);
@@ -1299,7 +1346,7 @@ function start() {
   prepare(); $('#brandsub').textContent = 'BA1 sciences biomédicales · ' + PROF.groupe; document.documentElement.dataset.profil = PROF.id || 'principal'; buildTabs(); netState(); $('#pomoFab').hidden = false; drawFab(); cacheForOffline();
   if (D.maj) $('#maj').textContent = 'Mis à jour le ' + new Date(D.maj).toLocaleString('fr-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   if (window.Q1Notes && Q1Notes.boot) Q1Notes.boot({ key: KEY, pdfs: () => pdfs, decrypt, fetchBuf: fetchEnc, profile: PROF.id });
-  $('#lock').hidden = true; $('#app').hidden = false; route();
+  $('#lock').hidden = true; $('#app').hidden = false; route(); updateBadge();
 }
 tryStored().then((ok) => { if (ok) start(); else $('#pw').focus(); });
 })();

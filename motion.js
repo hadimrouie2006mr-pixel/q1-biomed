@@ -123,9 +123,9 @@
       }
       if (m.target.id === 'view') {
         for (const n of m.addedNodes) if (n.nodeType === 1 && n.classList.contains('page')) {
-          animatePage(n);
-          // la bibliothèque des Cahiers se remplit après coup : on anime aussi son contenu
-          if (n.classList.contains('nb-lib')) { const ob = new MutationObserver(() => { ob.disconnect(); animatePage(n); }); ob.observe(n, { childList: true }); }
+          // la bibliothèque des Cahiers se remplit après coup : on attend son contenu pour ne l'animer qu'une fois
+          if (n.classList.contains('nb-lib') && !n.childElementCount) { fresh.set(n, performance.now()); const ob = new MutationObserver(() => { ob.disconnect(); animatePage(n); }); ob.observe(n, { childList: true }); }
+          else animatePage(n);
         }
         requestAnimationFrame(placeTabs);
         continue;
