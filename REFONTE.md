@@ -21,8 +21,8 @@ Maquettes de référence : canevas Claude Design https://claude.ai/artifact/614N
 | 2 | `Main.dc.html`, `J-Telephone.dc.html`, `J-Sombre.dc.html` |
 | 3 | `J-Plan.dc.html`, `J-Semaine.dc.html`, `J-Quiz.dc.html` |
 | 4 | `J-PDF.dc.html`, `J-Cours.dc.html`, `J-Lecteur.dc.html` |
-| 5 | `J-Cahiers.dc.html`, `J-Cahier-Editeur.dc.html` |
-| 6 | `J-Animations.dc.html`, `J-Anim-Connexion.dc.html`, `J-Anim-Quiz.dc.html`, `J-Anim-Telephone.dc.html` (démos jouables : reprends leurs keyframes, durées et courbes) |
+| 5 | `J-Cahiers.dc.html`, `J-Cahier-Editeur.dc.html`, `J-Anim-Cahier.dc.html` (intérieur d'un cahier : barre d'outils, menus d'outil, pages, PDF annoté, carte de révision, audio) |
+| 6 | `J-Animations.dc.html`, `J-Anim-Connexion.dc.html`, `J-Anim-Quiz.dc.html`, `J-Anim-Telephone.dc.html`, `J-Anim-Cahier.dc.html` (démos jouables : reprends leurs keyframes, durées et courbes) |
 
 Les textes entre [crochets], horaires, notes et pourcentages des maquettes sont des exemples : le site garde ses vraies données et ses vraies fonctions.
 
