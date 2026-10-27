@@ -58,7 +58,7 @@ async function open(id, { page } = {}) {
   E = { id, nb, nd, docs: new Map(), pvs: new Map(), zoom: 1, fit: 1, scale: 1, dir: (N.uiPrefs().dirs || {})[id] || TP.dir || 'v', undo: [], redo: [], sel: null, hide: new Set(), cur: null, penSeen: false, lastPen: -1e9, lastUpd: 0, readonly: !!nb.readonly, hl: null };
   buildRoot();
   document.body.classList.add('ne-open');
-  root.hidden = false;
+  root.classList.remove('mo-close'); root.hidden = false;
   try { const want = '#cahier-' + id; if (location.hash !== want) { if (location.hash.startsWith('#cahier-') || location.hash.startsWith('#pdf-')) history.replaceState(null, '', want); else history.pushState(null, '', want); } } catch (_) {}
   await loadPages();
   layout();
@@ -102,7 +102,8 @@ async function close({ keepHash = false, switching = false } = {}) {
   for (const pv of E.pvs.values()) { pv.bg.width = pv.bg.height = 0; pv.ink.width = pv.ink.height = 0; }
   E = null;
   if (!switching) {
-    root.hidden = true; document.body.classList.remove('ne-open'); S().setActive(false);
+    if (window.Q1Motion) Q1Motion.hide(root); else root.hidden = true;
+    document.body.classList.remove('ne-open'); S().setActive(false);
     if (!keepHash && location.hash.startsWith('#cahier-')) { try { history.back(); } catch (_) {} }
     N.renderLib && N.renderLib();
     S().syncNow();
@@ -800,7 +801,7 @@ function finishErase(g) {
 const KEYS = { p: 'pen', h: 'hl', e: 'eraser', l: 'lasso', s: 'shape', t: 'text', k: 'tape', x: 'laser' };
 function onKey(e) {
   if (!E || root.hidden) return;
-  if (document.querySelector('.nb-backdrop')) return;
+  if (document.querySelector('.nb-backdrop:not(.mo-close)')) return;
   const tag = (e.target && e.target.tagName) || '';
   const typing = /INPUT|TEXTAREA|SELECT/.test(tag) || (e.target && e.target.isContentEditable);
   const mod = e.metaKey || e.ctrlKey;

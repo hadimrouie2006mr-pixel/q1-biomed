@@ -102,8 +102,12 @@ function dialog({ title, body, actions = [], wide = false, full = false, onclose
   const prevFocus = document.activeElement;
   const box = h('div', { class: 'nb-dlg ' + (wide ? 'wide ' : '') + (full ? 'full ' : '') + cls, role: 'dialog', 'aria-modal': 'true', 'aria-label': title });
   const back = h('div', { class: 'nb-backdrop' }, box);
+  let closed = false;
   const close = (v) => {
-    if (!back.isConnected) return; back.remove(); dlgStack = dlgStack.filter((x) => x !== api);
+    if (closed || !back.isConnected) return; closed = true; dlgStack = dlgStack.filter((x) => x !== api);
+    // sortie animée : le dialogue s'efface puis disparaît du DOM (sans bloquer la suite)
+    const M = window.Q1Motion;
+    if (M && !M.reduce()) { back.classList.add('mo-close'); let gone = false; const rm = () => { if (!gone) { gone = true; back.remove(); } }; back.addEventListener('animationend', (e) => { if (e.target === back) rm(); }); setTimeout(rm, 320); } else back.remove();
     if (onclose) onclose(v); if (prevFocus && prevFocus.focus) try { prevFocus.focus({ preventScroll: true }); } catch (_) {}
   };
   const api = { close, box };
@@ -148,7 +152,10 @@ function menu(anchor, items, { align = 'left' } = {}) {
   const first = m.querySelector('button:not([disabled])'); if (first) first.focus({ preventScroll: true });
   return m;
 }
-function closeMenus() { document.querySelectorAll('.nb-menu-back').forEach((x) => x.remove()); }
+function closeMenus() {
+  const M = window.Q1Motion;
+  document.querySelectorAll('.nb-menu-back:not(.mo-close)').forEach((x) => { if (!M || M.reduce()) { x.remove(); return; } x.classList.add('mo-close'); setTimeout(() => x.remove(), 170); });
+}
 function toast(msg, ms = 2600) {
   let t = document.querySelector('.nb-toast'); if (!t) { t = h('div', { class: 'nb-toast', role: 'status' }); document.body.append(t); }
   t.textContent = msg; t.classList.add('on'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('on'), ms);

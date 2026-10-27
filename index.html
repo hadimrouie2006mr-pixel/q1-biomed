@@ -220,6 +220,12 @@ button.item:hover { background: var(--paper); }
   padding: calc(8px + env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 8px max(12px, env(safe-area-inset-left)); }
 .reader-bar .name { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .reader-bar .info { color: var(--soft); font-size: .85rem; }
+/* téléphone : le titre du PDF passe sur sa propre ligne (au lieu de « M… ») */
+@media (max-width: 560px) {
+  .reader-bar { flex-wrap: wrap; row-gap: 4px; }
+  .reader-bar .name { order: 9; flex-basis: 100%; font-size: .92rem; padding: 0 2px; }
+  .reader-bar .info { margin-left: auto; }
+}
 .pages { flex: 1; overflow: auto; display: flex; flex-direction: column; align-items: center; gap: 12px;
   padding: 16px max(12px, env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); }
 .pg { background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.18); max-width: 100%; }
@@ -494,7 +500,7 @@ $('#login').addEventListener('submit', async (ev) => {
     if (!k) throw new Error(online ? 'pw' : 'net');
     if ($('#remember').checked) { try { const raw = new Uint8Array(await crypto.subtle.exportKey('raw', k)); localStorage.setItem(KEYSTORE, btoa(String.fromCharCode(...raw))); localStorage.setItem(KEYSTORE + '.profil', PROF.id); } catch (_) {} }
     start();
-  } catch (_) { $('#err').textContent = 'Mot de passe incorrect, ou pas de connexion. Vérifie et réessaie.'; }
+  } catch (_) { $('#err').textContent = 'Mot de passe incorrect, ou pas de connexion. Vérifie et réessaie.'; if (window.Q1Motion) Q1Motion.shake($('#login')); }
   finally { go.disabled = false; go.textContent = 'Ouvrir'; }
 });
 document.addEventListener('click', (e) => { if (e.target.closest('[data-logout]')) { try { localStorage.removeItem(KEYSTORE); localStorage.removeItem(KEYSTORE + '.profil'); } catch (_) {} location.hash = ''; location.reload(); } });
@@ -605,21 +611,27 @@ function buildTabs() {
   $('#railTabs').replaceChildren(...mk()); $('#bottomTabs').replaceChildren(...mk());
   $('#bottomTabs').style.setProperty('grid-template-columns', `repeat(${TABS.filter(([id]) => has(id)).length}, 1fr)`, 'important');
 }
-function route() {
+let shownTab = null;
+function route(prevHash) {
   const hash = location.hash.slice(1);
-  if (hash.startsWith('cahier-') && window.Q1Notes) { show('cahiers'); Q1Notes.openFromHash(hash.slice(7)); return; }
-  if (hash.startsWith('pdf-')) { const p = pdfs.find((x) => 'pdf-' + x.id === hash); if (p) { show('pdf'); openPdf(p); return; } }
+  // retour d'un PDF ou d'un cahier : la page en dessous reste telle quelle (défilement et filtres compris)
+  const fromOverlay = /^#(pdf|cahier)-/.test(prevHash || '');
+  if (hash.startsWith('cahier-') && window.Q1Notes) { if (shownTab !== 'cahiers') show('cahiers'); Q1Notes.openFromHash(hash.slice(7)); return; }
+  if (hash.startsWith('pdf-')) { const p = pdfs.find((x) => 'pdf-' + x.id === hash); if (p) { if (!shownTab) show('pdf'); openPdf(p); return; } }
   const ok = (t) => TABS.some((x) => x[0] === t) && has(t);
   const tab = ok(hash) ? hash : (prefs.tab && ok(prefs.tab) ? prefs.tab : 'aujourdhui');
+  if (fromOverlay && tab === shownTab && $('#view').firstElementChild && (!hash || hash === tab)) return;
   show(tab);
 }
 function show(tab) {
   prefs.tab = tab; savePrefs();
   document.querySelectorAll('[data-tab]').forEach((a) => { if (a.dataset.tab === tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   const page = ({ aujourdhui: pageToday, plan: pagePlan, semaine: pageWeek, quiz: pageQuiz, pdf: pagePdf, cours: pageCours, cahiers: () => (window.Q1Notes ? Q1Notes.page() : h('div', { class: 'page' }, h('p', { class: 'muted' }, 'Cahiers indisponibles.'))) })[tab]();
-  $('#view').replaceChildren(page); window.scrollTo(0, 0);
+  const swap = () => { $('#view').replaceChildren(page); window.scrollTo(0, 0); };
+  shownTab = tab;
+  if (window.Q1Motion) Q1Motion.swapPage(swap, tab); else swap();
 }
-window.addEventListener('hashchange', () => { if (!$('#reader').hidden && !location.hash.startsWith('#pdf-')) closeReader(true); route(); });
+window.addEventListener('hashchange', (e) => { if (!$('#reader').hidden && !$('#reader').classList.contains('mo-close') && !location.hash.startsWith('#pdf-')) closeReader(true); let old = ''; try { old = new URL(e.oldURL).hash; } catch (_) {} route(old); });
 
 /* ---------- Page : Aujourd'hui ---------- */
 function pageToday() {
@@ -719,7 +731,7 @@ function pageWeek() {
   const drawStrip = () => strip.replaceChildren(...days.map((d) => {
     const its = dayItems(d, false).filter((x) => !x.journee);
     const mats = [...new Set(its.map((x) => x.matiere))].slice(0, 5);
-    return h('button', { class: 'daybtn' + (d === today ? ' today' : ''), type: 'button', 'aria-pressed': String(d === sel), onclick: () => { sel = d; prefs.day = d; savePrefs(); drawStrip(); drawList(); } },
+    return h('button', { class: 'daybtn' + (d === today ? ' today' : ''), type: 'button', 'aria-pressed': String(d === sel), onclick: () => { if (d === sel) return; listBox.dataset.moDir = d > sel ? 'r' : 'l'; sel = d; prefs.day = d; savePrefs(); drawStrip(); drawList(); } },
       h('span', { class: 'dn' }, P(d).toLocaleDateString('fr-BE', { weekday: 'short' }).replace('.', '')),
       h('span', { class: 'dd num' }, String(P(d).getDate())),
       h('span', { class: 'dots' }, mats.map((m) => h('i', { style: `--c:var(--${MAT[m] || 'other'})` }))));
@@ -1096,7 +1108,7 @@ function pageCours() {
 let doc = null, zoom = 1, tok = 0, obs = null, cur = null, lastFocus = null;
 async function openPdf(p) {
   cur = p; lastFocus = document.activeElement;
-  $('#reader').hidden = false; document.body.style.overflow = 'hidden';
+  if (window.Q1Motion) Q1Motion.show($('#reader')); else $('#reader').hidden = false; document.body.style.overflow = 'hidden';
   $('#rname').textContent = p.titre; $('#rinfo').textContent = '';
   if (location.hash !== '#pdf-' + p.id) { try { history.pushState(null, '', '#pdf-' + p.id); } catch (_) {} }
   $('#rclose').focus();
@@ -1124,13 +1136,14 @@ async function draw(n, holder, my, w) {
   if (my !== tok) return; holder.style.height = 'auto'; holder.replaceChildren(c);
 }
 function closeReader(fromHash) {
-  $('#reader').hidden = true; document.body.style.overflow = ''; cur = null; doc = null; tok++;
+  const r = $('#reader'); if (window.Q1Motion) Q1Motion.hide(r, () => { if (r.hidden) $('#pages').replaceChildren(); }); else r.hidden = true;
+  document.body.style.overflow = ''; cur = null; doc = null; tok++;
   if (!fromHash && location.hash.startsWith('#pdf-')) { try { history.back(); } catch (_) {} }
   if (lastFocus && lastFocus.focus) lastFocus.focus();
 }
 $('#rclose').addEventListener('click', () => closeReader(false));
 $('#rannot').addEventListener('click', () => { const p = cur; if (!p || !window.Q1Notes) return; Q1Notes.annotSitePdf(p, () => closeReader(true)); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#reader').hidden) closeReader(false); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#reader').hidden && !$('#reader').classList.contains('mo-close') && !document.querySelector('.nb-backdrop:not(.mo-close)')) closeReader(false); });
 $('#zin').addEventListener('click', () => { if (doc) { zoom = Math.min(zoom * 1.25, 3); layout(); } });
 $('#zout').addEventListener('click', () => { if (doc) { zoom = Math.max(zoom / 1.25, .5); layout(); } });
 
@@ -1153,7 +1166,7 @@ function applyTheme() {
     b.setAttribute('aria-label', TLABEL[t] + ' (toucher pour changer)'); b.title = TLABEL[t];
   });
 }
-document.addEventListener('click', (e) => { if (e.target.closest('[data-theme-toggle]')) { const i = THEMES.indexOf(THEMES.includes(prefs.theme) ? prefs.theme : 'auto'); prefs.theme = THEMES[(i + 1) % 3]; savePrefs(); applyTheme(); } });
+document.addEventListener('click', (e) => { if (e.target.closest('[data-theme-toggle]')) { const i = THEMES.indexOf(THEMES.includes(prefs.theme) ? prefs.theme : 'auto'); prefs.theme = THEMES[(i + 1) % 3]; savePrefs(); if (window.Q1Motion) Q1Motion.themeSwap(applyTheme); else applyTheme(); } });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 applyTheme();
 
@@ -1189,7 +1202,7 @@ function pomoReset() {
   pomo.running = false; pomo.phase = 'focus'; pomo.left = LEN.focus * 60; savePomo(); drawPomo();
 }
 // Mini minuteur visible par-dessus le lecteur PDF et l'éditeur de cahier, pendant un bloc
-const pomoMini = h('button', { class: 'pomo-mini', id: 'pomoMini', type: 'button', hidden: true, onclick: () => { const b = $('#pomo'); b.classList.add('over'); b.hidden = false; $('#pomoFab').setAttribute('aria-expanded', 'true'); drawPomo(); } });
+const pomoMini = h('button', { class: 'pomo-mini', id: 'pomoMini', type: 'button', hidden: true, onclick: () => openPomo(true) });
 document.body.append(pomoMini);
 function drawMini(r) {
   const inDoc = !$('#reader').hidden || !!document.querySelector('#ne:not([hidden])');
@@ -1228,14 +1241,16 @@ function drawPomo() {
   }
   box.dataset.k = key;
   box.replaceChildren(
-    pBtn('close', 'Fermer le minuteur', () => { box.hidden = true; box.classList.remove('over'); $('#pomoFab').setAttribute('aria-expanded', 'false'); }, 'pclose'),
+    pBtn('close', 'Fermer le minuteur', () => { closePomo(); }, 'pclose'),
     dial(r, total),
     h('div', { class: 'pomo-actions' },
       pBtn('stop', 'Arrêter', pomoReset),
       pomo.running ? pBtn('pause', 'Pause', pomoPause, 'main') : pBtn('play', r === total ? 'Démarrer' : 'Reprendre', pomoStart, 'main'),
       pBtn('skip', 'Passer', () => { pomo.left = 0; pomo.running = false; pomoNext(); drawPomo(); })));
 }
-$('#pomoFab').addEventListener('click', () => { const b = $('#pomo'); b.hidden = !b.hidden; $('#pomoFab').setAttribute('aria-expanded', String(!b.hidden)); drawPomo(); });
+function openPomo(over) { const b = $('#pomo'); if (over) b.classList.add('over'); if (window.Q1Motion) Q1Motion.show(b); else b.hidden = false; $('#pomoFab').setAttribute('aria-expanded', 'true'); drawPomo(); }
+function closePomo() { const b = $('#pomo'); $('#pomoFab').setAttribute('aria-expanded', 'false'); const fin = () => { if (b.hidden) b.classList.remove('over'); }; if (window.Q1Motion) Q1Motion.hide(b, fin); else { b.hidden = true; fin(); } }
+$('#pomoFab').addEventListener('click', () => { const b = $('#pomo'); if (b.hidden || b.classList.contains('mo-close')) openPomo(false); else closePomo(); });
 /* Notification du minuteur quand on quitte le site : heure de fin + minutes restantes (mise à jour chaque minute tant que le téléphone laisse tourner la page). */
 const swReg = () => ('serviceWorker' in navigator ? navigator.serviceWorker.getRegistration() : Promise.resolve(null)).catch(() => null);
 function notify(title, opts) {
