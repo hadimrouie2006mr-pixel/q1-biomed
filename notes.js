@@ -214,12 +214,15 @@ N.customBg = customBg;
 N.createNotebook = createNotebook;
 
 // PDF du site → document annotable (id déterministe : identique sur tous les appareils)
-async function openSitePdf(p) {
+const sitePdfId = (p) => 'pdf-' + String(p.id).replace(/[^\w-]/g, '_');
+async function openSitePdf(p, folder) {
   if (!idx) await loadIndex();
-  const id = 'pdf-' + String(p.id).replace(/[^\w-]/g, '_');
+  const id = sitePdfId(p);
   let nb = idx.nbs[id];
   if (!nb || nb.gone || nb.trashed) {
-    N.setIdx('nbs', Object.assign({}, nb && !nb.gone ? nb : {}, { id, title: p.titre, cover: MATCOVER[p.matiere] || 'other', kind: 'pdf', site: p.id, folder: (nb && !nb.gone && nb.folder) || '', fav: !!(nb && nb.fav), created: (nb && nb.created) || Date.now(), upd: Date.now(), trashed: 0 }));
+    N.setIdx('nbs', Object.assign({}, nb && !nb.gone ? nb : {}, { id, title: p.titre, cover: MATCOVER[p.matiere] || 'other', kind: 'pdf', site: p.id, folder: folder != null ? folder : (nb && !nb.gone && nb.folder) || '', fav: !!(nb && nb.fav), created: (nb && nb.created) || Date.now(), upd: Date.now(), trashed: 0 }));
+  } else if (folder != null && (nb.folder || '') !== folder) {
+    N.setIdx('nbs', Object.assign({}, nb, { folder, upd: Date.now() }));
   }
   const nd = await S().ensure(nbPath(id), { pages: {}, audio: {} });
   const livePages = Object.values(nd.pages || {}).filter(live);
@@ -238,6 +241,48 @@ async function openSitePdf(p) {
   N.editor.open(id);
 }
 N.openSitePdf = openSitePdf;
+
+// « Annoter » depuis le lecteur : choisir le dossier des Cahiers où ranger le PDF
+const liveFolder = (fid) => { const fo = fid && idx.folders[fid]; return !!(fo && !fo.gone && !fo.trashed); };
+function folderPath(fid) { const out = []; let f = fid, g = 0; while (f && g++ < 20) { const fo = idx.folders[f]; if (!fo || fo.gone) break; out.unshift(fo.name); f = fo.parent; } return out.join(' › '); }
+async function annotSitePdf(p, beforeOpen) {
+  if (!idx) await loadIndex();
+  const nb = idx.nbs[sitePdfId(p)];
+  const exists = !!(nb && !nb.gone && !nb.trashed && nb.np);
+  const here = exists ? (liveFolder(nb.folder) ? nb.folder : '') : null;
+  const mat = p.matiere || '';
+  const folders = folderList().filter((f) => !f.trashed).map((f) => ({ id: f.id, name: folderPath(f.id), color: f.color })).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  // Suggestion : dernier dossier choisi pour cette matière, sinon un dossier qui porte le nom de la matière
+  const last = (lp().pdfFolder || {})[mat];
+  const norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  let sugg = last != null && (last === '' || liveFolder(last)) ? last : null;
+  if (sugg == null && mat) { const m = folders.find((f) => norm(idx.folders[f.id].name) === norm(mat)) || folders.find((f) => norm(idx.folders[f.id].name).startsWith(norm(mat).slice(0, 4))); if (m) sugg = m.id; }
+  let d;
+  const go = (fid) => {
+    d.close(); lpSave({ pdfFolder: Object.assign({}, lp().pdfFolder || {}, { [mat]: fid }) });
+    if (beforeOpen) beforeOpen();
+    openSitePdf(p, fid);
+    if (exists && fid !== here) toast(`Rangé dans « ${fid ? folderPath(fid) : 'Cahiers'} »`);
+  };
+  const newF = async () => {
+    d.close();
+    const name = await prompt('Nouveau dossier', mat, { label: 'Nom du dossier', ok: 'Créer et annoter' });
+    if (!name) return;
+    const id = S().uid('f'); N.setIdx('folders', { id, name, color: MATCOVER[mat] || 'bio', parent: '', trashed: 0 });
+    d = { close() {} }; go(id);
+  };
+  const opts = [{ id: '', name: 'Cahiers (racine)' }].concat(folders);
+  if (sugg != null) { const i = opts.findIndex((o) => o.id === sugg); if (i > 0) opts.unshift(opts.splice(i, 1)[0]); }
+  const row = (o) => h('button', { class: 'nb-row' + (o.id === here ? ' on' : ''), type: 'button', onclick: () => go(o.id) },
+    ico(o.id ? 'folder' : 'pages'), h('span', { class: 'tx' }, o.name),
+    o.id === here ? h('span', { class: 'nb-pick-tag' }, 'Actuel') : o.id === sugg ? h('span', { class: 'nb-pick-tag' }, 'Suggéré') : null,
+    o.id === here ? ico('check') : null);
+  d = dialog({ title: exists ? 'Annoter dans…' : 'Ranger ce PDF dans…', body: h('div', { class: 'nb-list' },
+    h('p', { class: 'muted small nb-pick-pdf' }, p.titre),
+    opts.map(row),
+    h('button', { class: 'nb-row', type: 'button', onclick: newF }, ico('plus'), h('span', { class: 'tx' }, h('b', {}, 'Nouveau dossier…')))) });
+}
+N.annotSitePdf = annotSitePdf;
 
 /* ---------- PDF : chargement (site ou fichier importé) ---------- */
 const pdfDocs = new Map();

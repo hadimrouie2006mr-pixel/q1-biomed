@@ -1129,7 +1129,7 @@ function closeReader(fromHash) {
   if (lastFocus && lastFocus.focus) lastFocus.focus();
 }
 $('#rclose').addEventListener('click', () => closeReader(false));
-$('#rannot').addEventListener('click', () => { const p = cur; if (!p || !window.Q1Notes) return; closeReader(true); Q1Notes.openSitePdf(p); });
+$('#rannot').addEventListener('click', () => { const p = cur; if (!p || !window.Q1Notes) return; Q1Notes.annotSitePdf(p, () => closeReader(true)); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#reader').hidden) closeReader(false); });
 $('#zin').addEventListener('click', () => { if (doc) { zoom = Math.min(zoom * 1.25, 3); layout(); } });
 $('#zout').addEventListener('click', () => { if (doc) { zoom = Math.max(zoom / 1.25, .5); layout(); } });

@@ -105,6 +105,9 @@ button.nb-row:hover, .nb-row.on { background: var(--pill); }
 .nb-row.radio { cursor: pointer; }
 .nb-row.radio input { width: 20px; height: 20px; accent-color: var(--ink); }
 .nb-row .search { flex: 1; min-width: 0; min-height: 44px; }
+.nb-pick-tag { flex: none; font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--pill); color: var(--soft); }
+.nb-row.on .nb-pick-tag { background: var(--sheet); }
+.nb-pick-pdf { margin: 0 0 6px; padding: 0 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nb-menu-back { position: fixed; inset: 0; z-index: 70; }
 .nb-menu { position: fixed; min-width: 230px; max-width: calc(100vw - 16px); max-height: calc(100vh - 24px); overflow-y: auto; background: var(--sheet); border: 1px solid var(--rule); border-radius: 14px; box-shadow: 0 14px 40px rgba(0,0,0,.22); padding: 6px; display: flex; flex-direction: column; }
 .nb-menu-item { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border: 0; background: none; color: var(--ink); text-align: left; font: inherit; font-size: .95rem; border-radius: 10px; cursor: pointer; }
