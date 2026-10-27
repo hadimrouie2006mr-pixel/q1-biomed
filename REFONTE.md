@@ -6,7 +6,7 @@ Maquettes de référence : canevas Claude Design https://claude.ai/artifact/614N
 
 ## Avancement (une case par lot, cochée par la tâche qui l'a terminé)
 
-- [ ] Lot 1 — Base du thème : police, couleurs, cartes, boutons, puces, navigation en pilule, écran de connexion, mode sombre
+- [x] Lot 1 — Base du thème : police, couleurs, cartes, boutons, puces, navigation en pilule, écran de connexion, mode sombre
 - [ ] Lot 2 — Aujourd'hui : grille bento (iPad/PC) + version téléphone
 - [ ] Lot 3 — Plan d'études, Semaine, Quiz
 - [ ] Lot 4 — PDF, Cours (annonces + cours UV), lecteur PDF, minuteur

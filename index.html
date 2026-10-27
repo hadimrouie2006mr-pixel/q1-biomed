@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#E9EBEE" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E0F12" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Q1 Biomed">
 <title>Mon Q1 Biomed</title>
@@ -389,42 +389,45 @@ button.item:hover { background: var(--paper); }
 }
 .offline { background: var(--ink); }
 </style>
+<link rel="preload" href="vendor/fonts/outfit-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="vendor/fonts/outfit-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="notes.css">
-<link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="glass.css">
 <link rel="stylesheet" href="pages.css">
+<link rel="stylesheet" href="theme.css">
 </head>
 <body>
 
 <!-- Verrou -->
 <div class="lock" id="lock">
   <button class="themefab" type="button" data-theme-toggle aria-label="Changer le thème"></button>
-  <form id="login" autocomplete="on">
-    <div class="tags" aria-hidden="true"><span style="background:var(--bio)"></span><span style="background:var(--chimie)"></span><span style="background:var(--maths)"></span><span style="background:var(--physique)"></span></div>
-    <h1>Mon Q1 Biomed</h1>
-    <p>Ton espace d'études privé. Entre ton mot de passe pour l'ouvrir.</p>
-    <input type="text" name="username" value="hadi" autocomplete="username" hidden>
-    <div class="field"><label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="current-password" required></div>
-    <label class="check"><input id="remember" type="checkbox" checked> Se souvenir sur cet appareil</label>
-    <button class="primary" id="go" type="submit">Ouvrir</button>
-    <div class="err" id="err" role="alert"></div>
-  </form>
+  <div class="lock-grid">
+    <div class="lock-hero">
+      <div class="tags" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+      <div class="lock-title"><span class="lock-kicker">BA1 sciences biomédicales</span><h1>Mon Q1<br>Biomed</h1></div>
+    </div>
+    <div class="lock-intro"><b>Ton espace d'études privé</b><p>Cours, quiz, PDF et cahiers au même endroit. Entre ton mot de passe pour l'ouvrir.</p></div>
+    <form id="login" autocomplete="on">
+      <input type="text" name="username" value="hadi" autocomplete="username" hidden>
+      <div class="field"><label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="current-password" required></div>
+      <label class="check"><input id="remember" type="checkbox" checked> Se souvenir sur cet appareil</label>
+      <button class="primary" id="go" type="submit">Ouvrir <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      <div class="err" id="err" role="alert"></div>
+    </form>
+  </div>
 </div>
 
 <!-- App -->
 <div class="shell" id="app" hidden>
-  <nav class="rail" aria-label="Navigation">
-    <div class="brand">Mon Q1 Biomed<small id="brandsub">BA1 sciences biomédicales</small></div>
-    <div id="railTabs"></div>
-    <div class="spacer"></div>
-    <div class="meta" id="maj"></div>
-    <button class="tab themebtn" type="button" data-theme-toggle aria-label="Changer le thème"></button>
-    <button class="tab" type="button" data-logout>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Verrouiller
-    </button>
-  </nav>
+  <header class="topbar">
+    <div class="brand">Mon Q1 Biomed<small id="brandsub">BA1 sciences biomédicales</small><small class="meta" id="maj"></small></div>
+    <nav class="toptabs" id="railTabs" aria-label="Navigation"></nav>
+    <div class="top-acts">
+      <button class="iconbtn" type="button" data-theme-toggle aria-label="Changer le thème"></button>
+      <button class="avatar" type="button" data-logout id="avatar" aria-label="Verrouiller (changer de profil)" title="Verrouiller (changer de profil)">?</button>
+    </div>
+  </header>
   <main class="view" id="view"></main>
-  <button class="themefab" type="button" data-theme-toggle aria-label="Changer le thème"></button>
   <nav class="bottom" id="bottomTabs" aria-label="Navigation"></nav>
 </div>
 
@@ -556,6 +559,7 @@ const ICON = {
   cours: '<path d="M4 6l8-3 8 3-8 3z"/><path d="M6 8v6c0 1.5 2.7 3 6 3s6-1.5 6-3V8"/>',
   cahiers: '<path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6z"/><path d="M6 3v18M9.5 3v18" opacity=".55"/><path d="M12.5 9.5l3-3 1 1-3 3-1.4.4z"/>'
 };
+const SHORT = { aujourdhui: 'Auj.' };
 const TABS = [['aujourdhui', "Aujourd'hui", 'today'], ['plan', 'Plan', 'plan'], ['semaine', 'Semaine', 'week'], ['quiz', 'Quiz', 'quiz'], ['pdf', 'PDF', 'pdf'], ['cours', 'Cours', 'cours'], ['cahiers', 'Cahiers', 'cahiers']];
 const icon = (k) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = ICON[k]; return s; };
 
@@ -619,7 +623,7 @@ const quizStatus = (q, now) => {
 
 /* ---------- Navigation ---------- */
 function buildTabs() {
-  const mk = () => TABS.filter(([id]) => has(id)).map(([id, txt, ic]) => h('a', { class: 'tab', href: '#' + id, 'data-tab': id }, icon(ic), txt));
+  const mk = () => TABS.filter(([id]) => has(id)).map(([id, txt, ic]) => h('a', { class: 'tab', href: '#' + id, 'data-tab': id }, icon(ic), h('span', { class: 'tl' }, txt), h('span', { class: 'ts', 'aria-hidden': 'true' }, SHORT[id] || txt)));
   $('#railTabs').replaceChildren(...mk()); $('#bottomTabs').replaceChildren(...mk());
   $('#bottomTabs').style.setProperty('grid-template-columns', `repeat(${TABS.filter(([id]) => has(id)).length}, 1fr)`, 'important');
 }
@@ -1172,10 +1176,10 @@ function applyTheme() {
   const t = THEMES.includes(prefs.theme) ? prefs.theme : 'auto';
   if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
   const isDark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', isDark ? '#000000' : '#f5f5f7'));
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', isDark ? '#0E0F12' : '#E9EBEE'));
   document.querySelectorAll('[data-theme-toggle]').forEach((b) => {
     const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = TICON[t];
-    b.replaceChildren(s); if (!b.classList.contains('themefab')) b.append(TLABEL[t]);
+    b.replaceChildren(s); if (!b.classList.contains('themefab') && !b.classList.contains('iconbtn')) b.append(TLABEL[t]);
     b.setAttribute('aria-label', TLABEL[t] + ' (toucher pour changer)'); b.title = TLABEL[t];
   });
 }
@@ -1343,7 +1347,7 @@ function cacheForOffline() {
 
 /* ---------- Démarrage ---------- */
 function start() {
-  prepare(); $('#brandsub').textContent = 'BA1 sciences biomédicales · ' + PROF.groupe; document.documentElement.dataset.profil = PROF.id || 'principal'; buildTabs(); netState(); $('#pomoFab').hidden = false; drawFab(); cacheForOffline();
+  prepare(); $('#brandsub').textContent = 'BA1 sciences biomédicales · ' + PROF.groupe; document.documentElement.dataset.profil = PROF.id || 'principal'; buildTabs(); $('#avatar').textContent = (String(PROF.nom || '?').trim()[0] || '?').toUpperCase(); netState(); $('#pomoFab').hidden = false; drawFab(); cacheForOffline();
   if (D.maj) $('#maj').textContent = 'Mis à jour le ' + new Date(D.maj).toLocaleString('fr-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   if (window.Q1Notes && Q1Notes.boot) Q1Notes.boot({ key: KEY, pdfs: () => pdfs, decrypt, fetchBuf: fetchEnc, profile: PROF.id });
   $('#lock').hidden = true; $('#app').hidden = false; route(); updateBadge();
