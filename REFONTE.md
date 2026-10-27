@@ -11,6 +11,7 @@ Maquettes de référence : canevas Claude Design https://claude.ai/artifact/614N
 - [ ] Lot 3 — Plan d'études, Semaine, Quiz
 - [ ] Lot 4 — PDF, Cours (annonces + cours UV), lecteur PDF, minuteur
 - [ ] Lot 5 — Cahiers : bibliothèque (couvertures en carnets) + éditeur (barre d'outils, pages, papier) ; puis relecture finale
+- [ ] Lot 6 — Animations sur tout le site (voir « Lot 6 — détail » plus bas)
 
 ## Écrans de référence par lot
 
@@ -21,6 +22,7 @@ Maquettes de référence : canevas Claude Design https://claude.ai/artifact/614N
 | 3 | `J-Plan.dc.html`, `J-Semaine.dc.html`, `J-Quiz.dc.html` |
 | 4 | `J-PDF.dc.html`, `J-Cours.dc.html`, `J-Lecteur.dc.html` |
 | 5 | `J-Cahiers.dc.html`, `J-Cahier-Editeur.dc.html` |
+| 6 | `J-Animations.dc.html` (démo jouable : reprends ses keyframes, durées et courbes) |
 
 Les textes entre [crochets], horaires, notes et pourcentages des maquettes sont des exemples : le site garde ses vraies données et ses vraies fonctions.
 
@@ -43,3 +45,29 @@ Les textes entre [crochets], horaires, notes et pourcentages des maquettes sont 
 3. Incrémente la version du cache dans `sw.js` pour que l'appareil charge la nouvelle version.
 4. Vérifie avant de pousser : `node --check` sur chaque `.js` modifié et sur les scripts en ligne de `index.html` (extraits dans un fichier temporaire hors du dépôt).
 5. Un commit par lot : « Refonte bento — lot N : … », puis coche la case du lot ici, dans le même commit.
+
+## Lot 6 — détail des animations
+
+Principes : uniquement `transform` et `opacity` (fluide sur iPad), durées 150 à 600 ms, courbe `cubic-bezier(.2,.8,.2,1)` (rebond léger : `cubic-bezier(.3,1.3,.5,1)`), rien ne bloque une action, tout est coupé avec `prefers-reduced-motion: reduce`. Réutilise et étends `motion.js`. Chaque effet doit marcher en clair, en sombre, sur iPad, PC et téléphone, et pour les deux profils.
+
+Vus dans la démo :
+1. **Entrée en cascade** : à chaque ouverture d'onglet, les cartes apparaissent l'une après l'autre (montée de 16 px + fondu, ~90 ms d'écart).
+2. **Pilule d'onglet qui glisse** : l'indicateur noir (haut) ou accent (téléphone, en bas) glisse vers l'onglet choisi avec un petit rebond.
+3. **Cocher une tâche** (Aujourd'hui et Plan) : la case rebondit, le texte se barre, l'anneau de progression et le compteur « x/n » s'animent.
+4. **Minuteur** : l'anneau se vide en continu, un point accent pulse pendant qu'il tourne, petite pulsation de la carte quand une session se termine.
+5. **Ouvrir un cahier** : la couverture du carnet pivote (perspective) puis l'éditeur s'ouvre.
+6. **Barres d'avancement** : elles se remplissent depuis la gauche à leur apparition.
+7. **Appui sur les boutons** : léger enfoncement (scale .96) au toucher.
+
+En plus :
+8. **Passage d'un onglet à l'autre** : fondu + glissement court dans le sens de la navigation (vers la gauche ou vers la droite selon l'ordre des onglets).
+9. **Pastilles « nouveau »** (PDF, annonces, cours) : petit « pop » à l'apparition.
+10. **Toutes les tâches du jour faites** : petite pluie de confettis aux couleurs des matières, une seule fois par jour, sans bibliothèque externe (canvas ou éléments DOM, < 1,5 s).
+11. **Chargement** : squelettes de cartes avec reflet qui passe (shimmer) pendant le déchiffrement des données, à la place d'un écran vide.
+12. **Connexion** : le champ tremble en cas de mauvais mot de passe ; en cas de succès, la carte accent s'agrandit et laisse place au site.
+13. **Lecteur PDF** : s'ouvre en montant depuis le bas (feuille), se ferme en redescendant.
+14. **Thème clair/sombre** : fondu doux entre les deux (View Transitions API si disponible, sinon transition des couleurs).
+15. **Quiz** : la note compte de 0 jusqu'à sa valeur et sa barre se remplit ; la moyenne aussi.
+16. **Semaine** : le jour actuel s'encadre en noir avec une petite animation ; changer de semaine fait glisser les colonnes.
+17. **Cahiers — bibliothèque** : les carnets se soulèvent légèrement au survol/appui (translateY −4 px, ombre plus marquée).
+18. **Annonces importantes** : le point rouge pulse doucement deux fois à l'arrivée, puis s'arrête.
