@@ -100,7 +100,7 @@
   }
 
   /* ---------- Redessin d'une partie de page (jour, filtre, tri, onglet interne) ---------- */
-  const NO_SWAP = '.chips, .seg, .days, .plan, .nb-lib, .gcal, .tab-ind';
+  const NO_SWAP = '.chips, .seg, .days, .plan, .nb-lib, .gcal, .tab-ind, .bento > .bt-card';
   function swapIn(container, nodes) {
     if (reduce() || !nodes.length) return;
     // pas pendant la frappe dans une recherche, ni derrière le lecteur ou l'éditeur

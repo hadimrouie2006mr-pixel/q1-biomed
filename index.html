@@ -640,7 +640,7 @@ function route(prevHash) {
   show(tab);
 }
 function show(tab) {
-  prefs.tab = tab; savePrefs();
+  prefs.tab = tab; savePrefs(); document.documentElement.dataset.tab = tab;
   document.querySelectorAll('[data-tab]').forEach((a) => { if (a.dataset.tab === tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   const page = ({ aujourdhui: pageToday, plan: pagePlan, semaine: pageWeek, quiz: pageQuiz, pdf: pagePdf, cours: pageCours, cahiers: () => (window.Q1Notes ? Q1Notes.page() : h('div', { class: 'page' }, h('p', { class: 'muted' }, 'Cahiers indisponibles.'))) })[tab]();
   const swap = () => { $('#view').replaceChildren(page); window.scrollTo(0, 0); };
@@ -649,21 +649,43 @@ function show(tab) {
 }
 window.addEventListener('hashchange', (e) => { if (!$('#reader').hidden && !$('#reader').classList.contains('mo-close') && !location.hash.startsWith('#pdf-')) closeReader(true); let old = ''; try { old = new URL(e.oldURL).hash; } catch (_) {} route(old); });
 
-/* ---------- Page : Aujourd'hui ---------- */
+/* ---------- Page : Aujourd'hui (grille bento) ---------- */
+const NS = 'http://www.w3.org/2000/svg';
+// Anneau de progression (x/n)
+function ringEl(done, total, size, stroke, lab) {
+  const r = (size - stroke) / 2 - 2, C = 2 * Math.PI * r, k = total ? done / total : 0;
+  const s = document.createElementNS(NS, 'svg'); s.setAttribute('viewBox', `0 0 ${size} ${size}`); s.setAttribute('class', 'bt-ring'); s.setAttribute('role', 'img'); s.setAttribute('aria-label', lab);
+  s.innerHTML = `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--rule)" stroke-width="${stroke}"/>` +
+    (k > 0 ? `<circle class="arc" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--focus)" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${(C * k).toFixed(1)} ${(C * 2).toFixed(1)}" transform="rotate(-90 ${size / 2} ${size / 2})"/>` : '');
+  return s;
+}
+// Carte « Minuteur » : mise à jour chaque seconde par drawFab()
+function drawTodayTimer(r) {
+  document.querySelectorAll('.bt-timer').forEach((c) => {
+    const t = c.querySelector('.bt-time'); if (t) t.textContent = mmss(r);
+    const k = c.querySelector('.bt-k'); if (k) k.textContent = pomo.running || r !== LEN[pomo.phase] * 60 ? PLABEL[pomo.phase] : 'Minuteur';
+    const b = c.querySelector('.bt-go'); if (b) { const lab = pomo.running ? 'Pause' : r === LEN[pomo.phase] * 60 ? 'Démarrer' : 'Reprendre'; if (b.textContent !== lab) b.textContent = lab; }
+    c.classList.toggle('run', !!pomo.running); c.classList.toggle('brk', pomo.phase !== 'focus');
+  });
+}
 function pageToday() {
   const now = nowL(), today = now.slice(0, 10);
   const lastToday = dayItems(today, false).filter((x) => !x.journee).pop();
   const nextDay = hor.concat(agenda).filter((x) => String(x.debut).slice(0, 10) > today && x.type !== 'Congé' && !x.journee).map((x) => String(x.debut).slice(0, 10)).sort()[0];
   const showDay = lastToday && String(lastToday.fin) > now ? today : nextDay || today;
   const horizon = addD(today, 3);
+  const mins = (a, b) => Math.round((P(b) - P(a)) / 6e4);
+  const dur = (m) => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}` : `${m} min`;
+  const hm = (s) => String(s).slice(11, 16);
+  const card = (cls, ...kids) => { const at = kids[0] && !kids[0].nodeType && typeof kids[0] === 'object' && !Array.isArray(kids[0]) ? kids.shift() : {}; return h('section', { ...at, class: 'bt-card ' + cls }, ...kids); };
+  const kHead = (txt, extra) => h('div', { class: 'bt-head' }, h('span', { class: 'bt-k' }, txt), extra || null);
 
-  // À faire : quiz et séances dans les 3 prochains jours
+  // ---- À faire : quiz et séances dans les 3 prochains jours
   const todos = [];
   quiz.filter((q) => String(q.fermeture) >= now && q.ouverture.slice(0, 10) <= horizon).forEach((q) => todos.push({ at: q.ouverture, kind: 'quiz', q }));
   prep.filter((p) => String(p.debut) >= now && p.jour <= horizon).forEach((p) => todos.push({ at: p.debut, kind: 'prep', p }));
   todos.sort((a, b) => String(a.at).localeCompare(String(b.at)));
-
-  const todoList = h('div', { class: 'sheet todo' });
+  const todoList = h('div', { class: 'todo' });
   if (!todos.length) todoList.append(h('p', { class: 'empty' }, 'Rien à rendre ni à préparer dans les 3 prochains jours.'));
   todos.forEach((t) => {
     const n = dd(now, t.at);
@@ -682,9 +704,9 @@ function pageToday() {
     }
   });
 
-  // Ligne du temps du jour affiché
+  // ---- Ligne du temps du jour affiché
   const items = dayItems(showDay, false);
-  const tl = h('div', { class: 'sheet timeline' });
+  const tl = h('div', { class: 'timeline' });
   let nowPlaced = showDay !== today;
   if (!items.length) tl.append(h('p', { class: 'empty' }, 'Rien de prévu ce jour-là.'));
   items.forEach((x) => {
@@ -693,48 +715,133 @@ function pageToday() {
   });
   if (!nowPlaced && items.length) tl.append(h('div', { class: 'nowline num' }, hh(now), h('i')));
 
-  // Chiffres
+  // ---- Chiffres
   const done = quiz.filter((q) => note(q) !== null);
   const avg = done.length ? Math.round(done.reduce((s, q) => s + note(q), 0) / done.length * 10) / 10 : null;
   const missed = quiz.filter((q) => quizStatus(q, now)[0] === 'manqué').length;
   const nextPrep = prep.find((p) => String(p.debut) >= now);
-  const stats = h('div', { class: 'sheet stats' },
-    h('div', { class: 'stat' }, h('span', { class: 'v num' }, avg === null ? '—' : String(avg).replace('.', ','), h('small', {}, avg === null ? '' : ' /20')), h('span', { class: 'k' }, `moyenne sur ${done.length} quiz`)),
-    h('div', { class: 'stat' }, h('span', { class: 'v num' }, String(missed)), h('span', { class: 'k' }, missed > 1 ? 'quiz manqués' : 'quiz manqué')),
-    h('div', { class: 'stat' }, h('span', { class: 'v num' }, String(pdfs.length)), h('span', { class: 'k' }, 'PDF de révision')));
+  const stats = [
+    has('notes') && has('quiz') ? h('div', { class: 'stat' }, h('span', { class: 'v num' }, avg === null ? '—' : String(avg).replace('.', ','), h('small', {}, avg === null ? '' : ' /20')), h('span', { class: 'k' }, `moyenne sur ${done.length} quiz`)) : null,
+    has('notes') && has('quiz') ? h('div', { class: 'stat' }, h('span', { class: 'v num' }, String(missed)), h('span', { class: 'k' }, missed > 1 ? 'quiz manqués' : 'quiz manqué')) : null,
+    h('div', { class: 'stat' }, h('span', { class: 'v num' }, String(pdfs.length)), h('span', { class: 'k' }, 'PDF de révision'))].filter(Boolean);
 
+  // ---- Annonces
   const fresh = annonces.filter((a) => a.pour_toi && dd(String(a.date), now) <= 7);
   const importantNews = fresh.filter((a) => a.important).slice(0, 2);
   const freshNews = importantNews.length ? importantNews : fresh.slice(0, 1);
   const greeting = cap(fLong(today + 'T12:00'));
-  // En ce moment / ensuite
+
+  // ---- Carte principale : cours en cours, sinon prochain cours
   const todayCours = hor.filter((x) => x.jour === today && x.type !== 'Congé');
   const curC = todayCours.find((x) => String(x.debut) <= now && String(x.fin) > now);
-  const nextC = todayCours.find((x) => String(x.debut) > now);
-  const mins = (a, b) => Math.round((P(b) - P(a)) / 6e4);
-  const dur = (m) => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}` : `${m} min`;
-  let nowCard = null;
+  const nextC = hor.find((x) => String(x.debut) > now && x.type !== 'Congé');
+  const prepBtn = (c) => { const pp = prep.find((p) => p.id === c.id); return pp && pp.pdf && pp.pdf.enc ? h('button', { class: 'btn bt-dark', type: 'button', onclick: () => openPdf(pp.pdf) }, 'Ouvrir la prépa') : (c.a_preparer ? h('span', { class: 'bt-tag' }, 'À préparer') : null); };
+  let hero;
   if (curC) {
     const tot = mins(curC.debut, curC.fin), left = mins(now, curC.fin);
-    nowCard = h('section', { class: 'sheet nowcard', 'aria-label': 'En ce moment' }, h('span', { class: 'k' }, 'En ce moment'),
-      h('div', {}, h('div', { class: 'what' }, `${curC.matiere} · ${curC.type}`), h('div', { class: 'muted' }, curC.local)),
-      h('div', { class: 'prog', role: 'img', 'aria-label': `Fini dans ${dur(left)}` }, h('i', { style: `width:${Math.max(2, Math.min(100, (1 - left / tot) * 100))}%` })),
-      h('div', { class: 'ends num' }, h('span', {}, hh(curC.debut)), h('span', {}, `Fini dans ${dur(left)}`), h('span', {}, hh(curC.fin))));
+    hero = card('bt-hero nowcard', { 'aria-label': 'En ce moment' },
+      h('div', { class: 'bt-head' }, h('span', { class: 'bt-kick' }, 'En ce moment'), h('span', { class: 'bt-pill num' }, `Fini dans ${dur(left)}`)),
+      h('div', { class: 'bt-main' },
+        h('span', { class: 'bt-big num' }, hm(curC.debut)),
+        h('span', { class: 'bt-title' }, curC.matiere),
+        h('span', { class: 'bt-sub' }, `${curC.type} · ${curC.local}`),
+        h('div', { class: 'prog', role: 'img', 'aria-label': `Fini dans ${dur(left)}` }, h('i', { style: `width:${Math.max(2, Math.min(100, (1 - left / tot) * 100))}%` })),
+        h('div', { class: 'ends num' }, h('span', {}, hh(curC.debut)), h('span', {}, hh(curC.fin))), prepBtn(curC)));
   } else if (nextC) {
-    nowCard = h('section', { class: 'sheet nowcard', 'aria-label': 'Prochain cours' }, h('span', { class: 'k next' }, `Prochain cours dans ${dur(mins(now, nextC.debut))}`),
-      h('div', {}, h('div', { class: 'what' }, `${nextC.matiere} · ${nextC.type}`), h('div', { class: 'muted' }, `${hh(nextC.debut)} – ${hh(nextC.fin)} · ${nextC.local}`)));
-  }
+    const m = mins(now, nextC.debut), r = rel(nextC.debut, now);
+    hero = card('bt-hero', { 'aria-label': 'Prochain cours' },
+      h('div', { class: 'bt-head' }, h('span', { class: 'bt-kick' }, 'Prochain cours'), h('span', { class: 'bt-pill' }, cap(r === "aujourd'hui" || r === 'demain' ? r : fShort(nextC.debut)))),
+      h('div', { class: 'bt-main' },
+        h('span', { class: 'bt-big num' }, hm(nextC.debut)),
+        h('span', { class: 'bt-title' }, nextC.matiere),
+        h('span', { class: 'bt-sub' }, `${nextC.type} · ${String(nextC.local || '').split(' - ')[0]}${m < 48 * 60 ? ` · dans ${dur(m)}` : ''}`), prepBtn(nextC)));
+  } else hero = card('bt-hero', h('div', { class: 'bt-head' }, h('span', { class: 'bt-kick' }, 'Prochain cours')), h('div', { class: 'bt-main' }, h('span', { class: 'bt-title' }, 'Pas d’autre cours prévu.')));
+
+  // ---- Plan du jour (cases à cocher) + anneau
+  const planDay = has('plan') ? D.plan.jours.find((j) => j.date === today) : null;
+  const blocs = planDay ? planDay.blocs || [] : [];
+  const doneMap = prefs.planDone || (prefs.planDone = {});
+  const bmins = (b) => { const [a, c] = String(b.debut).split(':').map(Number), [d, e] = String(b.fin).split(':').map(Number); return d * 60 + e - (a * 60 + c); };
+  const ringCard = card('bt-ring-card bt-small');
+  const checkCard = blocs.length ? card('bt-wide bt-checks') : null;
+  const progCard = has('plan') ? card('bt-wide bt-progress') : null;
+  const drawPlan = () => {
+    if (blocs.length) {
+      const n = blocs.filter((b) => doneMap[b.id]).length;
+      ringCard.replaceChildren(kHead("Aujourd'hui", h('a', { class: 'bt-link', href: '#plan' }, 'Plan')),
+        h('div', { class: 'bt-ringrow' }, ringEl(n, blocs.length, 96, 12, `${n} tâche${n > 1 ? 's' : ''} sur ${blocs.length} faite${n > 1 ? 's' : ''}`),
+          h('div', { class: 'bt-ringtx' }, h('span', { class: 'bt-num num' }, `${n}/${blocs.length}`), h('span', { class: 'bt-cap' }, blocs.length > 1 ? 'tâches faites' : 'tâche faite'))));
+      checkCard.replaceChildren(
+        kHead("Programme d'aujourd'hui", n ? h('span', { class: 'bt-okcount' }, `${n} déjà faite${n > 1 ? 's' : ''}`) : null),
+        n === blocs.length ? h('p', { class: 'bt-win' }, 'Journée terminée. Bien joué !') : null,
+        ...blocs.map((b) => {
+          const ok = !!doneMap[b.id];
+          return h('label', { class: 'bt-check' + (ok ? ' done' : ''), style: `--c:var(--${MAT[b.matiere] || 'other'})` },
+            h('input', { type: 'checkbox', checked: ok || null, onchange: (e) => { if (e.target.checked) doneMap[b.id] = 1; else delete doneMap[b.id]; prefs.planDone = doneMap; savePrefs(); drawPlan(); } }),
+            h('span', { class: 'bt-ct' }, b.titre), h('span', { class: 'bt-cm num' }, `${bmins(b)} min`));
+        }));
+    } else {
+      const past = todayCours.filter((x) => String(x.fin) <= now).length;
+      ringCard.replaceChildren(kHead("Aujourd'hui"),
+        h('div', { class: 'bt-ringrow' }, ringEl(past, todayCours.length, 96, 12, todayCours.length ? `${past} cours sur ${todayCours.length} terminés` : 'Pas de cours aujourd’hui'),
+          h('div', { class: 'bt-ringtx' }, h('span', { class: 'bt-num num' }, todayCours.length ? `${past}/${todayCours.length}` : '0'), h('span', { class: 'bt-cap' }, todayCours.length ? 'cours terminés' : 'cours aujourd’hui'))));
+    }
+    if (progCard) {
+      const all = D.plan.jours.flatMap((j) => j.blocs || []);
+      const mats = ORDER.concat(all.map((b) => b.matiere).filter((m) => !ORDER.includes(m))).filter((m, i, a) => a.indexOf(m) === i && all.some((b) => b.matiere === m));
+      progCard.replaceChildren(kHead('Avancement par matière', h('a', { class: 'bt-link', href: '#plan' }, 'Voir le plan')),
+        ...mats.map((m) => {
+          const bl = all.filter((b) => b.matiere === m), pc = Math.round(bl.filter((b) => doneMap[b.id]).length / bl.length * 100);
+          return h('div', { class: 'bt-prow ' + mcls(m) }, h('span', { class: 'bt-pm' }, m === 'Bio' ? 'Biologie' : m),
+            h('span', { class: 'bar', role: 'progressbar', 'aria-label': m, 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pc) }, h('i', { style: `width:${pc}%` })), h('span', { class: 'bt-pv num' }, pc + '%'));
+        }));
+    }
+  };
+  drawPlan();
+
+  // ---- Minuteur
+  const r0 = remaining();
+  const timer = card('bt-timer bt-small',
+    h('span', { class: 'bt-k' }, 'Minuteur'),
+    h('button', { class: 'bt-time num', type: 'button', 'aria-label': 'Ouvrir le minuteur', onclick: () => openPomo(false) }, mmss(r0)),
+    h('button', { class: 'bt-go', type: 'button', onclick: () => { if (pomo.running) pomoPause(); else pomoStart(); } }, 'Démarrer'));
+
+  // ---- Prochain quiz
+  const nq = has('quiz') ? quiz.find((q) => String(q.fermeture) >= now && quizStatus(q, now)[1] !== 'ok') : null;
+  const quizCard = has('quiz') ? card('bt-quiz bt-small',
+    kHead('Prochain quiz', nq ? label(nq.matiere) : null),
+    nq ? h('a', { class: 'bt-qt', href: nq.lien, target: '_blank', rel: 'noopener' }, `${nq.titre} · ${nq.sujet}`) : h('span', { class: 'bt-qt' }, 'Aucun quiz à venir'),
+    nq ? h('span', { class: 'bt-qw' }, String(nq.ouverture) > now ? `Ouvre ${rel(nq.ouverture, now)} ${hh(nq.ouverture)}` : `Ferme ${rel(nq.fermeture, now)} ${hh(nq.fermeture)}`) : h('a', { class: 'bt-link', href: '#quiz' }, 'Tous les quiz')) : null;
+
+  // ---- Annonce
+  const lastNews = freshNews.length ? freshNews : annonces.filter((a) => a.pour_toi).slice(0, 1);
+  const newsCard = has('annonces') && lastNews.length ? card('bt-news bt-small' + (importantNews.length ? ' imp' : ''),
+    kHead(importantNews.length ? (importantNews.length > 1 ? 'Annonces importantes' : 'Annonce importante') : 'Dernière annonce · Moodle', h('a', { class: 'bt-link', href: '#cours' }, 'Toutes')),
+    ...lastNews.map((a) => h('div', { class: 'bt-nitem' }, h('span', { class: 'bt-nt' }, a.titre), h('span', { class: 'bt-nm' }, `${a.matiere} · ${ago(a.date, now)}`),
+      a.lien ? h('a', { class: 'bt-nl', href: a.lien, target: '_blank', rel: 'noopener' }, 'Lire sur Moodle') : null))) : null;
+
+  // ---- Petites cartes (4 au total sur la 1re rangée à droite) ; les chiffres en trop vont dans une carte large
+  const smalls = [ringCard, timer, quizCard, newsCard].filter(Boolean);
+  const statLeft = stats.slice();
+  while (smalls.length < 4 && statLeft.length) smalls.push(card('bt-small bt-stat', statLeft.shift()));
+  const statsCard = statLeft.length ? card('bt-wide bt-stats', kHead('Chiffres'), h('div', { class: 'stats' }, statLeft)) : null;
+
   const nToday = todayCours.length, nPrepToday = todayCours.filter((x) => x.a_preparer).length;
   const first = todos[0];
   const sub = first ? (first.kind === 'quiz' ? `En premier : ${first.q.titre}, ${rel(first.q.ouverture, now)} à ${hh(first.q.ouverture)}.` : `En premier : préparer la séance de ${first.p.matiere.toLowerCase()}, ${rel(first.p.debut, now)}.`) : (nextPrep ? `Prochaine séance à préparer : ${nextPrep.matiere.toLowerCase()}, ${rel(nextPrep.debut, now)}.` : 'Rien d’urgent.');
-  return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('span', { class: 'eyebrow' }, greeting), h('h1', {}, 'Bonjour ' + PROF.nom),
+  const dayTitle = showDay === today ? (blocs.length ? "Cours d'aujourd'hui" : "Programme d'aujourd'hui") : `Programme ${rel(showDay + 'T12:00', now) === 'demain' ? 'de demain' : 'du ' + fLong(showDay + 'T12:00')}`;
+  const wides = [checkCard, progCard,
+    card('bt-wide bt-day', kHead(dayTitle, h('a', { class: 'bt-link', href: '#semaine' }, 'Semaine')), tl),
+    has('quiz') || has('prepa') ? card('bt-wide bt-todo', kHead('À faire', h('span', { class: 'bt-cnt' }, '3 prochains jours')), todoList) : null,
+    statsCard].filter(Boolean);
+  if (wides.length % 2) wides[wides.length - 1].classList.add('bt-full');
+  const badge = badgeCard(); if (badge) badge.classList.add('bt-badge');
+  const page = h('div', { class: 'page today bento' },
+    h('header', { class: 'page-head' }, h('span', { class: 'eyebrow' }, greeting), h('h1', {}, 'Salut ' + PROF.nom),
       h('p', {}, nToday ? `${nToday} cours aujourd'hui${nPrepToday ? `, dont ${nPrepToday} à préparer` : ''}. ${sub}` : sub)),
-    nowCard,
-    badgeCard(),
-    has('quiz') || has('prepa') ? h('section', { class: 'block' }, h('h2', {}, 'À faire', h('span', { class: 'count' }, '3 prochains jours')), todoList) : null,
-    h('section', { class: 'block' }, h('h2', {}, showDay === today ? "Programme d'aujourd'hui" : `Programme ${rel(showDay + 'T12:00', now) === 'demain' ? 'de demain' : 'du ' + fLong(showDay + 'T12:00')}`), tl),
-    freshNews.length ? h('section', { class: 'block' }, h('h2', {}, importantNews.length ? (importantNews.length > 1 ? 'Annonces importantes' : 'Annonce importante') : 'Dernière annonce', h('a', { class: 'count', href: '#cours', style: 'font-weight:700;color:var(--ink)' }, 'Toutes')), h('div', { class: 'sheet' }, freshNews.map((a) => newsEl(a, now)))) : null);
+    badge, hero, ...smalls, ...wides);
+  drawTodayTimer(r0);
+  return page;
 }
 
 /* ---------- Page : Semaine ---------- */
@@ -1231,7 +1338,7 @@ function drawMini(r) {
 }
 function drawFab() {
   const fab = $('#pomoFab'), r = remaining();
-  drawMini(r);
+  drawMini(r); drawTodayTimer(r);
   fab.classList.toggle('run', pomo.running && pomo.phase === 'focus'); fab.classList.toggle('brk', pomo.running && pomo.phase !== 'focus');
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('aria-hidden', 'true');
   s.innerHTML = '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/>';
