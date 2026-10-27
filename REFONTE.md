@@ -71,3 +71,14 @@ En plus :
 16. **Semaine** : le jour actuel s'encadre en noir avec une petite animation ; changer de semaine fait glisser les colonnes.
 17. **Cahiers — bibliothèque** : les carnets se soulèvent légèrement au survol/appui (translateY −4 px, ombre plus marquée).
 18. **Annonces importantes** : le point rouge pulse doucement deux fois à l'arrivée, puis s'arrête.
+
+## Lot 5 — détail des Cahiers (tout doit passer au style bento)
+
+On change l'interface autour de l'écriture, jamais l'écriture elle-même : ne touche pas au rendu des traits (perfect-freehand), au format des données des cahiers, à la synchro ni à l'export. Tout doit rester utilisable au Pencil sur iPad (cibles ≥ 44 px).
+
+1. **Bibliothèque** : couvertures en carnets portrait (dos cousu, tranche des pages, élastique, étiquette matière), dossiers colorés, Favoris, PDF annotés, recherche, tri, sélection, corbeille, état de synchro, « Nouveau cahier » / import / transfert depuis Goodnotes, verrou par code. Cartes et menus en aplat arrondis.
+2. **Éditeur** : barre d'outils en pilule blanche (stylo, plume, pinceau, surligneur, gomme, lasso, formes, texte, laser, ruban), couleurs favorites en pastilles, épaisseurs, annuler/rétablir, menu « Plus » ; panneau des pages en miniatures ; bureau gris clair (sombre en mode sombre) avec la feuille blanche à coins arrondis et ombre douce ; navigation de pages en pilule noire.
+3. **Annotation de PDF** (bouton « Annoter » du lecteur et « Créer et annoter ») : même éditeur, même barre d'outils, les pages du PDF jouent le rôle du papier ; la transition depuis le lecteur doit rester fluide.
+4. **Tous les panneaux et menus** : réglages d'outil, couleur personnalisée, modèles de page et papier (lignes, carreaux, points, Cornell…), insertion d'image/photo, signets, liens, enregistrement audio et lecture, recherche dans le cahier, actions du lasso (copier, couper, dupliquer, couleur, carte), cartes de révision et mode révision, export/partage PDF, mode présentation et pointeur laser, fenêtre de zoom, renommer/dupliquer/déplacer. Feuilles et popovers en cartes blanches arrondies (rayon 20–28 px), boutons en pilule, accent `#FF6A45` pour l'action principale.
+5. **Mode sombre** des Cahiers cohérent avec le reste (fond `#0E0F12`, panneaux `#1A1C21`), la feuille garde sa couleur de papier choisie.
+6. Si le lot ne tient pas en une seule fois : fais d'abord 1 et 2, pousse, et note « Reste à faire : 3, 4, 5 » sous le lot.
