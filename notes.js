@@ -598,7 +598,8 @@ function selToggle(key) { if (selSet.has(key)) selSet.delete(key); else selSet.a
 const selMark = (key) => (selecting ? h('span', { class: 'nb-check' + (selSet.has(key) ? ' on' : ''), 'aria-hidden': 'true' }, ico('check')) : null);
 function nbTile(nb) {
   const key = 'n:' + nb.id;
-  const open = () => selecting ? selToggle(key) : nb.trashed ? null : openNb(nb.id);
+  // la couverture du carnet pivote, puis l'éditeur s'ouvre (motion.js)
+  const open = (e) => selecting ? selToggle(key) : nb.trashed ? null : (window.Q1Motion && Q1Motion.book ? Q1Motion.book(e && e.currentTarget, () => openNb(nb.id)) : openNb(nb.id));
   const opts = (e) => { e.stopPropagation(); nbMenu(nb, e.currentTarget); };
   return h('div', { class: 'nb-tile' + (nb.trashed ? ' trashed' : '') + (selecting && selSet.has(key) ? ' picked' : '') },
     h('button', { class: 'nb-tile-open', type: 'button', onclick: open, 'aria-label': selecting ? `Sélectionner ${nb.title}` : `Ouvrir ${nb.title}`, 'aria-pressed': selecting ? String(selSet.has(key)) : null, disabled: nb.trashed && !selecting ? true : null }, coverEl(nb), nb.fav && !nb.trashed ? h('span', { class: 'nb-favbadge', 'aria-hidden': 'true' }, ico('star')) : null, selMark(key)),

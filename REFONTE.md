@@ -11,7 +11,7 @@ Maquettes de référence : canevas Claude Design https://claude.ai/artifact/614N
 - [x] Lot 3 — Plan d'études, Semaine, Quiz
 - [x] Lot 4 — PDF, Cours (annonces + cours UV), lecteur PDF, minuteur
 - [x] Lot 5 — Cahiers : bibliothèque (couvertures en carnets) + éditeur (barre d'outils, pages, papier) ; puis relecture finale
-- [ ] Lot 6 — Animations sur tout le site (voir « Lot 6 — détail » plus bas)
+- [x] Lot 6 — Animations sur tout le site (voir « Lot 6 — détail » plus bas)
 
 ## Écrans de référence par lot
 

@@ -9,7 +9,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Q1 Biomed">
 <title>Mon Q1 Biomed</title>
-<script>try{var t=(JSON.parse(localStorage.getItem("q1biomed.prefs"))||{}).theme;if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
+<script>try{var t=(JSON.parse(localStorage.getItem("q1biomed.prefs"))||{}).theme;if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}
+try{if(localStorage.getItem("q1biomed.key"))document.documentElement.classList.add("booting");}catch(e){}</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
@@ -395,8 +396,15 @@ button.item:hover { background: var(--paper); }
 <link rel="stylesheet" href="glass.css">
 <link rel="stylesheet" href="pages.css">
 <link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="motion.css">
 </head>
 <body>
+
+<!-- Chargement : squelettes de cartes pendant le déchiffrement (clé déjà enregistrée) -->
+<div class="skel" id="skel" aria-busy="true" aria-label="Chargement">
+  <div class="sk-top"><span class="sk sk-t"></span><span class="sk sk-nav"></span><span class="sk sk-av"></span></div>
+  <div class="sk-grid"><span class="sk sk-hero"></span><span class="sk"></span><span class="sk"></span><span class="sk"></span><span class="sk"></span><span class="sk sk-w"></span><span class="sk sk-w"></span></div>
+</div>
 
 <!-- Verrou -->
 <div class="lock" id="lock">
@@ -520,8 +528,10 @@ $('#login').addEventListener('submit', async (ev) => {
     }
     if (!k) throw new Error(online ? 'pw' : 'net');
     if ($('#remember').checked) { try { const raw = new Uint8Array(await crypto.subtle.exportKey('raw', k)); localStorage.setItem(KEYSTORE, btoa(String.fromCharCode(...raw))); localStorage.setItem(KEYSTORE + '.profil', PROF.id); } catch (_) {} }
-    start();
-  } catch (_) { $('#err').textContent = 'Mot de passe incorrect, ou pas de connexion. Vérifie et réessaie.'; if (window.Q1Motion) Q1Motion.shake($('#login')); }
+    $('#login').classList.remove('bad');
+    // la carte accent s'agrandit et laisse place au site
+    if (window.Q1Motion && Q1Motion.unlock) Q1Motion.unlock($('.lock-hero'), start); else start();
+  } catch (_) { $('#err').textContent = 'Mot de passe incorrect, ou pas de connexion. Vérifie et réessaie.'; $('#login').classList.add('bad'); if (window.Q1Motion) { Q1Motion.shake($('#login')); Q1Motion.pop($('#err'), 'mo-errin'); } }
   finally { go.disabled = false; go.textContent = 'Ouvrir'; }
 });
 document.addEventListener('click', (e) => { if (e.target.closest('[data-logout]')) { try { if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {}); } catch (_) {} try { localStorage.removeItem(KEYSTORE); localStorage.removeItem(KEYSTORE + '.profil'); } catch (_) {} location.hash = ''; location.reload(); } });
@@ -662,7 +672,15 @@ function ringEl(done, total, size, stroke, lab) {
   const r = (size - stroke) / 2 - 2, C = 2 * Math.PI * r, k = total ? done / total : 0;
   const s = document.createElementNS(NS, 'svg'); s.setAttribute('viewBox', `0 0 ${size} ${size}`); s.setAttribute('class', 'bt-ring'); s.setAttribute('role', 'img'); s.setAttribute('aria-label', lab);
   s.innerHTML = `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--rule)" stroke-width="${stroke}"/>` +
-    (k > 0 ? `<circle class="arc" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--focus)" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${(C * k).toFixed(1)} ${(C * 2).toFixed(1)}" transform="rotate(-90 ${size / 2} ${size / 2})"/>` : '');
+    `<circle class="arc" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--focus)" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - k)).toFixed(1)}" opacity="${k > 0 ? 1 : 0}" transform="rotate(-90 ${size / 2} ${size / 2})"/>`;
+  s.dataset.k = String(k);
+  return s;
+}
+// Petit anneau du minuteur (carte « Minuteur ») : se vide en continu
+const TRING_C = 2 * Math.PI * 34;
+function timerRing() {
+  const s = document.createElementNS(NS, 'svg'); s.setAttribute('viewBox', '0 0 76 76'); s.setAttribute('class', 'bt-tring'); s.setAttribute('aria-hidden', 'true');
+  s.innerHTML = `<circle class="trk" cx="38" cy="38" r="34" fill="none" stroke-width="8"/><circle class="arc" cx="38" cy="38" r="34" fill="none" stroke-width="8" stroke-linecap="round" stroke-dasharray="${TRING_C.toFixed(1)}" stroke-dashoffset="0" transform="rotate(-90 38 38)"/>`;
   return s;
 }
 // Carte « Minuteur » : mise à jour chaque seconde par drawFab()
@@ -671,6 +689,7 @@ function drawTodayTimer(r) {
     const t = c.querySelector('.bt-time'); if (t) t.textContent = mmss(r);
     const k = c.querySelector('.bt-k'); if (k) k.textContent = pomo.running || r !== LEN[pomo.phase] * 60 ? PLABEL[pomo.phase] : 'Minuteur';
     const b = c.querySelector('.bt-go'); if (b) { const lab = pomo.running ? 'Pause' : r === LEN[pomo.phase] * 60 ? 'Démarrer' : 'Reprendre'; if (b.textContent !== lab) b.textContent = lab; }
+    const a = c.querySelector('.bt-tring .arc'); if (a) a.setAttribute('stroke-dashoffset', (TRING_C * (1 - r / (LEN[pomo.phase] * 60))).toFixed(1));
     c.classList.toggle('run', !!pomo.running); c.classList.toggle('brk', pomo.phase !== 'focus');
   });
 }
@@ -771,9 +790,11 @@ function pageToday() {
   const ringCard = card('bt-ring-card bt-small');
   const checkCard = blocs.length ? card('bt-wide bt-checks') : null;
   const progCard = has('plan') ? card('bt-wide bt-progress') : null;
+  let prevN = null, justId = null; // animations : case qui rebondit, anneau et compteur qui suivent
   const drawPlan = () => {
     if (blocs.length) {
       const n = blocs.filter((b) => doneMap[b.id]).length;
+      const n0 = prevN; prevN = n;
       ringCard.replaceChildren(kHead("Aujourd'hui", h('a', { class: 'bt-link', href: '#plan' }, 'Plan')),
         h('div', { class: 'bt-ringrow' }, ringEl(n, blocs.length, 96, 12, `${n} tâche${n > 1 ? 's' : ''} sur ${blocs.length} faite${n > 1 ? 's' : ''}`),
           h('div', { class: 'bt-ringtx' }, h('span', { class: 'bt-num num' }, `${n}/${blocs.length}`), h('span', { class: 'bt-cap' }, blocs.length > 1 ? 'tâches faites' : 'tâche faite'))));
@@ -782,10 +803,19 @@ function pageToday() {
         n === blocs.length ? h('p', { class: 'bt-win' }, 'Journée terminée. Bien joué !') : null,
         ...blocs.map((b) => {
           const ok = !!doneMap[b.id];
-          return h('label', { class: 'bt-check' + (ok ? ' done' : ''), style: `--c:var(--${MAT[b.matiere] || 'other'})` },
-            h('input', { type: 'checkbox', checked: ok || null, onchange: (e) => { if (e.target.checked) doneMap[b.id] = 1; else delete doneMap[b.id]; prefs.planDone = doneMap; savePrefs(); drawPlan(); } }),
+          return h('label', { class: 'bt-check' + (ok ? ' done' : ''), 'data-id': b.id, style: `--c:var(--${MAT[b.matiere] || 'other'})` },
+            h('input', { type: 'checkbox', checked: ok || null, onchange: (e) => { if (e.target.checked) { doneMap[b.id] = 1; justId = b.id; } else delete doneMap[b.id]; prefs.planDone = doneMap; savePrefs(); drawPlan(); } }),
             h('span', { class: 'bt-ct' }, b.titre), h('span', { class: 'bt-cm num' }, `${bmins(b)} min`));
         }));
+      if (window.Q1Motion && n0 !== null && n0 !== n) {
+        Q1Motion.ring(ringCard.querySelector('.bt-ring'), n0 / blocs.length);
+        Q1Motion.pop(ringCard.querySelector('.bt-num'));
+        const just = justId && checkCard.querySelector(`.bt-check[data-id="${justId}"]`);
+        if (just) { Q1Motion.pop(just, 'mo-tick'); const inp = just.querySelector('input'); if (inp) inp.focus({ preventScroll: true }); }
+        // toutes les tâches du jour faites : confettis, une seule fois par jour
+        if (n === blocs.length && n0 < n && prefs.confettiDay !== today) { prefs.confettiDay = today; savePrefs(); Q1Motion.confetti(); }
+      }
+      justId = null;
     } else {
       const past = todayCours.filter((x) => String(x.fin) <= now).length;
       ringCard.replaceChildren(kHead("Aujourd'hui"),
@@ -808,8 +838,9 @@ function pageToday() {
   // ---- Minuteur
   const r0 = remaining();
   const timer = card('bt-timer bt-small',
-    h('span', { class: 'bt-k' }, 'Minuteur'),
-    h('button', { class: 'bt-time num', type: 'button', 'aria-label': 'Ouvrir le minuteur', onclick: () => openPomo(false) }, mmss(r0)),
+    h('div', { class: 'bt-head' }, h('span', { class: 'bt-k' }, 'Minuteur'), h('span', { class: 'bt-dot', 'aria-hidden': 'true' })),
+    h('div', { class: 'bt-trow' }, timerRing(),
+      h('button', { class: 'bt-time num', type: 'button', 'aria-label': 'Ouvrir le minuteur', onclick: () => openPomo(false) }, mmss(r0))),
     h('button', { class: 'bt-go', type: 'button', onclick: () => { if (pomo.running) pomoPause(); else pomoStart(); } }, 'Démarrer'));
 
   // ---- Prochain quiz
@@ -1248,7 +1279,11 @@ function pagePlan() {
       if (justDone) {
         const r = body.querySelector(`.pblock[data-id="${justDone}"]`);
         if (r) { r.classList.add('pl-pop'); const end = (e) => { if (e.target === r) { r.classList.remove('pl-pop'); r.removeEventListener('animationend', end); } }; r.addEventListener('animationend', end); }
-        if (complete && !wasComplete) { confetti(r && r.querySelector('.pcheck')); const w = body.querySelector('.plan-win'); if (w) w.classList.add('pl-win-in'); }
+        if (complete && !wasComplete) {
+          // journée d'aujourd'hui bouclée : la pluie de confettis (une fois par jour) ; autre jour : petite gerbe
+          if (sel === today && window.Q1Motion && Q1Motion.confetti) { if (prefs.confettiDay !== today) { prefs.confettiDay = today; savePrefs(); Q1Motion.confetti(); } }
+          else confetti(r && r.querySelector('.pcheck'));
+          const w = body.querySelector('.plan-win'); if (w) w.classList.add('pl-win-in'); }
       }
     }
     shown = sel; justDone = null; wasComplete = complete;
@@ -1434,6 +1469,8 @@ function pomoNext() {
   else pomo.phase = 'focus';
   pomo.running = false; pomo.left = LEN[pomo.phase] * 60; savePomo();
   beep(); try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (_) {}
+  // fin de session : petite pulsation de la carte du minuteur
+  if (window.Q1Motion) requestAnimationFrame(() => document.querySelectorAll('.bt-timer, #pomo:not([hidden]), #pomoMini:not([hidden]), #pomoFab:not([hidden])').forEach((el) => Q1Motion.pop(el, 'mo-beat')));
   closeTimerNote();
   notify(pomo.phase === 'focus' ? 'Pause terminée' : 'Bloc terminé, bravo', { body: pomo.phase === 'focus' ? 'On reprend : 25 min de concentration. Touche pour ouvrir le minuteur.' : `Pause de ${LEN[pomo.phase]} min. Touche pour la lancer.`, tag: 'q1-pomo-fin', silent: false, vibrate: [200, 100, 200], requireInteraction: true });
 }
@@ -1582,8 +1619,17 @@ function start() {
   if (D.maj) $('#maj').textContent = 'Mis à jour le ' + new Date(D.maj).toLocaleString('fr-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   if (window.Q1Notes && Q1Notes.boot) Q1Notes.boot({ key: KEY, pdfs: () => pdfs, decrypt, fetchBuf: fetchEnc, profile: PROF.id });
   $('#lock').hidden = true; $('#app').hidden = false; route(); updateBadge();
+  endBoot();
 }
-tryStored().then((ok) => { if (ok) start(); else $('#pw').focus(); });
+// fin du chargement : les squelettes s'effacent pendant que les vraies cartes arrivent
+function endBoot() {
+  const html = document.documentElement, sk = $('#skel');
+  if (!html.classList.contains('booting')) { sk.remove(); return; }
+  html.classList.remove('booting');
+  if (window.Q1Motion && !Q1Motion.reduce() && !$('#app').hidden) { sk.classList.add('out'); setTimeout(() => sk.remove(), 450); } else sk.remove();
+}
+$('#pw').addEventListener('input', () => $('#login').classList.remove('bad'));
+tryStored().then((ok) => { if (ok) start(); else { endBoot(); $('#pw').focus(); } });
 })();
 </script>
 <script src="motion.js"></script>

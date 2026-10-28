@@ -1,4 +1,6 @@
-/* Animations du style « Verre ».
+/* Animations du site (refonte bento, lot 6 ; styles dans motion.css et glass.css).
+   - Lot 6 : cases qui rebondissent, anneaux qui suivent, confettis, squelettes de chargement,
+     déverrouillage (la carte accent s'agrandit), couverture de carnet qui pivote, pulsations.
    - Changement d'onglet : l'ancienne page s'efface (View Transitions) pendant que la nouvelle arrive en cascade,
      du côté de l'onglet choisi ; le fond coloré glisse doucement vers une autre position.
    - Indicateurs qui glissent avec un ressort : onglets (rail + barre du bas) et boutons segmentés.
@@ -72,17 +74,17 @@
   function countUp(el) {
     const tn = [...el.childNodes].find((n) => n.nodeType === 3 && /\d/.test(n.nodeValue));
     if (!tn) return;
-    const raw = tn.nodeValue.trim(), m = raw.match(/^(\d+)(?:[,.](\d+))?$/); if (!m) return;
-    const target = parseFloat(raw.replace(',', '.')), dec = m[2] ? m[2].length : 0, dur = 800;
+    const raw = tn.nodeValue.trim(), m = raw.match(/^(\d+)(?:[,.](\d+))?(%?)$/); if (!m) return;
+    const target = parseFloat(raw.replace(',', '.')), dec = m[2] ? m[2].length : 0, dur = 1000, pc = m[3];
     if (!target) return;
     let t0 = null;
     const step = (t) => {
       if (t0 === null) t0 = t;
       const k = Math.max(0, Math.min(1, (t - t0) / dur)), e = 1 - Math.pow(1 - k, 4);
-      tn.nodeValue = (target * e).toFixed(dec).replace('.', ',');
+      tn.nodeValue = (target * e).toFixed(dec).replace('.', ',') + pc;
       if (k < 1) requestAnimationFrame(step); else tn.nodeValue = raw;
     };
-    tn.nodeValue = (0).toFixed(dec).replace('.', ','); requestAnimationFrame(step);
+    tn.nodeValue = (0).toFixed(dec).replace('.', ',') + pc; requestAnimationFrame(step);
   }
 
   /* ---------- Entrée d'une page ---------- */
@@ -94,9 +96,10 @@
     requestAnimationFrame(() => placeSegs(page));
     if (reduce()) return;
     const kids = [...page.children].filter((el) => el.nodeType === 1 && !el.hidden);
-    kids.forEach((el, i) => { el.style.setProperty('--i', String(Math.min(i, 7))); play(el, ['mo-in', ...(dir ? [dir] : [])], 1400); });
-    page.querySelectorAll('.stat .v, .kpi b, .nb-hero h1 + .nb-sub b').forEach(countUp);
-    page.querySelectorAll('.nowcard .prog i, .bar i, .plan-prog .prog i').forEach((b) => play(b, ['mo-fill'], 1600));
+    kids.forEach((el, i) => { el.style.setProperty('--i', String(Math.min(i, 7))); play(el, ['mo-in', ...(dir ? [dir] : [])], 1800); });
+    page.querySelectorAll('.stat .v, .kpi b, .qside .grade, .pl-pc, .cz-n, .nb-hero h1 + .nb-sub b').forEach(countUp);
+    page.querySelectorAll('.nowcard .prog i, .bar i, .plan-prog .prog i').forEach((b, i) => { b.style.setProperty('--bi', String(Math.min(i, 10))); play(b, ['mo-fill'], 2400); });
+    page.querySelectorAll('.bt-ring').forEach((s) => setTimeout(() => ring(s, 0), 250));
   }
 
   /* ---------- Redessin d'une partie de page (jour, filtre, tri, onglet interne) ---------- */
@@ -161,16 +164,75 @@
   }
   // Thème : fondu enchaîné entre clair et sombre
   function themeSwap(fn) {
-    if (reduce() || !document.startViewTransition) { fn(); return; }
+    if (reduce()) { fn(); return; }
+    if (!document.startViewTransition) {
+      // sans View Transitions : transition des couleurs
+      const html = document.documentElement; html.classList.add('mo-theme'); fn();
+      clearTimeout(themeSwap.t); themeSwap.t = setTimeout(() => html.classList.remove('mo-theme'), 600); return;
+    }
     const html = document.documentElement; html.classList.add('vt-theme');
     try { document.startViewTransition(fn).finished.finally(() => html.classList.remove('vt-theme')); } catch (_) { html.classList.remove('vt-theme'); fn(); }
   }
 
   /* ---------- Petites aides ---------- */
   const shake = (el) => { if (el && !reduce()) play(el, ['mo-shake'], 700); };
-  const pop = (el) => { if (el && !reduce()) play(el, ['mo-pop'], 700); };
+  const pop = (el, cls) => { if (el && !reduce()) play(el, [cls || 'mo-pop'], 900); };
 
-  window.Q1Motion = { hide, show, closing, swapPage, themeSwap, shake, pop, placeSegs, reduce };
+  /* ---------- Anneau de progression : repart de l'ancienne valeur ---------- */
+  function ring(svg, k0) {
+    if (!svg || reduce()) return;
+    const a = svg.querySelector('.arc'); if (!a) return;
+    const C = parseFloat(a.getAttribute('stroke-dasharray')), to = parseFloat(a.getAttribute('stroke-dashoffset')), hid = a.getAttribute('opacity') === '0';
+    if (!C || isNaN(to)) return;
+    a.style.transition = 'none'; a.setAttribute('opacity', '1');
+    a.style.strokeDashoffset = (C * (1 - k0)).toFixed(1) + 'px';
+    void a.getBoundingClientRect();
+    requestAnimationFrame(() => { a.style.transition = ''; a.style.strokeDashoffset = to.toFixed(1) + 'px'; if (hid) setTimeout(() => { if (a.isConnected) a.setAttribute('opacity', '0'); }, 700); });
+  }
+
+  /* ---------- Confettis : pluie aux couleurs des matières, < 1,5 s ---------- */
+  function confetti() {
+    if (reduce()) return;
+    const box = document.createElement('div'); box.className = 'mo-confetti'; box.setAttribute('aria-hidden', 'true');
+    const cols = ['--bio', '--chimie', '--physique', '--maths', '--anat', '--accent', '--ink'], H = innerHeight + 40;
+    let left = 0;
+    for (let i = 0; i < 28; i++) {
+      const c = document.createElement('i'), rot = (i * 53) % 180, delay = (i * 47) % 300, dur = 900 + ((i * 131) % 300);
+      c.style.cssText = `left:${(i * 37) % 100}%;background:var(${cols[i % cols.length]});transform:rotate(${rot}deg)`;
+      box.append(c); left++;
+      const an = c.animate([{ opacity: 1, transform: `translateY(0) rotate(${rot}deg)` }, { opacity: 0, transform: `translateY(${H}px) rotate(${rot + 620}deg)` }],
+        { duration: dur, delay, easing: 'cubic-bezier(.3,.6,.5,1)', fill: 'both' });
+      an.onfinish = () => { if (--left <= 0) box.remove(); };
+    }
+    document.body.append(box);
+    setTimeout(() => box.remove(), 1800);
+  }
+
+  /* ---------- Déverrouillage : la carte accent s'agrandit et laisse place au site ---------- */
+  function unlock(hero, fn) {
+    if (reduce() || !hero || !hero.offsetWidth) { fn(); return; }
+    const r = hero.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const R = Math.ceil(Math.hypot(Math.max(cx, innerWidth - cx), Math.max(cy, innerHeight - cy))) + 4;
+    const b = document.createElement('div'); b.className = 'mo-burst'; b.setAttribute('aria-hidden', 'true');
+    b.style.cssText = `left:${cx - R}px;top:${cy - R}px;width:${2 * R}px;height:${2 * R}px`;
+    const html = document.documentElement; html.classList.add('mo-unlocking');
+    document.body.append(b);
+    setTimeout(() => {
+      html.classList.remove('mo-unlocking');
+      try { fn(); } finally { b.classList.add('out'); setTimeout(() => b.remove(), 450); }
+    }, 650);
+  }
+
+  /* ---------- Ouvrir un cahier : la couverture pivote puis l'éditeur s'ouvre ---------- */
+  function book(btn, fn) {
+    if (reduce() || !btn || !btn.querySelector || !btn.querySelector('.nb-cover')) { fn(); return; }
+    if (btn.classList.contains('mo-book')) return;
+    btn.classList.add('mo-book');
+    setTimeout(fn, 420);
+    setTimeout(() => btn.classList.remove('mo-book'), 1300);
+  }
+
+  window.Q1Motion = { hide, show, closing, swapPage, themeSwap, shake, pop, placeSegs, reduce, ring, confetti, unlock, book };
 
   function boot() {
     const view = document.getElementById('view'); if (!view) return;
