@@ -847,33 +847,84 @@ function pageToday() {
 /* ---------- Page : Semaine ---------- */
 function pageWeek() {
   const now = nowL(), today = now.slice(0, 10);
-  const days = Array.from({ length: 7 }, (_, i) => addD(today, i));
-  let sel = days.includes(prefs.day) ? prefs.day : today;
+  // Vue « colonnes » : une carte par jour, du lundi au vendredi (+ week-end s'il s'y passe quelque chose)
+  const monday = (d) => addD(d, -((P(d + 'T12:00').getDay() + 6) % 7));
+  const base = monday(today);
+  let wk = 0;
   let onlyPrep = has('prepa') && !!prefs.onlyPrep;
-  const strip = h('div', { class: 'days', role: 'group', 'aria-label': 'Choisir un jour' });
-  const listBox = h('div', { class: 'sheet timeline' });
-  const drawStrip = () => strip.replaceChildren(...days.map((d) => {
-    const its = dayItems(d, false).filter((x) => !x.journee);
-    const mats = [...new Set(its.map((x) => x.matiere))].slice(0, 5);
-    return h('button', { class: 'daybtn' + (d === today ? ' today' : ''), type: 'button', 'aria-pressed': String(d === sel), onclick: () => { if (d === sel) return; listBox.dataset.moDir = d > sel ? 'r' : 'l'; sel = d; prefs.day = d; savePrefs(); drawStrip(); drawList(); } },
-      h('span', { class: 'dn' }, P(d).toLocaleDateString('fr-BE', { weekday: 'short' }).replace('.', '')),
-      h('span', { class: 'dd num' }, String(P(d).getDate())),
-      h('span', { class: 'dots' }, mats.map((m) => h('i', { style: `--c:var(--${MAT[m] || 'other'})` }))));
-  }));
-  const drawList = () => {
-    const its = dayItems(sel, onlyPrep);
-    listBox.replaceChildren();
-    head.textContent = cap(fLong(sel + 'T12:00'));
-    if (!its.length) listBox.append(h('p', { class: 'empty' }, onlyPrep ? 'Rien à préparer ce jour-là.' : 'Rien de prévu ce jour-là.'));
-    its.forEach((x) => listBox.append(slotEl(x, now, true)));
+  const doneMap = prefs.planDone || (prefs.planDone = {});
+  const blocsOf = (d) => has('plan') && D.plan && D.plan.jours ? ((D.plan.jours.find((j) => j.date === d) || {}).blocs || []) : [];
+  const short = (s) => String(s || '').split(' - ')[0];
+  const title = h('h1', {}), eyebrow = h('span', { class: 'eyebrow' });
+  const top = h('div', { class: 'wk-top' });
+  const cols = h('div', { class: 'wk-cols', role: 'list' });
+  const itemEl = (it) => {
+    const pp = it.src ? prep.find((p) => p.id === it.src.id) : null;
+    const cur = !it.journee && String(it.debut) <= now && String(it.fin) > now;
+    const cls = 'wk-it ' + (it.kind === 'quiz' ? 'is-quiz' : it.journee ? 'is-day' : mcls(it.matiere)) + (String(it.fin) < now ? ' past' : '') + (cur ? ' cur' : '');
+    return h('div', { class: cls, title: [it.loc, it.prof].filter(Boolean).join(' · ') || null },
+      h('span', { class: 'wk-t num' }, it.journee ? 'Journée' : `${hh(it.debut)} – ${hh(it.fin)}`, cur ? ' · maintenant' : ''),
+      h('span', { class: 'wk-n' }, it.kind === 'cours' ? it.matiere : it.titre),
+      it.kind === 'cours' && (it.titre || it.loc) ? h('span', { class: 'wk-s' }, [it.titre, short(it.loc)].filter(Boolean).join(' · ')) : null,
+      it.kind === 'agenda' && it.loc ? h('span', { class: 'wk-s' }, short(it.loc)) : null,
+      pp && pp.pdf && pp.pdf.enc ? h('button', { class: 'btn wk-prep', type: 'button', onclick: () => openPdf(pp.pdf) }, 'Ouvrir la prépa') : it.prep ? h('span', { class: 'wk-tag' }, 'À préparer') : null);
   };
-  const head = h('h2', {});
-  const toggle = h('label', { class: 'toggle' }, h('input', { type: 'checkbox', id: 'onlyprep', checked: onlyPrep || null, onchange: (e) => { onlyPrep = e.target.checked; prefs.onlyPrep = onlyPrep; savePrefs(); drawList(); } }), 'Seulement ce qui est à préparer');
-  drawStrip(); drawList();
+  const dueEl = (q) => h('a', { class: 'wk-it is-due', href: q.lien || '#quiz', target: q.lien ? '_blank' : null, rel: q.lien ? 'noopener' : null },
+    h('span', { class: 'wk-t num' }, `${hh(q.fermeture)} · échéance`), h('span', { class: 'wk-n' }, q.titre), h('span', { class: 'wk-s' }, q.matiere + (q.sujet ? ' · ' + q.sujet : '')));
+  const checkEl = (b) => {
+    const ok = !!doneMap[b.id];
+    return h('label', { class: 'wk-chk' + (ok ? ' done' : ''), style: `--c:var(--${MAT[b.matiere] || 'other'})` },
+      h('input', { type: 'checkbox', checked: ok || null, onchange: (e) => { if (e.target.checked) doneMap[b.id] = 1; else delete doneMap[b.id]; prefs.planDone = doneMap; savePrefs(); drawWeek(); } }),
+      h('span', {}, b.titre));
+  };
+  const drawWeek = (dir) => {
+    const start = addD(base, wk * 7);
+    const all7 = Array.from({ length: 7 }, (_, i) => addD(start, i));
+    const days = all7.filter((d, i) => i < 5 || dayItems(d, false).length || blocsOf(d).length);
+    title.textContent = wk === 0 ? 'Cette semaine' : wk === 1 ? 'Semaine prochaine' : wk === -1 ? 'Semaine dernière' : `Semaine du ${fDay(start + 'T12:00')}`;
+    eyebrow.textContent = `${cap(fLong(start + 'T12:00'))} → ${fLong(days[days.length - 1] + 'T12:00')}`;
+    // Cartes du haut : prochaine échéance (accent), tâches de la semaine, navigation (élément fort)
+    const nq = quiz.find((q) => String(q.fermeture) >= now && quizStatus(q, now)[1] !== 'ok');
+    const np = prep.find((p) => String(p.debut) >= now);
+    const due = nq && (!np || String(nq.fermeture) <= String(np.debut)) ? { t: `${nq.titre}${nq.sujet ? ' · ' + nq.sujet : ''}`, w: `${rel(nq.fermeture, now)} ${hh(nq.fermeture)}`, k: `Prochaine échéance · ${nq.matiere}` }
+      : np ? { t: `Préparer ${np.matiere.toLowerCase()}`, w: `${rel(np.debut, now)} ${hh(np.debut)}`, k: 'Prochaine séance à préparer' } : null;
+    const wb = all7.flatMap(blocsOf), wbDone = wb.filter((b) => doneMap[b.id]).length;
+    const wc = all7.flatMap((d) => hor.filter((x) => x.jour === d && x.type !== 'Congé'));
+    const nav = (n, lab, svg) => h('button', { class: 'wk-nav', type: 'button', 'aria-label': lab, onclick: () => { const d = n > wk ? 'r' : 'l'; wk = n; drawWeek(d); } }, svgEl(svg));
+    top.replaceChildren(
+      h('section', { class: 'wk-card wk-due' },
+        h('div', { class: 'wk-dt' }, h('span', { class: 'wk-k' }, due ? due.k : 'Prochaine échéance'), h('span', { class: 'wk-big' }, due ? due.t : 'Rien à rendre')),
+        due ? h('span', { class: 'wk-pill' }, due.w) : null),
+      h('section', { class: 'wk-card wk-cnt' },
+        h('span', { class: 'wk-num num' }, wb.length ? `${wbDone}/${wb.length}` : String(wc.length)),
+        h('span', { class: 'wk-cap' }, wb.length ? 'tâches de la semaine faites' : `cours cette semaine`)),
+      h('section', { class: 'wk-card wk-view' },
+        h('div', { class: 'wk-dt' }, h('span', { class: 'wk-k' }, 'Vue'), h('span', { class: 'wk-range num' }, `${fDay(start + 'T12:00')} → ${fDay(days[days.length - 1] + 'T12:00')}`)),
+        h('div', { class: 'wk-navs' },
+          wk !== 0 ? h('button', { class: 'wk-nav wk-now', type: 'button', onclick: () => { const d = wk > 0 ? 'l' : 'r'; wk = 0; drawWeek(d); } }, 'Auj.') : null,
+          nav(wk - 1, 'Semaine précédente', '<path d="M15 6l-6 6 6 6"/>'), nav(wk + 1, 'Semaine suivante', CHEV_SVG))));
+    if (dir) cols.dataset.moDir = dir;
+    cols.style.setProperty('--n', String(days.length));
+    cols.replaceChildren(...days.map((d) => {
+      const its = dayItems(d, onlyPrep);
+      const dues = onlyPrep ? [] : quiz.filter((q) => String(q.fermeture).slice(0, 10) === d && quizStatus(q, now)[1] !== 'ok' && !its.some((x) => x.kind === 'quiz' && x.fin === q.fermeture));
+      const bl = onlyPrep ? [] : blocsOf(d);
+      const kids = [...its.map(itemEl), ...dues.map(dueEl), ...bl.map(checkEl)];
+      return h('section', { class: 'wk-col' + (d === today ? ' today' : '') + (d < today ? ' past' : ''), role: 'listitem', 'aria-label': cap(fLong(d + 'T12:00')) },
+        h('div', { class: 'wk-dh' }, h('span', { class: 'wk-dn' }, cap(P(d + 'T12:00').toLocaleDateString('fr-BE', { weekday: 'long' }))), h('span', { class: 'wk-dd num' }, String(P(d + 'T12:00').getDate()))),
+        kids.length ? kids : h('p', { class: 'wk-empty' }, onlyPrep ? 'Rien à préparer.' : 'Rien de prévu.'));
+    }));
+    // téléphone : on amène le jour actuel à l'écran
+    const toToday = (k) => { if (!cols.isConnected || !cols.clientWidth) { if (k < 8) setTimeout(() => toToday(k + 1), 120); return; }
+      const t = cols.querySelector('.wk-col.today'); if (t && cols.scrollWidth > cols.clientWidth + 4) cols.scrollLeft = Math.max(0, t.offsetLeft - cols.firstElementChild.offsetLeft); };
+    requestAnimationFrame(() => toToday(0));
+  };
+  const toggle = h('label', { class: 'toggle wk-toggle' }, h('input', { type: 'checkbox', id: 'onlyprep', checked: onlyPrep || null, onchange: (e) => { onlyPrep = e.target.checked; prefs.onlyPrep = onlyPrep; savePrefs(); drawWeek(); } }), 'Seulement ce qui est à préparer');
+  drawWeek();
   // Vue Google Agenda (intégré) ou vue liste. L'adresse de l'agenda reste sur l'appareil.
   let mode = !has('agenda') || prefs.weekMode === 'liste' ? 'liste' : 'agenda';
   let gcalForce = false;
-  const listView = h('div', { class: 'filters' }, strip, has('prepa') ? toggle : null, h('section', { class: 'block' }, head, listBox));
+  const listView = h('div', { class: 'wk-list' }, top, has('prepa') ? toggle : null, cols);
   const gcalBox = h('div', { class: 'gcal' });
   const drawGcal = () => {
     gcalBox.replaceChildren();
@@ -916,8 +967,8 @@ function pageWeek() {
     if (mode === 'agenda' && !gcalBox.childElementCount) drawGcal();
   };
   drawSwitch();
-  return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('span', { class: 'eyebrow' }, 'Les 7 prochains jours'), h('h1', {}, `${P(days[0]).getDate()}${P(days[0]).getMonth() === P(days[6]).getMonth() ? '' : ' ' + P(days[0]).toLocaleDateString('fr-BE', { month: 'short' })} – ${P(days[6]).toLocaleDateString('fr-BE', { day: 'numeric', month: 'long' })}`)),
+  return h('div', { class: 'page week' },
+    h('header', { class: 'page-head' }, eyebrow, title),
     has('agenda') ? viewSwitch : null, gcalBox, listView);
 }
 
@@ -952,16 +1003,16 @@ function pageQuiz() {
   const mats = ORDER.filter((m) => quiz.some((q) => q.matiere === m));
   if (mat !== 'Tout' && !mats.includes(mat)) mat = 'Tout';
   const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrer par matière' });
-  const body = h('div', { class: 'filters' });
+  const body = h('div', { class: 'qz-cols' });
+  const wd = (s) => P(s).toLocaleDateString('fr-BE', { weekday: 'short' }).replace('.', '');
   const row = (q) => {
     const [st, line, kind] = quizState(q, now), n = note(q);
     const live = kind === 'live', todo = String(q.fermeture) > now;
     return h('div', { class: 'qrow ' + mcls(q.matiere) + (live ? ' is-live' : ''), style: `--c:var(--${MAT[q.matiere] || 'other'})` },
-      dateTile(q.ouverture, live ? 'live' : ''),
+      h('span', { class: 'qdate', 'aria-hidden': 'true' }, h('small', {}, wd(q.ouverture)), h('b', { class: 'num' }, String(P(q.ouverture).getDate()))),
       h('div', { class: 'qmain' },
-        h('div', { class: 'top' }, label(q.matiere)),
         h('span', { class: 'title' }, q.titre, q.sujet ? h('span', { class: 'soft' }, ' · ' + q.sujet) : null),
-        h('span', { class: 'line s-' + kind }, line)),
+        h('span', { class: 'line s-' + kind }, (q.matiere === 'Bio' ? 'Biologie' : q.matiere) + ' · ' + line)),
       h('div', { class: 'qside' },
         n !== null ? h('span', { class: 'grade num', 'aria-label': `${n} sur 20` }, String(n).replace('.', ','), h('small', {}, '/20')) : h('span', { class: 'pill p-' + kind }, st),
         n !== null ? h('span', { class: 'bar', 'aria-hidden': 'true' }, h('i', { style: `width:${n * 5}%` })) : null,
@@ -973,10 +1024,10 @@ function pageQuiz() {
     const up = sel.filter((q) => String(q.fermeture) > now);
     const past = sel.filter((q) => String(q.fermeture) <= now).reverse();
     body.replaceChildren(
-      h('section', { class: 'block' }, h('h2', {}, 'À faire', h('span', { class: 'count num' }, up.length ? `${up.length} quiz` : '')),
-        up.length ? h('div', { class: 'sheet list' }, up.map(row)) : h('p', { class: 'empty-line' }, 'Aucun quiz prévu pour l’instant. Tu es à jour.')),
-      h('section', { class: 'block' }, h('h2', {}, 'Terminés', h('span', { class: 'count num' }, past.length ? `${past.length} quiz` : '')),
-        past.length ? h('div', { class: 'sheet list' }, past.map(row)) : h('p', { class: 'empty-line' }, 'Aucun quiz terminé pour l’instant.')));
+      h('section', { class: 'qz-card' }, h('div', { class: 'qz-h' }, h('h2', {}, 'À faire'), h('span', { class: 'count num' }, up.length ? `${up.length} quiz` : '')),
+        up.length ? h('div', { class: 'list' }, up.map(row)) : h('p', { class: 'empty-line' }, 'Aucun quiz prévu pour l’instant. Tu es à jour.')),
+      h('section', { class: 'qz-card' }, h('div', { class: 'qz-h' }, h('h2', {}, 'Terminés'), h('span', { class: 'count num' }, past.length ? `${past.length} quiz` : '')),
+        past.length ? h('div', { class: 'list' }, past.map(row)) : h('p', { class: 'empty-line' }, 'Aucun quiz terminé pour l’instant.')));
   };
   draw();
   const closed = quiz.filter((q) => String(q.fermeture) <= now);
@@ -986,24 +1037,23 @@ function pageQuiz() {
   const missed = quiz.filter((q) => quizState(q, now)[0] === 'Manqué').length;
   const live = quiz.find((q) => quizState(q, now)[2] === 'live');
   const nq = live || quiz.find((q) => String(q.ouverture) > now);
-  let hero = null;
+  let hero;
   if (nq) {
     const [, line, kind] = quizState(nq, now), isLive = kind === 'live';
-    hero = h('section', { class: 'hero qhero' + (isLive ? ' is-live' : ''), 'aria-label': isLive ? 'Quiz ouvert maintenant' : 'Prochain quiz' },
-      h('span', { class: 'k' }, isLive ? h('span', { class: 'livedot', 'aria-hidden': 'true' }) : null, isLive ? 'Ouvert maintenant' : `Prochain quiz · ${inDays(nq.ouverture, now)}`),
-      h('span', { class: 't' }, `${nq.titre}${nq.sujet ? ' : ' + nq.sujet : ''}`),
-      h('span', { class: 's' }, label(nq.matiere), ' ', line),
-      h('span', { class: 'hint' }, 'Une seule tentative. Prévois un moment calme avant la fermeture.'),
-      nq.lien ? h('a', { class: 'btn', href: nq.lien, target: '_blank', rel: 'noopener' }, isLive ? 'Faire le quiz sur l’UV' : 'Voir sur l’UV', svgEl(EXT_SVG, 'ext')) : null);
-  }
+    hero = h('section', { class: 'qz-hero qhero' + (isLive ? ' is-live' : ''), 'aria-label': isLive ? 'Quiz ouvert maintenant' : 'Prochain quiz' },
+      h('div', { class: 'qz-hr' }, h('span', { class: 'k' }, isLive ? h('span', { class: 'livedot', 'aria-hidden': 'true' }) : null, isLive ? `Ouvert maintenant · ${nq.matiere}` : `Prochain quiz · ${nq.matiere === 'Bio' ? 'Biologie' : nq.matiere}`),
+        h('span', { class: 'qz-pill' }, '1 seule tentative')),
+      h('span', { class: 't' }, `${nq.titre}${nq.sujet ? ' · ' + nq.sujet : ''}`),
+      h('div', { class: 'qz-hr' }, h('span', { class: 's' }, line),
+        nq.lien ? h('a', { class: 'btn', href: nq.lien, target: '_blank', rel: 'noopener' }, isLive ? 'Faire le quiz sur l’UV' : 'Voir sur l’UV', svgEl(EXT_SVG, 'ext')) : null));
+  } else hero = h('section', { class: 'qz-hero qhero' }, h('div', { class: 'qz-hr' }, h('span', { class: 'k' }, 'Prochain quiz')), h('span', { class: 't' }, 'Aucun quiz prévu'), h('span', { class: 's' }, 'Tu es à jour.'));
+  const kpis = has('notes') ? [
+    h('div', { class: 'qz-kpi kpi' }, h('span', { class: 'kl' }, 'Moyenne'), h('b', { class: 'num' }, avg === null ? '—' : String(avg).replace('.', ','), avg === null ? null : h('small', {}, '/20')), h('span', { class: 'ks' }, avg === null ? 'pas encore de note' : `sur ${graded.length} note${graded.length > 1 ? 's' : ''}`)),
+    h('div', { class: 'qz-kpi kpi' }, h('span', { class: 'kl' }, 'Faits'), h('b', { class: 'num' }, String(doneN)), h('span', { class: 'ks' }, `sur ${closed.length} terminé${closed.length > 1 ? 's' : ''}`)),
+    h('div', { class: 'qz-kpi kpi dark' + (missed ? ' bad' : '') }, h('span', { class: 'kl' }, 'Manqués'), h('b', { class: 'num' }, String(missed)), h('span', { class: 'ks' }, missed ? 'pas faits avant la fermeture' : 'bravo, aucun'))] : [];
   return h('div', { class: 'page qz' },
     h('header', { class: 'page-head' }, h('h1', {}, 'Quiz'), h('p', {}, has('notes') ? 'Tes quiz Moodle. Chacun n’est ouvert qu’une journée et tu n’as qu’une tentative.' : 'Les quiz Moodle du BA1. Chacun n’est ouvert qu’une journée et tu n’as qu’une tentative. Tes notes sont sur l’UV.')),
-    hero,
-    !has('notes') ? null : h('section', { class: 'block', 'aria-label': 'Ton bilan' },
-      h('div', { class: 'kpis' },
-        h('div', { class: 'sheet kpi' }, h('span', { class: 'kl' }, 'Moyenne'), h('b', { class: 'num' }, avg === null ? '—' : String(avg).replace('.', ',')), h('span', {}, avg === null ? 'pas encore de note' : `sur 20, ${graded.length} note${graded.length > 1 ? 's' : ''}`)),
-        h('div', { class: 'sheet kpi' }, h('span', { class: 'kl' }, 'Faits'), h('b', { class: 'num' }, String(doneN)), h('span', {}, `sur ${closed.length} terminé${closed.length > 1 ? 's' : ''}`)),
-        h('div', { class: 'sheet kpi' + (missed ? ' bad' : '') }, h('span', { class: 'kl' }, 'Manqués'), h('b', { class: 'num' }, String(missed)), h('span', {}, missed ? 'à rattraper en révisant' : 'bravo, aucun')))),
+    h('div', { class: 'qz-top' + (kpis.length ? '' : ' solo'), 'aria-label': 'Ton bilan' }, hero, ...kpis),
     mats.length > 1 ? chips : null, body);
 }
 
@@ -1113,41 +1163,58 @@ function pagePlan() {
   };
   const head = h('header', { class: 'page-head' }, h('h1', {}, "Plan d'études"),
     h('p', {}, `${PL.titre || 'Mon plan'} · ${fDay(PL.du + 'T12:00')} → ${fDay(PL.au + 'T12:00')}`));
-  const prog = h('section', { class: 'sheet plan-prog', 'aria-label': 'Avancement' });
+  // 1re rangée bento : avancement (accent), temps prévu du jour choisi, méthode (élément fort)
+  const prog = h('section', { class: 'pl-card pl-prog plan-prog', 'aria-label': 'Avancement' });
+  const dayCard = h('section', { class: 'pl-card pl-dayc', 'aria-label': 'Travail prévu' });
+  const tip = PL.methode ? h('section', { class: 'pl-card pl-tip', 'aria-label': 'Méthode' }, h('span', { class: 'pl-k' }, 'Méthode'), h('span', { class: 'pl-tx' }, PL.methode)) : null;
+  const top = h('div', { class: 'pl-top' + (tip ? '' : ' no-tip') }, prog, dayCard, tip);
   const chips = h('div', { class: 'chips plan-days', role: 'group', 'aria-label': 'Choisir le jour' });
-  const body = h('div', {});
-  const tip = PL.methode ? h('p', { class: 'plan-tip' }, h('b', {}, 'Méthode · '), PL.methode) : null;
-  const row = (b) => {
+  const body = h('div', { class: 'pl-body' });
+  const CHECK = '<path pathLength="1" d="M5 12.5l4.5 4.5L19 7.5"/>';
+  const nowT = nowL(), nowHM = nowT.slice(11, 16);
+  const row = (b, day) => {
     const ok = !!done[b.id];
+    const live = !ok && day === today && b.debut <= nowHM && b.fin > nowHM;
     const pd = (b.pdfs || []).map((id) => pdfs.find((p) => p.id === id)).filter(Boolean);
-    return h('div', { class: 'pblock' + (ok ? ' done' : ''), 'data-id': b.id, style: `--c:var(--${MAT[b.matiere] || 'other'})` },
+    return h('div', { class: 'pblock' + (ok ? ' done' : '') + (live ? ' is-now' : ''), 'data-id': b.id, style: `--c:var(--${MAT[b.matiere] || 'other'})` },
       h('button', { class: 'pcheck', type: 'button', 'aria-pressed': String(ok), 'aria-label': (ok ? 'Marquer comme pas fait : ' : 'Marquer comme fait : ') + b.titre,
-        onclick: () => { if (done[b.id]) delete done[b.id]; else { done[b.id] = 1; justDone = b.id; } prefs.planDone = done; savePrefs(); draw(); } }, svgEl('<path pathLength="1" d="M5 12.5l4.5 4.5L19 7.5"/>')),
+        onclick: () => { if (done[b.id]) delete done[b.id]; else { done[b.id] = 1; justDone = b.id; } prefs.planDone = done; savePrefs(); draw(); } }, svgEl(CHECK)),
       h('div', { class: 'pmain' },
-        h('div', { class: 'ptop' }, h('span', { class: 'ptime num' }, `${b.debut} – ${b.fin}`), label(b.matiere), h('span', { class: 'pdur num' }, `${mins(b)} min`)),
+        h('div', { class: 'ptop' }, h('span', { class: 'ptime num' }, `${b.debut} – ${b.fin}`), label(b.matiere), live ? h('span', { class: 'pnow' }, 'Maintenant') : null),
         h('b', { class: 'ptitle' }, b.titre),
-        b.detail ? h('span', { class: 'pdet' }, b.detail) : null,
-        pd.length ? h('div', { class: 'ppdfs' }, pd.map((p) => h('button', { class: 'btn', type: 'button', onclick: () => openPdf(p), 'aria-label': 'Ouvrir le PDF ' + p.titre }, svgEl(FILE_SVG), h('span', {}, p.titre)))) : null));
+        ok ? h('span', { class: 'pdet num' }, `Fait · ${mins(b)} min`) : h('span', { class: 'pdur num' }, `${mins(b)} min`),
+        !ok && b.detail ? h('span', { class: 'pdet' }, b.detail) : null,
+        pd.length ? h('div', { class: 'ppdfs' }, pd.map((p, i) => h('button', { class: 'btn' + (i === 0 && !ok ? ' solid' : ''), type: 'button', onclick: () => openPdf(p), 'aria-label': 'Ouvrir le PDF ' + p.titre }, svgEl(FILE_SVG), h('span', {}, i === 0 && !ok ? 'Ouvrir · ' + p.titre : p.titre)))) : null));
   };
   const draw = () => {
     const all = jours.flatMap((j) => j.blocs || []), nDone = all.filter((b) => done[b.id]).length;
     const mDone = all.filter((b) => done[b.id]).reduce((s, b) => s + mins(b), 0), mAll = all.reduce((s, b) => s + mins(b), 0);
+    const pc = all.length ? Math.round(nDone / all.length * 100) : 0;
     prog.replaceChildren(
-      h('div', { class: 'pp-row' }, h('b', { class: 'num' }, `${nDone} / ${all.length} blocs`), h('span', { class: 'num' }, `${fmtH(mDone)} sur ${fmtH(mAll)}`)),
-      h('div', { class: 'prog', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(all.length), 'aria-valuenow': String(nDone) }, h('i', { style: `width:${all.length ? Math.max(nDone ? 3 : 0, nDone / all.length * 100) : 0}%` })));
+      h('span', { class: 'pl-pc num' }, `${pc}%`),
+      h('div', { class: 'pl-pinfo' },
+        h('span', { class: 'pl-pt' }, PL.titre || 'Mon plan'),
+        h('span', { class: 'pl-ps num' }, `${fDay(PL.du + 'T12:00')} → ${fDay(PL.au + 'T12:00')} · ${nDone} bloc${nDone > 1 ? 's' : ''} sur ${all.length} · ${fmtH(mDone)} sur ${fmtH(mAll)}`),
+        h('div', { class: 'prog', role: 'progressbar', 'aria-label': 'Avancement du plan', 'aria-valuemin': '0', 'aria-valuemax': String(all.length), 'aria-valuenow': String(nDone) }, h('i', { style: `width:${all.length ? Math.max(nDone ? 3 : 0, nDone / all.length * 100) : 0}%` }))));
     chips.replaceChildren(...jours.map((j) => {
-      const bl = j.blocs || [], d = bl.filter((b) => done[b.id]).length;
-      return h('button', { class: 'chip' + (j.date === today ? ' is-today' : '') + (bl.length && d === bl.length ? ' is-done' : ''), type: 'button', 'aria-pressed': String(j.date === sel), onclick: () => { if (sel !== j.date) { sel = j.date; draw(); } } },
-        dayLabel(j.date), h('small', { class: 'num' }, `${d}/${bl.length}`));
+      const bl = j.blocs || [], d = bl.filter((b) => done[b.id]).length, full = bl.length && d === bl.length;
+      const wd = P(j.date + 'T12:00').toLocaleDateString('fr-BE', { weekday: 'short' }).replace('.', '');
+      return h('button', { class: 'chip' + (j.date === today ? ' is-today' : '') + (full ? ' is-done' : ''), type: 'button', 'aria-pressed': String(j.date === sel), 'aria-label': `${dayLabel(j.date)}, ${d} sur ${bl.length} fait${d > 1 ? 's' : ''}`, onclick: () => { if (sel !== j.date) { sel = j.date; draw(); } } },
+        h('span', { class: 'pd-n' }, wd), h('span', { class: 'pd-d num' }, String(P(j.date + 'T12:00').getDate())),
+        full ? h('span', { class: 'pd-ok', 'aria-hidden': 'true' }, svgEl(CHECK)) : h('small', { class: 'num' }, `${d}/${bl.length}`));
     }));
     const j = jours.find((x) => x.date === sel), bl = j.blocs || [];
     const left = bl.filter((b) => !done[b.id]);
+    const mDay = bl.reduce((s, b) => s + mins(b), 0), mLeft = left.reduce((s, b) => s + mins(b), 0);
+    dayCard.replaceChildren(h('span', { class: 'pl-k' }, sel === today ? "Aujourd'hui" : dayLabel(sel)),
+      h('span', { class: 'pl-big num' }, mDay ? dur(mDay) : '0 min'),
+      h('span', { class: 'pl-sub' }, !bl.length ? 'rien de prévu' : left.length ? (mLeft === mDay ? 'de travail prévu' : `dont ${dur(mLeft)} encore à faire`) : 'tout est fait'));
     if (shown !== sel) wasComplete = bl.length > 0 && !left.length;
     body.replaceChildren(h('section', { class: 'block' },
-      h('h2', {}, cap(fLong(j.date + 'T12:00')), h('span', { class: 'count num' }, fmtH(bl.reduce((s, b) => s + mins(b), 0)))),
+      h('h2', {}, cap(fLong(j.date + 'T12:00')), h('span', { class: 'count num' }, `${bl.length - left.length}/${bl.length} · ${dur(mDay)}`)),
       j.note ? h('p', { class: 'lead-line' }, j.note) : null,
       bl.length && !left.length ? h('p', { class: 'plan-win' }, 'Journée terminée. Bien joué !') : null,
-      h('div', { class: 'sheet list plan-list' }, bl.map(row))));
+      bl.length ? h('div', { class: 'plan-list' }, bl.map((b) => row(b, j.date))) : h('p', { class: 'empty-line' }, 'Rien de prévu ce jour-là.')));
     const complete = bl.length > 0 && !left.length;
     if (!calm()) {
       // changement de jour : les blocs arrivent du côté du jour choisi
@@ -1164,7 +1231,7 @@ function pagePlan() {
     shown = sel; justDone = null; wasComplete = complete;
   };
   draw();
-  return h('div', { class: 'page plan' }, head, prog, chips, body, tip);
+  return h('div', { class: 'page plan' }, head, top, chips, body);
 }
 
 /* ---------- Page : Cours ---------- */
