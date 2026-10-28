@@ -674,6 +674,6 @@ body.ne-open { overflow: hidden; }
 .ne-qsizes .ne-size { width: 40px; } .ne-qcolors .ne-color { width: 36px; }
 
 /* Aperçu de la pointe quand le Pencil survole l'écran */
-.ne-hover { position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none; border-radius: 50%; background: color-mix(in srgb, var(--c) 45%, transparent); box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 0 0 2px color-mix(in srgb, var(--c) 70%, transparent); will-change: transform; }
+.ne-hover { position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none; border-radius: 50%; background: color-mix(in srgb, var(--c) 55%, transparent); box-shadow: 0 0 0 .5px rgba(255,255,255,.9); will-change: transform; }
 .ne-hover.hl { border-radius: 3px; background: color-mix(in srgb, var(--c) 40%, transparent); }
 .ne-hover.er { background: rgba(255,255,255,.35); box-shadow: 0 0 0 1px rgba(60,66,74,.75), 0 0 0 2px rgba(255,255,255,.8); }

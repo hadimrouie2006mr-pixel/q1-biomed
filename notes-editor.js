@@ -503,7 +503,7 @@ function hoverCursor(e) {
   if (e.pointerType !== 'pen' || e.buttons || G || !canEdit()) return;
   const t = TP.tool; if (!['pen', 'hl', 'eraser', 'shape'].includes(t)) { hideHover(); return; }
   if (!hoverEl) { hoverEl = document.createElement('div'); hoverEl.setAttribute('aria-hidden', 'true'); root.append(hoverEl); }
-  const d = Math.max(4, curSize(t) * E.scale);
+  const d = t === 'eraser' ? Math.max(4, curSize(t) * E.scale) : Math.max(3, curSize(t) * E.scale * .6); // gomme : taille réelle ; stylos : point plus discret
   hoverEl.className = 'ne-hover' + (t === 'eraser' ? ' er' : t === 'hl' ? ' hl' : '');
   hoverEl.style.cssText = `width:${d}px;height:${d}px;transform:translate(${e.clientX - d / 2}px,${e.clientY - d / 2}px);--c:${t === 'eraser' ? '#6b737c' : curColor(t)}`;
   clearTimeout(hoverT); hoverT = setTimeout(hideHover, 800);
