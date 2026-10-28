@@ -459,9 +459,13 @@ function coverEl(nb, small) {
   if (nb.kind === 'pdf') {
     el.append(h('span', { class: 'nb-cover-thumb' }));
     N.thumbFor && N.thumbFor(nb.id).then((url) => { if (url) { const t = el.querySelector('.nb-cover-thumb'); t.style.backgroundImage = `url(${url})`; t.classList.add('on'); } }).catch(() => {});
-    el.append(h('span', { class: 'nb-cover-tag' }, 'PDF'));
+    el.append(h('span', { class: 'nb-cover-tag' }, 'PDF'), h('span', { class: 'nb-cover-ear' }));
   } else {
-    el.append(h('span', { class: 'nb-cover-spine' }), h('span', { class: 'nb-cover-label' }, h('span', {}, nb.title)), h('span', { class: 'nb-cover-band' }));
+    // carnet (maquette J-Cahiers) : tranche des pages, dos cousu, élastique, étiquette matière
+    const SUBJ = { bio: 'Biologie', chimie: 'Chimie', maths: 'Maths', physique: 'Physique', anat: 'Anatomie' };
+    el.prepend(h('span', { class: 'nb-cover-edge' }));
+    el.append(h('span', { class: 'nb-cover-spine' }), h('span', { class: 'nb-cover-stitch' }), h('span', { class: 'nb-cover-band' }),
+      h('span', { class: 'nb-cover-label' }, h('span', { class: 'k' }, SUBJ[c] || 'Cahier'), h('i'), h('i')));
   }
   if (nb.lock) el.append(h('span', { class: 'nb-cover-lock' }, ico('lock')));
   return el;
@@ -494,11 +498,17 @@ function renderLib() {
   const search = h('input', { class: 'search', type: 'search', id: 'nbsearch', placeholder: 'Chercher un cahier par titre', 'aria-label': 'Chercher un cahier par titre', value: query, oninput: (e) => { query = e.target.value; renderGrid(); } });
   const grid = h('div', { class: 'nb-grid' });
   const crumbs = h('div', { class: 'nb-crumbs' });
-  const filters = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrer' },
-    [['all', 'Tous'], ['fav', 'Favoris'], ['pdf', 'PDF annotés'], ['trash', 'Corbeille' + (trashN ? ` (${trashN})` : '')]].map(([k, t]) =>
-      h('button', { class: 'chip', type: 'button', 'aria-pressed': String(filter === k), onclick: () => { filter = k; renderLib(); } }, t)));
-  const sortSeg = h('div', { class: 'seg nb-sort', role: 'group', 'aria-label': 'Trier' },
-    [['date', 'Date'], ['name', 'Nom']].map(([k, t]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(sortBy === k), onclick: () => { sortBy = k; lpSave({ sort: k }); renderLib(); } }, t)));
+  const sortBtn = h('button', { class: 'btn nb-sortbtn', type: 'button', 'aria-haspopup': 'menu', 'aria-label': `Trier : ${sortBy === 'name' ? 'par nom' : 'par date'}`, onclick: (e) => menu(e.currentTarget, [
+    { label: 'Par date de modification', on: sortBy === 'date', onclick: () => { sortBy = 'date'; lpSave({ sort: 'date' }); renderLib(); } },
+    { label: 'Par nom', on: sortBy === 'name', onclick: () => { sortBy = 'name'; lpSave({ sort: 'name' }); renderLib(); } }], { align: 'right' }) }, 'Trier');
+  const addMenu = (e) => menu(e.currentTarget, [
+    { label: 'Nouveau cahier', icon: 'plus', onclick: newNotebookDlg },
+    { label: 'Nouveau dossier', icon: 'folder', onclick: () => newFolder() },
+    { label: curFolder ? 'Ajouter des PDF ici' : 'Importer PDF, images ou .zip', icon: 'upload', onclick: () => { const p = pickFile(PDF_ACCEPT, { multiple: true }); p.then((files) => importAsNotebook(files, curFolder)); } },
+    { label: 'Transférer depuis Goodnotes', icon: 'download', onclick: goodnotesHelp },
+    '-',
+    { label: 'Nouvelle carte de révision', icon: 'cards', onclick: () => N.cards.newCard() }
+  ], { align: 'right' });
   const due = dueCards().length, totalCards = Object.values(idx.cards).filter((c) => live(c)).length;
   const bannerHidden = lp().hideBanner;
   function renderGrid() {
@@ -520,46 +530,63 @@ function renderLib() {
       crumbs.append(h('button', { class: 'nb-crumb', type: 'button', onclick: () => { curFolder = ''; renderLib(); } }, ico('back'), 'Cahiers'));
       path.forEach((fo, i) => crumbs.append(h('span', { class: 'nb-crumb-sep', 'aria-hidden': 'true' }, '/'), i === path.length - 1 ? h('b', {}, fo.name) : h('button', { class: 'nb-crumb', type: 'button', onclick: () => { curFolder = fo.id; renderLib(); } }, fo.name)));
     }
-    if (filter === 'all' && !q) grid.append(h('div', { class: 'nb-tile nb-newtile' }, h('button', { class: 'nb-tile-open', type: 'button', 'aria-label': 'Créer un nouveau cahier', onclick: newNotebookDlg }, h('span', { class: 'nb-newcover', 'aria-hidden': 'true' }, ico('plus'))), h('div', { class: 'nb-tile-meta' }, h('div', { class: 'nb-tile-tx' }, h('b', {}, 'Nouveau'), h('span', {}, 'Cahier ou PDF')))));
+    if (filter === 'all' && !q) grid.append(h('button', { class: 'nb-newtile', type: 'button', 'aria-label': 'Créer ou importer', 'aria-haspopup': 'menu', onclick: addMenu }, h('span', { class: 'nb-newcover', 'aria-hidden': 'true' }, ico('plus')), h('span', {}, 'Nouveau ou importer')));
     folders.forEach((f) => grid.append(folderTile(f)));
     nbs.forEach((n) => grid.append(nbTile(n)));
     if (!folders.length && !nbs.length) grid.append(h('div', { class: 'nb-empty' }, filter === 'trash' ? 'La corbeille est vide. Les éléments supprimés y restent 30 jours.' : q ? `Aucun cahier ne correspond à « ${query} ».` : filter === 'fav' ? 'Aucun favori. Touche ⋯ sur un cahier › Favori.' : filter === 'pdf' ? 'Aucun PDF annoté. Ouvre un PDF dans l’onglet PDF puis touche « Annoter ».' : curFolder ? 'Ce dossier est vide.' : 'Aucun cahier pour l’instant. Crée ton premier cahier.'));
   }
   renderGrid();
   const nN = nbList().filter((n) => !n.trashed).length, fN = folderList().filter((f) => !f.trashed).length;
-  const addMenu = (e) => menu(e.currentTarget, [
-    { label: 'Nouveau cahier', icon: 'plus', onclick: newNotebookDlg },
-    { label: 'Nouveau dossier', icon: 'folder', onclick: () => newFolder() },
-    { label: curFolder ? 'Ajouter des PDF ici' : 'Importer PDF, images ou .zip', icon: 'upload', onclick: () => { const p = pickFile(PDF_ACCEPT, { multiple: true }); p.then((files) => importAsNotebook(files, curFolder)); } },
-    { label: 'Transférer depuis Goodnotes', icon: 'download', onclick: goodnotesHelp },
-    '-',
-    { label: 'Nouvelle carte de révision', icon: 'cards', onclick: () => N.cards.newCard() }
-  ], { align: 'right' });
   const row = (icon, tint, title, sub, onclick) => h('button', { class: 'nb-grow', type: 'button', onclick }, h('span', { class: 'nb-grow-ic', style: `--t:${tint}` }, ico(icon)), h('span', { class: 'nb-grow-tx' }, h('b', {}, title), sub ? h('span', {}, sub) : null), ico('chev', 'nb-grow-chev'));
+  // Rayons (colonne de gauche) : filtres, dossiers racine, synchro, corbeille
+  const live0 = nbList().filter((n) => !n.trashed);
+  const topOf = (fid) => { let f = fid, g = 0; while (f && g++ < 20) { const fo = idx.folders[f]; if (!fo || fo.gone) return ''; if (!fo.parent) return f; f = fo.parent; } return ''; };
+  const inTree = (fid) => { const out = new Set([fid]); let grow = true; while (grow) { grow = false; for (const f of folderList()) if (!f.trashed && !out.has(f.id) && out.has(f.parent)) { out.add(f.id); grow = true; } } return out; };
+  const curTop = filter === 'all' && !query.trim() ? topOf(curFolder) : '';
+  const sb = (on, label, n, onclick, dot) => h('button', { class: 'nb-sb' + (on ? ' on' : ''), type: 'button', 'aria-pressed': String(!!on), onclick }, dot ? h('span', { class: 'nb-sb-dot c-' + dot, 'aria-hidden': 'true' }) : null, h('span', { class: 'nb-sb-l' }, label), n ? h('span', { class: 'nb-sb-n' }, String(n)) : null);
+  const go = (f, folder = '') => () => { filter = f; curFolder = folder; if (folder) query = ''; renderLib(); };
+  const roots = folderList().filter((f) => !f.trashed && !f.parent).sort((a, b) => (a.name || '').localeCompare(b.name || '', 'fr'));
+  const side = h('nav', { class: 'nb-side', 'aria-label': 'Rayons des cahiers' },
+    sb(filter === 'all' && !curFolder, 'Tous', live0.length, go('all')),
+    sb(filter === 'fav', 'Favoris', live0.filter((n) => n.fav).length, go('fav')),
+    sb(filter === 'pdf', 'PDF annotés', live0.filter((n) => n.kind === 'pdf').length, go('pdf')),
+    h('span', { class: 'nb-sb-k' }, 'Dossiers'),
+    roots.map((f) => { const t = inTree(f.id); return sb(curTop === f.id, f.name, live0.filter((n) => t.has(n.folder)).length, go('all', f.id), f.color || 'bio'); }),
+    h('button', { class: 'nb-sb nb-sb-add', type: 'button', onclick: () => newFolder() }, ico('plus'), h('span', { class: 'nb-sb-l' }, 'Nouveau dossier')),
+    h('div', { class: 'nb-sb-sync' }, statusPill(), h('span', {}, S().hasToken() ? 'iPad, téléphone et PC' : 'Touche pour synchroniser tes appareils')),
+    sb(filter === 'trash', 'Corbeille', trashN, go('trash')));
+  // « Reprendre là où tu t'es arrêté » : le dernier cahier modifié
+  const recent = filter === 'all' && !curFolder && !query.trim() && !selecting ? live0.filter((n) => !n.trashed).sort((a, b) => (b.upd || b.created || 0) - (a.upd || a.created || 0))[0] : null;
+  const resume = recent ? h('button', { class: 'nb-resume', type: 'button', onclick: () => openNb(recent.id), 'aria-label': `Reprendre ${recent.title}` },
+    h('span', { class: 'nb-resume-cv' }, coverEl(recent, true)),
+    h('span', { class: 'nb-resume-tx' }, h('span', { class: 'k' }, 'Reprendre là où tu t’es arrêté'), h('b', {}, recent.title),
+      h('span', {}, [recent.np ? `${recent.np} page${recent.np > 1 ? 's' : ''}` : '', 'modifié ' + fmtDate(recent.upd || recent.created).toLowerCase()].filter(Boolean).join(' · '))),
+    h('span', { class: 'nb-resume-go', 'aria-hidden': 'true' }, 'Ouvrir')) : null;
   libRoot.replaceChildren(
     h('header', { class: 'nb-hero' },
       h('div', { class: 'nb-hero-row' },
-        h('div', { class: 'nb-hero-tx' }, h('h1', {}, 'Cahiers'), h('p', { class: 'nb-sub' }, nN ? `${nN} cahier${nN > 1 ? 's' : ''}${fN ? ` · ${fN} dossier${fN > 1 ? 's' : ''}` : ''}` : 'Écris, annote tes PDF et révise.')),
-        h('div', { class: 'nb-hero-actions' }, statusPill(),
-          h('button', { class: 'nb-pbtn', type: 'button', onclick: addMenu, 'aria-label': 'Créer ou importer', 'aria-haspopup': 'menu' }, ico('plus'), h('span', {}, 'Nouveau'))))),
-    !S().hasToken() && !bannerHidden ? h('div', { class: 'nb-card nb-banner' }, h('span', { class: 'nb-grow-ic', style: '--t:#0a84ff' }, ico('cloud')), h('div', { class: 'tx' }, h('b', {}, 'Synchronise tes appareils'), h('span', {}, 'Retrouve tes cahiers sur l’iPad, le téléphone et le PC.')),
-      h('button', { class: 'btn solid', type: 'button', onclick: syncSettings }, 'Activer'), ibtn('close', 'Masquer ce message', () => { lpSave({ hideBanner: true }); renderLib(); })) : null,
-    totalCards ? h('div', { class: 'nb-card nb-due' }, h('span', { class: 'nb-grow-ic', style: '--t:#30b45f' }, ico('cards')), h('div', { class: 'tx' }, h('b', {}, due ? `${due} carte${due > 1 ? 's' : ''} à revoir aujourd’hui` : 'Aucune carte à revoir aujourd’hui'), h('span', {}, `${totalCards} carte${totalCards > 1 ? 's' : ''} de révision`)),
-      h('button', { class: 'btn' + (due ? ' solid' : ''), type: 'button', onclick: () => N.cards.review() }, due ? 'Réviser' : 'Voir')) : null,
-    h('div', { class: 'nb-toolbar' }, h('label', { class: 'nb-searchwrap' }, ico('search'), search), sortSeg,
-      filter !== 'trash' ? h('button', { class: 'btn nb-selbtn' + (selecting ? ' solid' : ''), type: 'button', 'aria-pressed': String(selecting), onclick: () => { selecting = !selecting; selSet.clear(); renderLib(); } }, selecting ? 'Terminé' : 'Sélectionner') : null),
-    h('div', { class: 'nb-filters' }, filters),
-    crumbs,
-    curFolder && filter === 'all' && !query.trim() ? folderBar() : null,
-    filter === 'trash' && (nbList().some((n) => n.trashed) || folderList().some((f) => f.trashed)) ? h('div', {}, h('button', { class: 'btn danger', type: 'button', onclick: emptyTrash }, ico('trash'), 'Vider la corbeille')) : null,
-    grid,
-    h('section', { class: 'nb-group' }, h('h2', {}, 'Plus'),
-      h('div', { class: 'nb-glist' },
-        row('folder', '#0a84ff', 'Nouveau dossier', 'Mets-y plusieurs PDF d’un coup', () => newFolder()),
-        row('download', '#ff9f0a', 'Transférer depuis Goodnotes', 'Tous tes cahiers en PDF, dossiers compris', goodnotesHelp),
-        row('cards', '#30b45f', 'Nouvelle carte de révision', 'Recto / verso, répétition espacée', () => N.cards.newCard()),
-        row('share', '#5e5ce6', 'Exporter tous mes cahiers', 'Sauvegarde de secours (.json)', exportBackup),
-        row('upload', '#8e8e93', 'Importer une sauvegarde', '', importBackup))));
+        h('div', { class: 'nb-hero-tx' }, h('h1', {}, 'Cahiers'), h('p', { class: 'nb-sub' }, nN ? `${nN} cahier${nN > 1 ? 's' : ''}${fN ? ` · ${fN} dossier${fN > 1 ? 's' : ''}` : ''}` : 'Écris, annote tes PDF et révise.')))),
+    h('div', { class: 'nb-shell' }, side,
+      h('div', { class: 'nb-main' },
+        h('div', { class: 'nb-toolbar' }, h('label', { class: 'nb-searchwrap' }, ico('search'), search), sortBtn,
+          filter !== 'trash' ? h('button', { class: 'btn nb-selbtn' + (selecting ? ' solid' : ''), type: 'button', 'aria-pressed': String(selecting), onclick: () => { selecting = !selecting; selSet.clear(); renderLib(); } }, selecting ? 'Terminé' : 'Sélectionner') : null,
+          h('button', { class: 'nb-pbtn', type: 'button', onclick: newNotebookDlg }, ico('plus'), h('span', {}, 'Nouveau cahier'))),
+        !S().hasToken() && !bannerHidden ? h('div', { class: 'nb-card nb-banner' }, h('span', { class: 'nb-grow-ic', style: '--t:#3D7BF7' }, ico('cloud')), h('div', { class: 'tx' }, h('b', {}, 'Synchronise tes appareils'), h('span', {}, 'Retrouve tes cahiers sur l’iPad, le téléphone et le PC.')),
+          h('button', { class: 'btn solid', type: 'button', onclick: syncSettings }, 'Activer'), ibtn('close', 'Masquer ce message', () => { lpSave({ hideBanner: true }); renderLib(); })) : null,
+        resume,
+        totalCards ? h('div', { class: 'nb-card nb-due' + (due ? ' hot' : '') }, h('span', { class: 'nb-grow-ic', style: '--t:#1E9E5A' }, ico('cards')), h('div', { class: 'tx' }, h('b', {}, due ? `${due} carte${due > 1 ? 's' : ''} à revoir aujourd’hui` : 'Aucune carte à revoir aujourd’hui'), h('span', {}, `${totalCards} carte${totalCards > 1 ? 's' : ''} de révision`)),
+          h('button', { class: 'btn' + (due ? ' solid' : ''), type: 'button', onclick: () => N.cards.review() }, due ? 'Réviser' : 'Voir')) : null,
+        crumbs,
+        curFolder && filter === 'all' && !query.trim() ? folderBar() : null,
+        filter === 'trash' && (nbList().some((n) => n.trashed) || folderList().some((f) => f.trashed)) ? h('div', {}, h('button', { class: 'btn danger', type: 'button', onclick: emptyTrash }, ico('trash'), 'Vider la corbeille')) : null,
+        grid,
+        h('section', { class: 'nb-group' }, h('h2', {}, 'Plus'),
+          h('div', { class: 'nb-glist' },
+            row('folder', '#3D7BF7', 'Nouveau dossier', 'Mets-y plusieurs PDF d’un coup', () => newFolder()),
+            row('download', '#F08A24', 'Transférer depuis Goodnotes', 'Tous tes cahiers en PDF, dossiers compris', goodnotesHelp),
+            row('cards', '#1E9E5A', 'Nouvelle carte de révision', 'Recto / verso, répétition espacée', () => N.cards.newCard()),
+            row('share', '#8B5CF6', 'Exporter tous mes cahiers', 'Sauvegarde de secours (.json)', exportBackup),
+            row('upload', '#8E8E93', 'Importer une sauvegarde', '', importBackup))))));
   document.querySelectorAll('body > .nb-selbar').forEach((x) => x.remove());
   if (selecting) document.body.append(selectionBar()); // hors de .page (transformée) pour rester fixée en bas
   if (focusSel != null) { const s = libRoot.querySelector('#nbsearch'); if (s) { s.focus(); try { s.setSelectionRange(focusSel, focusSel); } catch (_) {} } }
@@ -574,9 +601,9 @@ function nbTile(nb) {
   const open = () => selecting ? selToggle(key) : nb.trashed ? null : openNb(nb.id);
   const opts = (e) => { e.stopPropagation(); nbMenu(nb, e.currentTarget); };
   return h('div', { class: 'nb-tile' + (nb.trashed ? ' trashed' : '') + (selecting && selSet.has(key) ? ' picked' : '') },
-    h('button', { class: 'nb-tile-open', type: 'button', onclick: open, 'aria-label': selecting ? `Sélectionner ${nb.title}` : `Ouvrir ${nb.title}`, 'aria-pressed': selecting ? String(selSet.has(key)) : null, disabled: nb.trashed && !selecting ? true : null }, coverEl(nb), selMark(key)),
+    h('button', { class: 'nb-tile-open', type: 'button', onclick: open, 'aria-label': selecting ? `Sélectionner ${nb.title}` : `Ouvrir ${nb.title}`, 'aria-pressed': selecting ? String(selSet.has(key)) : null, disabled: nb.trashed && !selecting ? true : null }, coverEl(nb), nb.fav && !nb.trashed ? h('span', { class: 'nb-favbadge', 'aria-hidden': 'true' }, ico('star')) : null, selMark(key)),
     h('div', { class: 'nb-tile-meta' },
-      h('div', { class: 'nb-tile-tx' }, h('b', {}, nb.fav ? ico('star', 'nb-fav') : null, nb.title), h('span', {}, nb.trashed ? `Supprimé · ${Math.max(0, 30 - Math.floor((Date.now() - nb.trashed) / DAY))} j restants` : fmtDate(nb.upd || nb.created))),
+      h('div', { class: 'nb-tile-tx' }, h('b', {}, nb.title), h('span', {}, nb.trashed ? `Supprimé · ${Math.max(0, 30 - Math.floor((Date.now() - nb.trashed) / DAY))} j restants` : fmtDate(nb.upd || nb.created) + (nb.np ? ` · ${nb.np} page${nb.np > 1 ? 's' : ''}` : ''))),
       h('button', { class: 'nb-ib nb-more', type: 'button', 'aria-label': `Options de ${nb.title}`, title: 'Options', onclick: opts }, ico('chevdown'))));
 }
 function folderTile(f) {
@@ -914,7 +941,7 @@ N.boot = async (app) => {
   N.app = app;
   try { S().setProfile(app.profile); await S().init(app.key); await loadIndex(); } catch (e) { console.warn('Cahiers indisponibles', e); }
   bootResolve();
-  S().on('status', () => { document.querySelectorAll('.nb-lib .nb-hero .nb-status').forEach((el) => el.replaceWith(statusPill())); N.editor && N.editor.onStatus && N.editor.onStatus(); });
+  S().on('status', () => { document.querySelectorAll('.nb-lib .nb-side .nb-status').forEach((el) => el.replaceWith(statusPill())); N.editor && N.editor.onStatus && N.editor.onStatus(); });
   S().on('change', async (paths) => {
     if (paths.includes(IDX)) { idx = await S().get(IDX); ['nbs', 'folders', 'elements', 'cards', 'tpls'].forEach((k) => { idx[k] = idx[k] || {}; }); N.renderLib(); }
     N.editor && N.editor.onRemote && N.editor.onRemote(paths);

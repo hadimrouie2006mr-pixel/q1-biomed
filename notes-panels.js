@@ -22,9 +22,9 @@ X.renderTop = () => {
       X.openTabs.length > 1 ? h('button', { class: 'ne-tab-x', type: 'button', 'aria-label': `Fermer l’onglet ${n.title}`, onclick: () => { N.editor.closeTab(id); if (on) { const next = X.openTabs[X.openTabs.length - 1]; if (next) N.openNb(next); else X.close(); } else X.renderTop(); } }, ico('close')) : null);
   }));
   top.replaceChildren(
-    ib('back', 'Retour à la bibliothèque', () => X.close()),
-    X.openTabs.length > 1 && !narrow() ? tabs : h('button', { class: 'ne-title', type: 'button', onclick: renameNb, 'aria-label': `Renommer ${nb.title}` }, nb.title),
-    h('span', { class: 'ne-status-slot' }),
+    h('button', { class: 'ne-back', type: 'button', 'aria-label': 'Retour à la bibliothèque', title: 'Retour à la bibliothèque', onclick: () => X.close() }, ico('back'), h('span', {}, 'Cahiers')),
+    X.openTabs.length > 1 && !narrow() ? h('div', { class: 'ne-head has-tabs' }, tabs, h('span', { class: 'ne-status-slot' }))
+      : h('div', { class: 'ne-head' }, h('button', { class: 'ne-title', type: 'button', onclick: renameNb, 'aria-label': `Renommer ${nb.title}` }, nb.title), h('span', { class: 'ne-status-slot' })),
     h('div', { class: 'ne-acts' },
       ib('undo', 'Annuler', () => X.undo(), { class: 'nb-ib ne-undo' }), ib('redo', 'Rétablir', () => X.redo(), { class: 'nb-ib ne-redo' }),
       ib('pages', 'Pages', () => toggleSide(), { 'aria-pressed': String(!X.root().querySelector('.ne-side').hidden) }),
