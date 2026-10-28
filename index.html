@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#E9EBEE" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0E0F12" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Q1 Biomed">
 <title>Mon Q1 Biomed</title>
-<script>try{var t=(JSON.parse(localStorage.getItem("q1biomed.prefs"))||{}).theme;if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
+<script>try{var t=(JSON.parse(localStorage.getItem("q1biomed.prefs"))||{}).theme;if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}
+try{if(localStorage.getItem("q1biomed.key"))document.documentElement.classList.add("booting");}catch(e){}</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="icon" href="icon-192.png">
@@ -389,56 +390,72 @@ button.item:hover { background: var(--paper); }
 }
 .offline { background: var(--ink); }
 </style>
+<link rel="preload" href="vendor/fonts/outfit-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="vendor/fonts/outfit-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="notes.css">
-<link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="glass.css">
 <link rel="stylesheet" href="pages.css">
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="motion.css">
 </head>
 <body>
+
+<!-- Chargement : squelettes de cartes pendant le déchiffrement (clé déjà enregistrée) -->
+<div class="skel" id="skel" aria-busy="true" aria-label="Chargement">
+  <div class="sk-top"><span class="sk sk-t"></span><span class="sk sk-nav"></span><span class="sk sk-av"></span></div>
+  <div class="sk-grid"><span class="sk sk-hero"></span><span class="sk"></span><span class="sk"></span><span class="sk"></span><span class="sk"></span><span class="sk sk-w"></span><span class="sk sk-w"></span></div>
+</div>
 
 <!-- Verrou -->
 <div class="lock" id="lock">
   <button class="themefab" type="button" data-theme-toggle aria-label="Changer le thème"></button>
-  <form id="login" autocomplete="on">
-    <div class="tags" aria-hidden="true"><span style="background:var(--bio)"></span><span style="background:var(--chimie)"></span><span style="background:var(--maths)"></span><span style="background:var(--physique)"></span></div>
-    <h1>Mon Q1 Biomed</h1>
-    <p>Ton espace d'études privé. Entre ton mot de passe pour l'ouvrir.</p>
-    <input type="text" name="username" value="hadi" autocomplete="username" hidden>
-    <div class="field"><label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="current-password" required></div>
-    <label class="check"><input id="remember" type="checkbox" checked> Se souvenir sur cet appareil</label>
-    <button class="primary" id="go" type="submit">Ouvrir</button>
-    <div class="err" id="err" role="alert"></div>
-  </form>
+  <div class="lock-grid">
+    <div class="lock-hero">
+      <div class="tags" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+      <div class="lock-title"><span class="lock-kicker">BA1 sciences biomédicales</span><h1>Mon Q1<br>Biomed</h1></div>
+    </div>
+    <div class="lock-intro"><b>Ton espace d'études privé</b><p>Cours, quiz, PDF et cahiers au même endroit. Entre ton mot de passe pour l'ouvrir.</p></div>
+    <form id="login" autocomplete="on">
+      <input type="text" name="username" value="hadi" autocomplete="username" hidden>
+      <div class="field"><label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="current-password" required></div>
+      <label class="check"><input id="remember" type="checkbox" checked> Se souvenir sur cet appareil</label>
+      <button class="primary" id="go" type="submit">Ouvrir <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      <div class="err" id="err" role="alert"></div>
+    </form>
+  </div>
 </div>
 
 <!-- App -->
 <div class="shell" id="app" hidden>
-  <nav class="rail" aria-label="Navigation">
-    <div class="brand">Mon Q1 Biomed<small id="brandsub">BA1 sciences biomédicales</small></div>
-    <div id="railTabs"></div>
-    <div class="spacer"></div>
-    <div class="meta" id="maj"></div>
-    <button class="tab themebtn" type="button" data-theme-toggle aria-label="Changer le thème"></button>
-    <button class="tab" type="button" data-logout>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Verrouiller
-    </button>
-  </nav>
+  <header class="topbar">
+    <div class="brand">Mon Q1 Biomed<small id="brandsub">BA1 sciences biomédicales</small><small class="meta" id="maj"></small></div>
+    <nav class="toptabs" id="railTabs" aria-label="Navigation"></nav>
+    <div class="top-acts">
+      <button class="iconbtn" type="button" data-theme-toggle aria-label="Changer le thème"></button>
+      <button class="avatar" type="button" data-logout id="avatar" aria-label="Verrouiller (changer de profil)" title="Verrouiller (changer de profil)">?</button>
+    </div>
+  </header>
   <main class="view" id="view"></main>
-  <button class="themefab" type="button" data-theme-toggle aria-label="Changer le thème"></button>
   <nav class="bottom" id="bottomTabs" aria-label="Navigation"></nav>
 </div>
 
 <!-- Lecteur -->
 <div class="reader" id="reader" hidden role="dialog" aria-modal="true" aria-labelledby="rname">
   <div class="reader-bar">
-    <button class="btn" id="rclose" type="button">Fermer</button>
-    <span class="name" id="rname"></span>
-    <span class="info num" id="rinfo"></span>
-    <button class="btn" id="rannot" type="button" aria-label="Annoter ce PDF dans les Cahiers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.2-4.6L15.5 5.1a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L8.6 18.8z"/></svg>Annoter</button>
-    <button class="btn" id="zout" type="button" aria-label="Dézoomer">−</button>
-    <button class="btn" id="zin" type="button" aria-label="Zoomer">+</button>
+    <button class="btn rb-close" id="rclose" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>Fermer</button>
+    <div class="rb-title"><span class="label" id="rmat" hidden></span><span class="name" id="rname"></span><span class="info num" id="rinfo" aria-live="polite"></span></div>
+    <div class="rb-zoom" role="group" aria-label="Zoom">
+      <button class="rb-ib" id="zout" type="button" aria-label="Dézoomer">−</button>
+      <span class="num" id="zval">100 %</span>
+      <button class="rb-ib" id="zin" type="button" aria-label="Zoomer">+</button>
+    </div>
+    <button class="btn accent" id="rannot" type="button" aria-label="Annoter ce PDF dans les Cahiers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.2-4.6L15.5 5.1a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L8.6 18.8z"/></svg>Annoter</button>
   </div>
   <div class="pages" id="pages"></div>
+  <div class="rb-nav" role="group" aria-label="Changer de page">
+    <button class="rb-ib" id="rprev" type="button" aria-label="Page précédente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
+    <button class="rb-ib" id="rnext" type="button" aria-label="Page suivante"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+  </div>
 </div>
 
 <button class="pomo-fab" id="pomoFab" type="button" hidden aria-haspopup="dialog" aria-controls="pomo"></button>
@@ -511,8 +528,10 @@ $('#login').addEventListener('submit', async (ev) => {
     }
     if (!k) throw new Error(online ? 'pw' : 'net');
     if ($('#remember').checked) { try { const raw = new Uint8Array(await crypto.subtle.exportKey('raw', k)); localStorage.setItem(KEYSTORE, btoa(String.fromCharCode(...raw))); localStorage.setItem(KEYSTORE + '.profil', PROF.id); } catch (_) {} }
-    start();
-  } catch (_) { $('#err').textContent = 'Mot de passe incorrect, ou pas de connexion. Vérifie et réessaie.'; if (window.Q1Motion) Q1Motion.shake($('#login')); }
+    $('#login').classList.remove('bad');
+    // la carte accent s'agrandit et laisse place au site
+    if (window.Q1Motion && Q1Motion.unlock) Q1Motion.unlock($('.lock-hero'), start); else start();
+  } catch (_) { $('#err').textContent = 'Mot de passe incorrect, ou pas de connexion. Vérifie et réessaie.'; $('#login').classList.add('bad'); if (window.Q1Motion) { Q1Motion.shake($('#login')); Q1Motion.pop($('#err'), 'mo-errin'); } }
   finally { go.disabled = false; go.textContent = 'Ouvrir'; }
 });
 document.addEventListener('click', (e) => { if (e.target.closest('[data-logout]')) { try { if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {}); } catch (_) {} try { localStorage.removeItem(KEYSTORE); localStorage.removeItem(KEYSTORE + '.profil'); } catch (_) {} location.hash = ''; location.reload(); } });
@@ -556,6 +575,7 @@ const ICON = {
   cours: '<path d="M4 6l8-3 8 3-8 3z"/><path d="M6 8v6c0 1.5 2.7 3 6 3s6-1.5 6-3V8"/>',
   cahiers: '<path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6z"/><path d="M6 3v18M9.5 3v18" opacity=".55"/><path d="M12.5 9.5l3-3 1 1-3 3-1.4.4z"/>'
 };
+const SHORT = { aujourdhui: 'Auj.' };
 const TABS = [['aujourdhui', "Aujourd'hui", 'today'], ['plan', 'Plan', 'plan'], ['semaine', 'Semaine', 'week'], ['quiz', 'Quiz', 'quiz'], ['pdf', 'PDF', 'pdf'], ['cours', 'Cours', 'cours'], ['cahiers', 'Cahiers', 'cahiers']];
 const icon = (k) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = ICON[k]; return s; };
 
@@ -619,7 +639,7 @@ const quizStatus = (q, now) => {
 
 /* ---------- Navigation ---------- */
 function buildTabs() {
-  const mk = () => TABS.filter(([id]) => has(id)).map(([id, txt, ic]) => h('a', { class: 'tab', href: '#' + id, 'data-tab': id }, icon(ic), txt));
+  const mk = () => TABS.filter(([id]) => has(id)).map(([id, txt, ic]) => h('a', { class: 'tab', href: '#' + id, 'data-tab': id }, icon(ic), h('span', { class: 'tl' }, txt), h('span', { class: 'ts', 'aria-hidden': 'true' }, SHORT[id] || txt)));
   $('#railTabs').replaceChildren(...mk()); $('#bottomTabs').replaceChildren(...mk());
   $('#bottomTabs').style.setProperty('grid-template-columns', `repeat(${TABS.filter(([id]) => has(id)).length}, 1fr)`, 'important');
 }
@@ -636,7 +656,7 @@ function route(prevHash) {
   show(tab);
 }
 function show(tab) {
-  prefs.tab = tab; savePrefs();
+  prefs.tab = tab; savePrefs(); document.documentElement.dataset.tab = tab;
   document.querySelectorAll('[data-tab]').forEach((a) => { if (a.dataset.tab === tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   const page = ({ aujourdhui: pageToday, plan: pagePlan, semaine: pageWeek, quiz: pageQuiz, pdf: pagePdf, cours: pageCours, cahiers: () => (window.Q1Notes ? Q1Notes.page() : h('div', { class: 'page' }, h('p', { class: 'muted' }, 'Cahiers indisponibles.'))) })[tab]();
   const swap = () => { $('#view').replaceChildren(page); window.scrollTo(0, 0); };
@@ -645,21 +665,52 @@ function show(tab) {
 }
 window.addEventListener('hashchange', (e) => { if (!$('#reader').hidden && !$('#reader').classList.contains('mo-close') && !location.hash.startsWith('#pdf-')) closeReader(true); let old = ''; try { old = new URL(e.oldURL).hash; } catch (_) {} route(old); });
 
-/* ---------- Page : Aujourd'hui ---------- */
+/* ---------- Page : Aujourd'hui (grille bento) ---------- */
+const NS = 'http://www.w3.org/2000/svg';
+// Anneau de progression (x/n)
+function ringEl(done, total, size, stroke, lab) {
+  const r = (size - stroke) / 2 - 2, C = 2 * Math.PI * r, k = total ? done / total : 0;
+  const s = document.createElementNS(NS, 'svg'); s.setAttribute('viewBox', `0 0 ${size} ${size}`); s.setAttribute('class', 'bt-ring'); s.setAttribute('role', 'img'); s.setAttribute('aria-label', lab);
+  s.innerHTML = `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--rule)" stroke-width="${stroke}"/>` +
+    `<circle class="arc" cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--focus)" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${(C * (1 - k)).toFixed(1)}" opacity="${k > 0 ? 1 : 0}" transform="rotate(-90 ${size / 2} ${size / 2})"/>`;
+  s.dataset.k = String(k);
+  return s;
+}
+// Petit anneau du minuteur (carte « Minuteur ») : se vide en continu
+const TRING_C = 2 * Math.PI * 34;
+function timerRing() {
+  const s = document.createElementNS(NS, 'svg'); s.setAttribute('viewBox', '0 0 76 76'); s.setAttribute('class', 'bt-tring'); s.setAttribute('aria-hidden', 'true');
+  s.innerHTML = `<circle class="trk" cx="38" cy="38" r="34" fill="none" stroke-width="8"/><circle class="arc" cx="38" cy="38" r="34" fill="none" stroke-width="8" stroke-linecap="round" stroke-dasharray="${TRING_C.toFixed(1)}" stroke-dashoffset="0" transform="rotate(-90 38 38)"/>`;
+  return s;
+}
+// Carte « Minuteur » : mise à jour chaque seconde par drawFab()
+function drawTodayTimer(r) {
+  document.querySelectorAll('.bt-timer').forEach((c) => {
+    const t = c.querySelector('.bt-time'); if (t) t.textContent = mmss(r);
+    const k = c.querySelector('.bt-k'); if (k) k.textContent = pomo.running || r !== LEN[pomo.phase] * 60 ? PLABEL[pomo.phase] : 'Minuteur';
+    const b = c.querySelector('.bt-go'); if (b) { const lab = pomo.running ? 'Pause' : r === LEN[pomo.phase] * 60 ? 'Démarrer' : 'Reprendre'; if (b.textContent !== lab) b.textContent = lab; }
+    const a = c.querySelector('.bt-tring .arc'); if (a) a.setAttribute('stroke-dashoffset', (TRING_C * (1 - r / (LEN[pomo.phase] * 60))).toFixed(1));
+    c.classList.toggle('run', !!pomo.running); c.classList.toggle('brk', pomo.phase !== 'focus');
+  });
+}
 function pageToday() {
   const now = nowL(), today = now.slice(0, 10);
   const lastToday = dayItems(today, false).filter((x) => !x.journee).pop();
   const nextDay = hor.concat(agenda).filter((x) => String(x.debut).slice(0, 10) > today && x.type !== 'Congé' && !x.journee).map((x) => String(x.debut).slice(0, 10)).sort()[0];
   const showDay = lastToday && String(lastToday.fin) > now ? today : nextDay || today;
   const horizon = addD(today, 3);
+  const mins = (a, b) => Math.round((P(b) - P(a)) / 6e4);
+  const dur = (m) => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}` : `${m} min`;
+  const hm = (s) => String(s).slice(11, 16);
+  const card = (cls, ...kids) => { const at = kids[0] && !kids[0].nodeType && typeof kids[0] === 'object' && !Array.isArray(kids[0]) ? kids.shift() : {}; return h('section', { ...at, class: 'bt-card ' + cls }, ...kids); };
+  const kHead = (txt, extra) => h('div', { class: 'bt-head' }, h('span', { class: 'bt-k' }, txt), extra || null);
 
-  // À faire : quiz et séances dans les 3 prochains jours
+  // ---- À faire : quiz et séances dans les 3 prochains jours
   const todos = [];
   quiz.filter((q) => String(q.fermeture) >= now && q.ouverture.slice(0, 10) <= horizon).forEach((q) => todos.push({ at: q.ouverture, kind: 'quiz', q }));
   prep.filter((p) => String(p.debut) >= now && p.jour <= horizon).forEach((p) => todos.push({ at: p.debut, kind: 'prep', p }));
   todos.sort((a, b) => String(a.at).localeCompare(String(b.at)));
-
-  const todoList = h('div', { class: 'sheet todo' });
+  const todoList = h('div', { class: 'todo' });
   if (!todos.length) todoList.append(h('p', { class: 'empty' }, 'Rien à rendre ni à préparer dans les 3 prochains jours.'));
   todos.forEach((t) => {
     const n = dd(now, t.at);
@@ -678,9 +729,9 @@ function pageToday() {
     }
   });
 
-  // Ligne du temps du jour affiché
+  // ---- Ligne du temps du jour affiché
   const items = dayItems(showDay, false);
-  const tl = h('div', { class: 'sheet timeline' });
+  const tl = h('div', { class: 'timeline' });
   let nowPlaced = showDay !== today;
   if (!items.length) tl.append(h('p', { class: 'empty' }, 'Rien de prévu ce jour-là.'));
   items.forEach((x) => {
@@ -689,80 +740,228 @@ function pageToday() {
   });
   if (!nowPlaced && items.length) tl.append(h('div', { class: 'nowline num' }, hh(now), h('i')));
 
-  // Chiffres
+  // ---- Chiffres
   const done = quiz.filter((q) => note(q) !== null);
   const avg = done.length ? Math.round(done.reduce((s, q) => s + note(q), 0) / done.length * 10) / 10 : null;
   const missed = quiz.filter((q) => quizStatus(q, now)[0] === 'manqué').length;
   const nextPrep = prep.find((p) => String(p.debut) >= now);
-  const stats = h('div', { class: 'sheet stats' },
-    h('div', { class: 'stat' }, h('span', { class: 'v num' }, avg === null ? '—' : String(avg).replace('.', ','), h('small', {}, avg === null ? '' : ' /20')), h('span', { class: 'k' }, `moyenne sur ${done.length} quiz`)),
-    h('div', { class: 'stat' }, h('span', { class: 'v num' }, String(missed)), h('span', { class: 'k' }, missed > 1 ? 'quiz manqués' : 'quiz manqué')),
-    h('div', { class: 'stat' }, h('span', { class: 'v num' }, String(pdfs.length)), h('span', { class: 'k' }, 'PDF de révision')));
+  const stats = [
+    has('notes') && has('quiz') ? h('div', { class: 'stat' }, h('span', { class: 'v num' }, avg === null ? '—' : String(avg).replace('.', ','), h('small', {}, avg === null ? '' : ' /20')), h('span', { class: 'k' }, `moyenne sur ${done.length} quiz`)) : null,
+    has('notes') && has('quiz') ? h('div', { class: 'stat' }, h('span', { class: 'v num' }, String(missed)), h('span', { class: 'k' }, missed > 1 ? 'quiz manqués' : 'quiz manqué')) : null,
+    h('div', { class: 'stat' }, h('span', { class: 'v num' }, String(pdfs.length)), h('span', { class: 'k' }, 'PDF de révision'))].filter(Boolean);
 
+  // ---- Annonces
   const fresh = annonces.filter((a) => a.pour_toi && dd(String(a.date), now) <= 7);
   const importantNews = fresh.filter((a) => a.important).slice(0, 2);
   const freshNews = importantNews.length ? importantNews : fresh.slice(0, 1);
   const greeting = cap(fLong(today + 'T12:00'));
-  // En ce moment / ensuite
+
+  // ---- Carte principale : cours en cours, sinon prochain cours
   const todayCours = hor.filter((x) => x.jour === today && x.type !== 'Congé');
   const curC = todayCours.find((x) => String(x.debut) <= now && String(x.fin) > now);
-  const nextC = todayCours.find((x) => String(x.debut) > now);
-  const mins = (a, b) => Math.round((P(b) - P(a)) / 6e4);
-  const dur = (m) => m >= 60 ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') : ''}` : `${m} min`;
-  let nowCard = null;
+  const nextC = hor.find((x) => String(x.debut) > now && x.type !== 'Congé');
+  const prepBtn = (c) => { const pp = prep.find((p) => p.id === c.id); return pp && pp.pdf && pp.pdf.enc ? h('button', { class: 'btn bt-dark', type: 'button', onclick: () => openPdf(pp.pdf) }, 'Ouvrir la prépa') : (c.a_preparer ? h('span', { class: 'bt-tag' }, 'À préparer') : null); };
+  let hero;
   if (curC) {
     const tot = mins(curC.debut, curC.fin), left = mins(now, curC.fin);
-    nowCard = h('section', { class: 'sheet nowcard', 'aria-label': 'En ce moment' }, h('span', { class: 'k' }, 'En ce moment'),
-      h('div', {}, h('div', { class: 'what' }, `${curC.matiere} · ${curC.type}`), h('div', { class: 'muted' }, curC.local)),
-      h('div', { class: 'prog', role: 'img', 'aria-label': `Fini dans ${dur(left)}` }, h('i', { style: `width:${Math.max(2, Math.min(100, (1 - left / tot) * 100))}%` })),
-      h('div', { class: 'ends num' }, h('span', {}, hh(curC.debut)), h('span', {}, `Fini dans ${dur(left)}`), h('span', {}, hh(curC.fin))));
+    hero = card('bt-hero nowcard', { 'aria-label': 'En ce moment' },
+      h('div', { class: 'bt-head' }, h('span', { class: 'bt-kick' }, 'En ce moment'), h('span', { class: 'bt-pill num' }, `Fini dans ${dur(left)}`)),
+      h('div', { class: 'bt-main' },
+        h('span', { class: 'bt-big num' }, hm(curC.debut)),
+        h('span', { class: 'bt-title' }, curC.matiere),
+        h('span', { class: 'bt-sub' }, `${curC.type} · ${curC.local}`),
+        h('div', { class: 'prog', role: 'img', 'aria-label': `Fini dans ${dur(left)}` }, h('i', { style: `width:${Math.max(2, Math.min(100, (1 - left / tot) * 100))}%` })),
+        h('div', { class: 'ends num' }, h('span', {}, hh(curC.debut)), h('span', {}, hh(curC.fin))), prepBtn(curC)));
   } else if (nextC) {
-    nowCard = h('section', { class: 'sheet nowcard', 'aria-label': 'Prochain cours' }, h('span', { class: 'k next' }, `Prochain cours dans ${dur(mins(now, nextC.debut))}`),
-      h('div', {}, h('div', { class: 'what' }, `${nextC.matiere} · ${nextC.type}`), h('div', { class: 'muted' }, `${hh(nextC.debut)} – ${hh(nextC.fin)} · ${nextC.local}`)));
-  }
+    const m = mins(now, nextC.debut), r = rel(nextC.debut, now);
+    hero = card('bt-hero', { 'aria-label': 'Prochain cours' },
+      h('div', { class: 'bt-head' }, h('span', { class: 'bt-kick' }, 'Prochain cours'), h('span', { class: 'bt-pill' }, cap(r === "aujourd'hui" || r === 'demain' ? r : fShort(nextC.debut)))),
+      h('div', { class: 'bt-main' },
+        h('span', { class: 'bt-big num' }, hm(nextC.debut)),
+        h('span', { class: 'bt-title' }, nextC.matiere),
+        h('span', { class: 'bt-sub' }, `${nextC.type} · ${String(nextC.local || '').split(' - ')[0]}${m < 48 * 60 ? ` · dans ${dur(m)}` : ''}`), prepBtn(nextC)));
+  } else hero = card('bt-hero', h('div', { class: 'bt-head' }, h('span', { class: 'bt-kick' }, 'Prochain cours')), h('div', { class: 'bt-main' }, h('span', { class: 'bt-title' }, 'Pas d’autre cours prévu.')));
+
+  // ---- Plan du jour (cases à cocher) + anneau
+  const planDay = has('plan') ? D.plan.jours.find((j) => j.date === today) : null;
+  const blocs = planDay ? planDay.blocs || [] : [];
+  const doneMap = prefs.planDone || (prefs.planDone = {});
+  const bmins = (b) => { const [a, c] = String(b.debut).split(':').map(Number), [d, e] = String(b.fin).split(':').map(Number); return d * 60 + e - (a * 60 + c); };
+  const ringCard = card('bt-ring-card bt-small');
+  const checkCard = blocs.length ? card('bt-wide bt-checks') : null;
+  const progCard = has('plan') ? card('bt-wide bt-progress') : null;
+  let prevN = null, justId = null; // animations : case qui rebondit, anneau et compteur qui suivent
+  const drawPlan = () => {
+    if (blocs.length) {
+      const n = blocs.filter((b) => doneMap[b.id]).length;
+      const n0 = prevN; prevN = n;
+      ringCard.replaceChildren(kHead("Aujourd'hui", h('a', { class: 'bt-link', href: '#plan' }, 'Plan')),
+        h('div', { class: 'bt-ringrow' }, ringEl(n, blocs.length, 96, 12, `${n} tâche${n > 1 ? 's' : ''} sur ${blocs.length} faite${n > 1 ? 's' : ''}`),
+          h('div', { class: 'bt-ringtx' }, h('span', { class: 'bt-num num' }, `${n}/${blocs.length}`), h('span', { class: 'bt-cap' }, blocs.length > 1 ? 'tâches faites' : 'tâche faite'))));
+      checkCard.replaceChildren(
+        kHead("Programme d'aujourd'hui", n ? h('span', { class: 'bt-okcount' }, `${n} déjà faite${n > 1 ? 's' : ''}`) : null),
+        n === blocs.length ? h('p', { class: 'bt-win' }, 'Journée terminée. Bien joué !') : null,
+        ...blocs.map((b) => {
+          const ok = !!doneMap[b.id];
+          return h('label', { class: 'bt-check' + (ok ? ' done' : ''), 'data-id': b.id, style: `--c:var(--${MAT[b.matiere] || 'other'})` },
+            h('input', { type: 'checkbox', checked: ok || null, onchange: (e) => { if (e.target.checked) { doneMap[b.id] = 1; justId = b.id; } else delete doneMap[b.id]; prefs.planDone = doneMap; savePrefs(); drawPlan(); } }),
+            h('span', { class: 'bt-ct' }, b.titre), h('span', { class: 'bt-cm num' }, `${bmins(b)} min`));
+        }));
+      if (window.Q1Motion && n0 !== null && n0 !== n) {
+        Q1Motion.ring(ringCard.querySelector('.bt-ring'), n0 / blocs.length);
+        Q1Motion.pop(ringCard.querySelector('.bt-num'));
+        const just = justId && checkCard.querySelector(`.bt-check[data-id="${justId}"]`);
+        if (just) { Q1Motion.pop(just, 'mo-tick'); const inp = just.querySelector('input'); if (inp) inp.focus({ preventScroll: true }); }
+        // toutes les tâches du jour faites : confettis, une seule fois par jour
+        if (n === blocs.length && n0 < n && prefs.confettiDay !== today) { prefs.confettiDay = today; savePrefs(); Q1Motion.confetti(); }
+      }
+      justId = null;
+    } else {
+      const past = todayCours.filter((x) => String(x.fin) <= now).length;
+      ringCard.replaceChildren(kHead("Aujourd'hui"),
+        h('div', { class: 'bt-ringrow' }, ringEl(past, todayCours.length, 96, 12, todayCours.length ? `${past} cours sur ${todayCours.length} terminés` : 'Pas de cours aujourd’hui'),
+          h('div', { class: 'bt-ringtx' }, h('span', { class: 'bt-num num' }, todayCours.length ? `${past}/${todayCours.length}` : '0'), h('span', { class: 'bt-cap' }, todayCours.length ? 'cours terminés' : 'cours aujourd’hui'))));
+    }
+    if (progCard) {
+      const all = D.plan.jours.flatMap((j) => j.blocs || []);
+      const mats = ORDER.concat(all.map((b) => b.matiere).filter((m) => !ORDER.includes(m))).filter((m, i, a) => a.indexOf(m) === i && all.some((b) => b.matiere === m));
+      progCard.replaceChildren(kHead('Avancement par matière', h('a', { class: 'bt-link', href: '#plan' }, 'Voir le plan')),
+        ...mats.map((m) => {
+          const bl = all.filter((b) => b.matiere === m), pc = Math.round(bl.filter((b) => doneMap[b.id]).length / bl.length * 100);
+          return h('div', { class: 'bt-prow ' + mcls(m) }, h('span', { class: 'bt-pm' }, m === 'Bio' ? 'Biologie' : m),
+            h('span', { class: 'bar', role: 'progressbar', 'aria-label': m, 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(pc) }, h('i', { style: `width:${pc}%` })), h('span', { class: 'bt-pv num' }, pc + '%'));
+        }));
+    }
+  };
+  drawPlan();
+
+  // ---- Minuteur
+  const r0 = remaining();
+  const timer = card('bt-timer bt-small',
+    h('div', { class: 'bt-head' }, h('span', { class: 'bt-k' }, 'Minuteur'), h('span', { class: 'bt-dot', 'aria-hidden': 'true' })),
+    h('div', { class: 'bt-trow' }, timerRing(),
+      h('button', { class: 'bt-time num', type: 'button', 'aria-label': 'Ouvrir le minuteur', onclick: () => openPomo(false) }, mmss(r0))),
+    h('button', { class: 'bt-go', type: 'button', onclick: () => { if (pomo.running) pomoPause(); else pomoStart(); } }, 'Démarrer'));
+
+  // ---- Prochain quiz
+  const nq = has('quiz') ? quiz.find((q) => String(q.fermeture) >= now && quizStatus(q, now)[1] !== 'ok') : null;
+  const quizCard = has('quiz') ? card('bt-quiz bt-small',
+    kHead('Prochain quiz', nq ? label(nq.matiere) : null),
+    nq ? h('a', { class: 'bt-qt', href: nq.lien, target: '_blank', rel: 'noopener' }, `${nq.titre} · ${nq.sujet}`) : h('span', { class: 'bt-qt' }, 'Aucun quiz à venir'),
+    nq ? h('span', { class: 'bt-qw' }, String(nq.ouverture) > now ? `Ouvre ${rel(nq.ouverture, now)} ${hh(nq.ouverture)}` : `Ferme ${rel(nq.fermeture, now)} ${hh(nq.fermeture)}`) : h('a', { class: 'bt-link', href: '#quiz' }, 'Tous les quiz')) : null;
+
+  // ---- Annonce
+  const lastNews = freshNews.length ? freshNews : annonces.filter((a) => a.pour_toi).slice(0, 1);
+  const newsCard = has('annonces') && lastNews.length ? card('bt-news bt-small' + (importantNews.length ? ' imp' : ''),
+    kHead(importantNews.length ? (importantNews.length > 1 ? 'Annonces importantes' : 'Annonce importante') : 'Dernière annonce · Moodle', h('a', { class: 'bt-link', href: '#cours' }, 'Toutes')),
+    ...lastNews.map((a) => h('div', { class: 'bt-nitem' }, h('span', { class: 'bt-nt' }, a.titre), h('span', { class: 'bt-nm' }, `${a.matiere} · ${ago(a.date, now)}`),
+      a.lien ? h('a', { class: 'bt-nl', href: a.lien, target: '_blank', rel: 'noopener' }, 'Lire sur Moodle') : null))) : null;
+
+  // ---- Petites cartes (4 au total sur la 1re rangée à droite) ; les chiffres en trop vont dans une carte large
+  const smalls = [ringCard, timer, quizCard, newsCard].filter(Boolean);
+  const statLeft = stats.slice();
+  while (smalls.length < 4 && statLeft.length) smalls.push(card('bt-small bt-stat', statLeft.shift()));
+  const statsCard = statLeft.length ? card('bt-wide bt-stats', kHead('Chiffres'), h('div', { class: 'stats' }, statLeft)) : null;
+
   const nToday = todayCours.length, nPrepToday = todayCours.filter((x) => x.a_preparer).length;
   const first = todos[0];
   const sub = first ? (first.kind === 'quiz' ? `En premier : ${first.q.titre}, ${rel(first.q.ouverture, now)} à ${hh(first.q.ouverture)}.` : `En premier : préparer la séance de ${first.p.matiere.toLowerCase()}, ${rel(first.p.debut, now)}.`) : (nextPrep ? `Prochaine séance à préparer : ${nextPrep.matiere.toLowerCase()}, ${rel(nextPrep.debut, now)}.` : 'Rien d’urgent.');
-  return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('span', { class: 'eyebrow' }, greeting), h('h1', {}, 'Bonjour ' + PROF.nom),
+  const dayTitle = showDay === today ? (blocs.length ? "Cours d'aujourd'hui" : "Programme d'aujourd'hui") : `Programme ${rel(showDay + 'T12:00', now) === 'demain' ? 'de demain' : 'du ' + fLong(showDay + 'T12:00')}`;
+  const wides = [checkCard, progCard,
+    card('bt-wide bt-day', kHead(dayTitle, h('a', { class: 'bt-link', href: '#semaine' }, 'Semaine')), tl),
+    has('quiz') || has('prepa') ? card('bt-wide bt-todo', kHead('À faire', h('span', { class: 'bt-cnt' }, '3 prochains jours')), todoList) : null,
+    statsCard].filter(Boolean);
+  if (wides.length % 2) wides[wides.length - 1].classList.add('bt-full');
+  const badge = badgeCard(); if (badge) badge.classList.add('bt-badge');
+  const page = h('div', { class: 'page today bento' },
+    h('header', { class: 'page-head' }, h('span', { class: 'eyebrow' }, greeting), h('h1', {}, 'Salut ' + PROF.nom),
       h('p', {}, nToday ? `${nToday} cours aujourd'hui${nPrepToday ? `, dont ${nPrepToday} à préparer` : ''}. ${sub}` : sub)),
-    nowCard,
-    badgeCard(),
-    has('quiz') || has('prepa') ? h('section', { class: 'block' }, h('h2', {}, 'À faire', h('span', { class: 'count' }, '3 prochains jours')), todoList) : null,
-    h('section', { class: 'block' }, h('h2', {}, showDay === today ? "Programme d'aujourd'hui" : `Programme ${rel(showDay + 'T12:00', now) === 'demain' ? 'de demain' : 'du ' + fLong(showDay + 'T12:00')}`), tl),
-    freshNews.length ? h('section', { class: 'block' }, h('h2', {}, importantNews.length ? (importantNews.length > 1 ? 'Annonces importantes' : 'Annonce importante') : 'Dernière annonce', h('a', { class: 'count', href: '#cours', style: 'font-weight:700;color:var(--ink)' }, 'Toutes')), h('div', { class: 'sheet' }, freshNews.map((a) => newsEl(a, now)))) : null);
+    badge, hero, ...smalls, ...wides);
+  drawTodayTimer(r0);
+  return page;
 }
 
 /* ---------- Page : Semaine ---------- */
 function pageWeek() {
   const now = nowL(), today = now.slice(0, 10);
-  const days = Array.from({ length: 7 }, (_, i) => addD(today, i));
-  let sel = days.includes(prefs.day) ? prefs.day : today;
+  // Vue « colonnes » : une carte par jour, du lundi au vendredi (+ week-end s'il s'y passe quelque chose)
+  const monday = (d) => addD(d, -((P(d + 'T12:00').getDay() + 6) % 7));
+  const base = monday(today);
+  let wk = 0;
   let onlyPrep = has('prepa') && !!prefs.onlyPrep;
-  const strip = h('div', { class: 'days', role: 'group', 'aria-label': 'Choisir un jour' });
-  const listBox = h('div', { class: 'sheet timeline' });
-  const drawStrip = () => strip.replaceChildren(...days.map((d) => {
-    const its = dayItems(d, false).filter((x) => !x.journee);
-    const mats = [...new Set(its.map((x) => x.matiere))].slice(0, 5);
-    return h('button', { class: 'daybtn' + (d === today ? ' today' : ''), type: 'button', 'aria-pressed': String(d === sel), onclick: () => { if (d === sel) return; listBox.dataset.moDir = d > sel ? 'r' : 'l'; sel = d; prefs.day = d; savePrefs(); drawStrip(); drawList(); } },
-      h('span', { class: 'dn' }, P(d).toLocaleDateString('fr-BE', { weekday: 'short' }).replace('.', '')),
-      h('span', { class: 'dd num' }, String(P(d).getDate())),
-      h('span', { class: 'dots' }, mats.map((m) => h('i', { style: `--c:var(--${MAT[m] || 'other'})` }))));
-  }));
-  const drawList = () => {
-    const its = dayItems(sel, onlyPrep);
-    listBox.replaceChildren();
-    head.textContent = cap(fLong(sel + 'T12:00'));
-    if (!its.length) listBox.append(h('p', { class: 'empty' }, onlyPrep ? 'Rien à préparer ce jour-là.' : 'Rien de prévu ce jour-là.'));
-    its.forEach((x) => listBox.append(slotEl(x, now, true)));
+  const doneMap = prefs.planDone || (prefs.planDone = {});
+  const blocsOf = (d) => has('plan') && D.plan && D.plan.jours ? ((D.plan.jours.find((j) => j.date === d) || {}).blocs || []) : [];
+  const short = (s) => String(s || '').split(' - ')[0];
+  const title = h('h1', {}), eyebrow = h('span', { class: 'eyebrow' });
+  const top = h('div', { class: 'wk-top' });
+  const cols = h('div', { class: 'wk-cols', role: 'list' });
+  const itemEl = (it) => {
+    const pp = it.src ? prep.find((p) => p.id === it.src.id) : null;
+    const cur = !it.journee && String(it.debut) <= now && String(it.fin) > now;
+    const cls = 'wk-it ' + (it.kind === 'quiz' ? 'is-quiz' : it.journee ? 'is-day' : mcls(it.matiere)) + (String(it.fin) < now ? ' past' : '') + (cur ? ' cur' : '');
+    return h('div', { class: cls, title: [it.loc, it.prof].filter(Boolean).join(' · ') || null },
+      h('span', { class: 'wk-t num' }, it.journee ? 'Journée' : `${hh(it.debut)} – ${hh(it.fin)}`, cur ? ' · maintenant' : ''),
+      h('span', { class: 'wk-n' }, it.kind === 'cours' ? it.matiere : it.titre),
+      it.kind === 'cours' && (it.titre || it.loc) ? h('span', { class: 'wk-s' }, [it.titre, short(it.loc)].filter(Boolean).join(' · ')) : null,
+      it.kind === 'agenda' && it.loc ? h('span', { class: 'wk-s' }, short(it.loc)) : null,
+      pp && pp.pdf && pp.pdf.enc ? h('button', { class: 'btn wk-prep', type: 'button', onclick: () => openPdf(pp.pdf) }, 'Ouvrir la prépa') : it.prep ? h('span', { class: 'wk-tag' }, 'À préparer') : null);
   };
-  const head = h('h2', {});
-  const toggle = h('label', { class: 'toggle' }, h('input', { type: 'checkbox', id: 'onlyprep', checked: onlyPrep || null, onchange: (e) => { onlyPrep = e.target.checked; prefs.onlyPrep = onlyPrep; savePrefs(); drawList(); } }), 'Seulement ce qui est à préparer');
-  drawStrip(); drawList();
+  const dueEl = (q) => h('a', { class: 'wk-it is-due', href: q.lien || '#quiz', target: q.lien ? '_blank' : null, rel: q.lien ? 'noopener' : null },
+    h('span', { class: 'wk-t num' }, `${hh(q.fermeture)} · échéance`), h('span', { class: 'wk-n' }, q.titre), h('span', { class: 'wk-s' }, q.matiere + (q.sujet ? ' · ' + q.sujet : '')));
+  const checkEl = (b) => {
+    const ok = !!doneMap[b.id];
+    return h('label', { class: 'wk-chk' + (ok ? ' done' : ''), style: `--c:var(--${MAT[b.matiere] || 'other'})` },
+      h('input', { type: 'checkbox', checked: ok || null, onchange: (e) => { if (e.target.checked) doneMap[b.id] = 1; else delete doneMap[b.id]; prefs.planDone = doneMap; savePrefs(); drawWeek(); } }),
+      h('span', {}, b.titre));
+  };
+  const drawWeek = (dir) => {
+    const start = addD(base, wk * 7);
+    const all7 = Array.from({ length: 7 }, (_, i) => addD(start, i));
+    const days = all7.filter((d, i) => i < 5 || dayItems(d, false).length || blocsOf(d).length);
+    title.textContent = wk === 0 ? 'Cette semaine' : wk === 1 ? 'Semaine prochaine' : wk === -1 ? 'Semaine dernière' : `Semaine du ${fDay(start + 'T12:00')}`;
+    eyebrow.textContent = `${cap(fLong(start + 'T12:00'))} → ${fLong(days[days.length - 1] + 'T12:00')}`;
+    // Cartes du haut : prochaine échéance (accent), tâches de la semaine, navigation (élément fort)
+    const nq = quiz.find((q) => String(q.fermeture) >= now && quizStatus(q, now)[1] !== 'ok');
+    const np = prep.find((p) => String(p.debut) >= now);
+    const due = nq && (!np || String(nq.fermeture) <= String(np.debut)) ? { t: `${nq.titre}${nq.sujet ? ' · ' + nq.sujet : ''}`, w: `${rel(nq.fermeture, now)} ${hh(nq.fermeture)}`, k: `Prochaine échéance · ${nq.matiere}` }
+      : np ? { t: `Préparer ${np.matiere.toLowerCase()}`, w: `${rel(np.debut, now)} ${hh(np.debut)}`, k: 'Prochaine séance à préparer' } : null;
+    const wb = all7.flatMap(blocsOf), wbDone = wb.filter((b) => doneMap[b.id]).length;
+    const wc = all7.flatMap((d) => hor.filter((x) => x.jour === d && x.type !== 'Congé'));
+    const nav = (n, lab, svg) => h('button', { class: 'wk-nav', type: 'button', 'aria-label': lab, onclick: () => { const d = n > wk ? 'r' : 'l'; wk = n; drawWeek(d); } }, svgEl(svg));
+    top.replaceChildren(
+      h('section', { class: 'wk-card wk-due' },
+        h('div', { class: 'wk-dt' }, h('span', { class: 'wk-k' }, due ? due.k : 'Prochaine échéance'), h('span', { class: 'wk-big' }, due ? due.t : 'Rien à rendre')),
+        due ? h('span', { class: 'wk-pill' }, due.w) : null),
+      h('section', { class: 'wk-card wk-cnt' },
+        h('span', { class: 'wk-num num' }, wb.length ? `${wbDone}/${wb.length}` : String(wc.length)),
+        h('span', { class: 'wk-cap' }, wb.length ? 'tâches de la semaine faites' : `cours cette semaine`)),
+      h('section', { class: 'wk-card wk-view' },
+        h('div', { class: 'wk-dt' }, h('span', { class: 'wk-k' }, 'Vue'), h('span', { class: 'wk-range num' }, `${fDay(start + 'T12:00')} → ${fDay(days[days.length - 1] + 'T12:00')}`)),
+        h('div', { class: 'wk-navs' },
+          wk !== 0 ? h('button', { class: 'wk-nav wk-now', type: 'button', onclick: () => { const d = wk > 0 ? 'l' : 'r'; wk = 0; drawWeek(d); } }, 'Auj.') : null,
+          nav(wk - 1, 'Semaine précédente', '<path d="M15 6l-6 6 6 6"/>'), nav(wk + 1, 'Semaine suivante', CHEV_SVG))));
+    if (dir) cols.dataset.moDir = dir;
+    cols.style.setProperty('--n', String(days.length));
+    cols.replaceChildren(...days.map((d) => {
+      const its = dayItems(d, onlyPrep);
+      const dues = onlyPrep ? [] : quiz.filter((q) => String(q.fermeture).slice(0, 10) === d && quizStatus(q, now)[1] !== 'ok' && !its.some((x) => x.kind === 'quiz' && x.fin === q.fermeture));
+      const bl = onlyPrep ? [] : blocsOf(d);
+      const kids = [...its.map(itemEl), ...dues.map(dueEl), ...bl.map(checkEl)];
+      return h('section', { class: 'wk-col' + (d === today ? ' today' : '') + (d < today ? ' past' : ''), role: 'listitem', 'aria-label': cap(fLong(d + 'T12:00')) },
+        h('div', { class: 'wk-dh' }, h('span', { class: 'wk-dn' }, cap(P(d + 'T12:00').toLocaleDateString('fr-BE', { weekday: 'long' }))), h('span', { class: 'wk-dd num' }, String(P(d + 'T12:00').getDate()))),
+        kids.length ? kids : h('p', { class: 'wk-empty' }, onlyPrep ? 'Rien à préparer.' : 'Rien de prévu.'));
+    }));
+    // téléphone : on amène le jour actuel à l'écran
+    const toToday = (k) => { if (!cols.isConnected || !cols.clientWidth) { if (k < 8) setTimeout(() => toToday(k + 1), 120); return; }
+      const t = cols.querySelector('.wk-col.today'); if (t && cols.scrollWidth > cols.clientWidth + 4) cols.scrollLeft = Math.max(0, t.offsetLeft - cols.firstElementChild.offsetLeft); };
+    requestAnimationFrame(() => toToday(0));
+  };
+  const toggle = h('label', { class: 'toggle wk-toggle' }, h('input', { type: 'checkbox', id: 'onlyprep', checked: onlyPrep || null, onchange: (e) => { onlyPrep = e.target.checked; prefs.onlyPrep = onlyPrep; savePrefs(); drawWeek(); } }), 'Seulement ce qui est à préparer');
+  drawWeek();
   // Vue Google Agenda (intégré) ou vue liste. L'adresse de l'agenda reste sur l'appareil.
   let mode = !has('agenda') || prefs.weekMode === 'liste' ? 'liste' : 'agenda';
   let gcalForce = false;
-  const listView = h('div', { class: 'filters' }, strip, has('prepa') ? toggle : null, h('section', { class: 'block' }, head, listBox));
+  const listView = h('div', { class: 'wk-list' }, top, has('prepa') ? toggle : null, cols);
   const gcalBox = h('div', { class: 'gcal' });
   const drawGcal = () => {
     gcalBox.replaceChildren();
@@ -805,8 +1004,8 @@ function pageWeek() {
     if (mode === 'agenda' && !gcalBox.childElementCount) drawGcal();
   };
   drawSwitch();
-  return h('div', { class: 'page' },
-    h('header', { class: 'page-head' }, h('span', { class: 'eyebrow' }, 'Les 7 prochains jours'), h('h1', {}, `${P(days[0]).getDate()}${P(days[0]).getMonth() === P(days[6]).getMonth() ? '' : ' ' + P(days[0]).toLocaleDateString('fr-BE', { month: 'short' })} – ${P(days[6]).toLocaleDateString('fr-BE', { day: 'numeric', month: 'long' })}`)),
+  return h('div', { class: 'page week' },
+    h('header', { class: 'page-head' }, eyebrow, title),
     has('agenda') ? viewSwitch : null, gcalBox, listView);
 }
 
@@ -841,16 +1040,16 @@ function pageQuiz() {
   const mats = ORDER.filter((m) => quiz.some((q) => q.matiere === m));
   if (mat !== 'Tout' && !mats.includes(mat)) mat = 'Tout';
   const chips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrer par matière' });
-  const body = h('div', { class: 'filters' });
+  const body = h('div', { class: 'qz-cols' });
+  const wd = (s) => P(s).toLocaleDateString('fr-BE', { weekday: 'short' }).replace('.', '');
   const row = (q) => {
     const [st, line, kind] = quizState(q, now), n = note(q);
     const live = kind === 'live', todo = String(q.fermeture) > now;
     return h('div', { class: 'qrow ' + mcls(q.matiere) + (live ? ' is-live' : ''), style: `--c:var(--${MAT[q.matiere] || 'other'})` },
-      dateTile(q.ouverture, live ? 'live' : ''),
+      h('span', { class: 'qdate', 'aria-hidden': 'true' }, h('small', {}, wd(q.ouverture)), h('b', { class: 'num' }, String(P(q.ouverture).getDate()))),
       h('div', { class: 'qmain' },
-        h('div', { class: 'top' }, label(q.matiere)),
         h('span', { class: 'title' }, q.titre, q.sujet ? h('span', { class: 'soft' }, ' · ' + q.sujet) : null),
-        h('span', { class: 'line s-' + kind }, line)),
+        h('span', { class: 'line s-' + kind }, (q.matiere === 'Bio' ? 'Biologie' : q.matiere) + ' · ' + line)),
       h('div', { class: 'qside' },
         n !== null ? h('span', { class: 'grade num', 'aria-label': `${n} sur 20` }, String(n).replace('.', ','), h('small', {}, '/20')) : h('span', { class: 'pill p-' + kind }, st),
         n !== null ? h('span', { class: 'bar', 'aria-hidden': 'true' }, h('i', { style: `width:${n * 5}%` })) : null,
@@ -862,10 +1061,10 @@ function pageQuiz() {
     const up = sel.filter((q) => String(q.fermeture) > now);
     const past = sel.filter((q) => String(q.fermeture) <= now).reverse();
     body.replaceChildren(
-      h('section', { class: 'block' }, h('h2', {}, 'À faire', h('span', { class: 'count num' }, up.length ? `${up.length} quiz` : '')),
-        up.length ? h('div', { class: 'sheet list' }, up.map(row)) : h('p', { class: 'empty-line' }, 'Aucun quiz prévu pour l’instant. Tu es à jour.')),
-      h('section', { class: 'block' }, h('h2', {}, 'Terminés', h('span', { class: 'count num' }, past.length ? `${past.length} quiz` : '')),
-        past.length ? h('div', { class: 'sheet list' }, past.map(row)) : h('p', { class: 'empty-line' }, 'Aucun quiz terminé pour l’instant.')));
+      h('section', { class: 'qz-card' }, h('div', { class: 'qz-h' }, h('h2', {}, 'À faire'), h('span', { class: 'count num' }, up.length ? `${up.length} quiz` : '')),
+        up.length ? h('div', { class: 'list' }, up.map(row)) : h('p', { class: 'empty-line' }, 'Aucun quiz prévu pour l’instant. Tu es à jour.')),
+      h('section', { class: 'qz-card' }, h('div', { class: 'qz-h' }, h('h2', {}, 'Terminés'), h('span', { class: 'count num' }, past.length ? `${past.length} quiz` : '')),
+        past.length ? h('div', { class: 'list' }, past.map(row)) : h('p', { class: 'empty-line' }, 'Aucun quiz terminé pour l’instant.')));
   };
   draw();
   const closed = quiz.filter((q) => String(q.fermeture) <= now);
@@ -875,29 +1074,29 @@ function pageQuiz() {
   const missed = quiz.filter((q) => quizState(q, now)[0] === 'Manqué').length;
   const live = quiz.find((q) => quizState(q, now)[2] === 'live');
   const nq = live || quiz.find((q) => String(q.ouverture) > now);
-  let hero = null;
+  let hero;
   if (nq) {
     const [, line, kind] = quizState(nq, now), isLive = kind === 'live';
-    hero = h('section', { class: 'hero qhero' + (isLive ? ' is-live' : ''), 'aria-label': isLive ? 'Quiz ouvert maintenant' : 'Prochain quiz' },
-      h('span', { class: 'k' }, isLive ? h('span', { class: 'livedot', 'aria-hidden': 'true' }) : null, isLive ? 'Ouvert maintenant' : `Prochain quiz · ${inDays(nq.ouverture, now)}`),
-      h('span', { class: 't' }, `${nq.titre}${nq.sujet ? ' : ' + nq.sujet : ''}`),
-      h('span', { class: 's' }, label(nq.matiere), ' ', line),
-      h('span', { class: 'hint' }, 'Une seule tentative. Prévois un moment calme avant la fermeture.'),
-      nq.lien ? h('a', { class: 'btn', href: nq.lien, target: '_blank', rel: 'noopener' }, isLive ? 'Faire le quiz sur l’UV' : 'Voir sur l’UV', svgEl(EXT_SVG, 'ext')) : null);
-  }
+    hero = h('section', { class: 'qz-hero qhero' + (isLive ? ' is-live' : ''), 'aria-label': isLive ? 'Quiz ouvert maintenant' : 'Prochain quiz' },
+      h('div', { class: 'qz-hr' }, h('span', { class: 'k' }, isLive ? h('span', { class: 'livedot', 'aria-hidden': 'true' }) : null, isLive ? `Ouvert maintenant · ${nq.matiere}` : `Prochain quiz · ${nq.matiere === 'Bio' ? 'Biologie' : nq.matiere}`),
+        h('span', { class: 'qz-pill' }, '1 seule tentative')),
+      h('span', { class: 't' }, `${nq.titre}${nq.sujet ? ' · ' + nq.sujet : ''}`),
+      h('div', { class: 'qz-hr' }, h('span', { class: 's' }, line),
+        nq.lien ? h('a', { class: 'btn', href: nq.lien, target: '_blank', rel: 'noopener' }, isLive ? 'Faire le quiz sur l’UV' : 'Voir sur l’UV', svgEl(EXT_SVG, 'ext')) : null));
+  } else hero = h('section', { class: 'qz-hero qhero' }, h('div', { class: 'qz-hr' }, h('span', { class: 'k' }, 'Prochain quiz')), h('span', { class: 't' }, 'Aucun quiz prévu'), h('span', { class: 's' }, 'Tu es à jour.'));
+  const kpis = has('notes') ? [
+    h('div', { class: 'qz-kpi kpi' }, h('span', { class: 'kl' }, 'Moyenne'), h('b', { class: 'num' }, avg === null ? '—' : String(avg).replace('.', ','), avg === null ? null : h('small', {}, '/20')), h('span', { class: 'ks' }, avg === null ? 'pas encore de note' : `sur ${graded.length} note${graded.length > 1 ? 's' : ''}`)),
+    h('div', { class: 'qz-kpi kpi' }, h('span', { class: 'kl' }, 'Faits'), h('b', { class: 'num' }, String(doneN)), h('span', { class: 'ks' }, `sur ${closed.length} terminé${closed.length > 1 ? 's' : ''}`)),
+    h('div', { class: 'qz-kpi kpi dark' + (missed ? ' bad' : '') }, h('span', { class: 'kl' }, 'Manqués'), h('b', { class: 'num' }, String(missed)), h('span', { class: 'ks' }, missed ? 'pas faits avant la fermeture' : 'bravo, aucun'))] : [];
   return h('div', { class: 'page qz' },
     h('header', { class: 'page-head' }, h('h1', {}, 'Quiz'), h('p', {}, has('notes') ? 'Tes quiz Moodle. Chacun n’est ouvert qu’une journée et tu n’as qu’une tentative.' : 'Les quiz Moodle du BA1. Chacun n’est ouvert qu’une journée et tu n’as qu’une tentative. Tes notes sont sur l’UV.')),
-    hero,
-    !has('notes') ? null : h('section', { class: 'block', 'aria-label': 'Ton bilan' },
-      h('div', { class: 'kpis' },
-        h('div', { class: 'sheet kpi' }, h('span', { class: 'kl' }, 'Moyenne'), h('b', { class: 'num' }, avg === null ? '—' : String(avg).replace('.', ',')), h('span', {}, avg === null ? 'pas encore de note' : `sur 20, ${graded.length} note${graded.length > 1 ? 's' : ''}`)),
-        h('div', { class: 'sheet kpi' }, h('span', { class: 'kl' }, 'Faits'), h('b', { class: 'num' }, String(doneN)), h('span', {}, `sur ${closed.length} terminé${closed.length > 1 ? 's' : ''}`)),
-        h('div', { class: 'sheet kpi' + (missed ? ' bad' : '') }, h('span', { class: 'kl' }, 'Manqués'), h('b', { class: 'num' }, String(missed)), h('span', {}, missed ? 'à rattraper en révisant' : 'bravo, aucun')))),
+    h('div', { class: 'qz-top' + (kpis.length ? '' : ' solo'), 'aria-label': 'Ton bilan' }, hero, ...kpis),
     mats.length > 1 ? chips : null, body);
 }
 
 /* ---------- Page : PDF ---------- */
 const TYPE_INFO = { 'Prépa': 'à lire avant la séance', 'TP': 'travaux pratiques', 'Résumé': 'synthèse du cours', 'Correctif': 'corrigé', 'Exercices': 'pour s’entraîner', 'Cours': 'support du cours', 'Slides': 'diapos du cours' };
+const MAT_FULL = { Bio: 'Biologie', Chimie: 'Chimie', Maths: 'Maths', Physique: 'Physique', Anatomie: 'Anatomie', Autre: 'Autre' };
 function pagePdf() {
   let mat = prefs.pdfMat || 'Tout', typ = 'Tous', q = '', sort = prefs.pdfSort === 'recent' ? 'recent' : 'mat';
   const seen = prefs.pdfSeen || {};
@@ -907,15 +1106,32 @@ function pagePdf() {
   const types = [...new Set(pdfs.map((p) => p.type).filter(Boolean))];
   const now = nowL(), today = now.slice(0, 10);
   const isNew = (p) => !seen[p.id] && p.date && dd(p.date, today) <= 7;
-  const matChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrer par matière' });
-  const typeChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrer par type' });
-  const search = h('input', { class: 'search', type: 'search', id: 'pdfsearch', placeholder: 'Chercher un PDF (ex. cinématique, TP1)', 'aria-label': 'Chercher un PDF', oninput: (e) => { q = e.target.value.trim().toLowerCase(); drawList(); } });
+  const matCards = h('div', { class: 'pz-mats', role: 'group', 'aria-label': 'Filtrer par matière' });
+  const filtRow = h('div', { class: 'chips pz-types', role: 'group', 'aria-label': 'Filtrer par type' });
+  const search = h('input', { type: 'search', id: 'pdfsearch', placeholder: 'Chercher un PDF (ex. cinématique, TP1)', 'aria-label': 'Chercher un PDF', oninput: (e) => { q = e.target.value.trim().toLowerCase(); drawList(); } });
+  const searchBox = h('label', { class: 'pz-search' }, svgEl('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'), search);
   const sortBox = h('div', {});
-  const out = h('div', { class: 'filters' });
-  const open = (p) => { if (!seen[p.id]) { seen[p.id] = 1; prefs.pdfSeen = seen; savePrefs(); } openPdf(p); setTimeout(drawList, 400); };
+  const out = h('div', { class: 'filters pz-list' });
+  const open = (p) => { if (!seen[p.id]) { seen[p.id] = 1; prefs.pdfSeen = seen; savePrefs(); } openPdf(p); setTimeout(() => { drawChips(); drawList(); }, 400); };
+  const setMat = (m) => { mat = m; prefs.pdfMat = m; savePrefs(); drawChips(); drawList(); };
+  // Une carte par matière : nouveaux, nombre de PDF, combien déjà ouverts (barre). Toucher = filtrer (re-toucher = tout).
+  const matCard = (m) => {
+    const all = pdfs.filter((p) => matOf(p) === m), nOpen = all.filter((p) => seen[p.id]).length, nNew = all.filter(isNew).length, k = MAT[m] || 'other';
+    const pct = all.length ? Math.round(nOpen / all.length * 100) : 0;
+    return h('button', { class: 'pz-mat ' + mcls(m), type: 'button', 'aria-pressed': String(mat === m), onclick: () => setMat(mat === m ? 'Tout' : m),
+      'aria-label': `${MAT_FULL[m] || m} : ${all.length} PDF, ${nOpen} ouverts${nNew ? `, ${nNew} nouveau${nNew > 1 ? 'x' : ''}` : ''}${mat === m ? ' (filtre actif, toucher pour tout afficher)' : ''}` },
+      h('span', { class: 'pz-mh' }, h('span', { class: 'pz-ab' }, (m === 'Autre' ? 'Aut' : m.slice(0, 3))), nNew ? h('span', { class: 'pz-new' }, `${nNew} nouveau${nNew > 1 ? 'x' : ''}`) : null),
+      h('span', { class: 'pz-mb' },
+        h('span', { class: 'pz-mn' }, MAT_FULL[m] || m),
+        h('span', { class: 'pz-mc' }, h('span', { class: 'num' }, `${all.length} PDF`), h('b', { class: 'num' }, `${nOpen} ouvert${nOpen > 1 ? 's' : ''}`)),
+        h('span', { class: 'pz-bar', 'aria-hidden': 'true' }, h('i', { style: `width:${pct}%;background:var(--${k})` }))));
+  };
   const drawChips = () => {
-    matChipsEl(matChips, mats, pdfs, mat, (m) => (p) => matOf(p) === m, (m) => { mat = m; prefs.pdfMat = m; savePrefs(); drawChips(); drawList(); });
-    typeChips.replaceChildren(...(types.length > 1 ? ['Tous', ...types] : []).map((t) => h('button', { class: 'chip small', type: 'button', 'aria-pressed': String(t === typ), onclick: () => { typ = t; drawChips(); drawList(); } }, t)));
+    matCards.replaceChildren(...mats.map(matCard));
+    filtRow.replaceChildren(
+      mat !== 'Tout' ? h('button', { class: 'chip small pz-clear', type: 'button', onclick: () => setMat('Tout'), 'aria-label': `Retirer le filtre ${MAT_FULL[mat] || mat}` }, MAT_FULL[mat] || mat, svgEl('<path d="M6 6l12 12M18 6L6 18"/>')) : null,
+      ...(types.length > 1 ? ['Tous', ...types] : []).map((t) => h('button', { class: 'chip small', type: 'button', 'aria-pressed': String(t === typ), onclick: () => { typ = t; drawChips(); drawList(); } }, t)));
+    filtRow.hidden = !filtRow.childElementCount;
     sortBox.replaceChildren(segEl([['mat', 'Par matière'], ['recent', 'Les plus récents']], sort, (k) => { sort = k; prefs.pdfSort = k; savePrefs(); drawChips(); drawList(); }, 'Ordre des PDF'));
   };
   const linked = (p) => p.seance_id ? hor.find((x) => String(x.id) === String(p.seance_id)) : null;
@@ -926,9 +1142,10 @@ function pagePdf() {
     if (p.date) bits.push(`ajouté ${dd(p.date, today) <= 1 ? (dd(p.date, today) === 0 ? "aujourd'hui" : 'hier') : 'le ' + fDay(p.date + 'T12:00')}`);
     return bits.join(' · ');
   };
-  const row = (p, sub, showMat) => h('button', { class: 'prow', type: 'button', style: `--c:var(--${MAT[p.matiere] || 'other'});--t:var(--${MAT[p.matiere] || 'other'}-t)`, onclick: () => open(p), 'aria-label': `Ouvrir ${p.titre}${isNew(p) ? ', nouveau' : ''}` },
+  const row = (p, sub, showMat) => h('button', { class: 'prow', type: 'button', style: `--c:var(--${MAT[p.matiere] || 'other'});--t:var(--${MAT[p.matiere] || 'other'}-t);--k:var(--${MAT[p.matiere] || 'other'}-k)`, onclick: () => open(p), 'aria-label': `Ouvrir ${p.titre}${isNew(p) ? ', nouveau' : ''}` },
     h('span', { class: 'ico' }, svgEl(FILE_SVG), p.type ? h('em', {}, p.type.slice(0, 4)) : null),
-    h('span', { class: 'tx' }, h('b', {}, p.titre, isNew(p) ? h('span', { class: 'newdot' }, 'Nouveau') : null), h('span', {}, showMat ? `${matOf(p)} · ${sub || meta(p)}` : (sub || meta(p)))),
+    h('span', { class: 'tx' }, h('b', {}, p.titre), h('span', {}, showMat ? `${matOf(p)} · ${sub || meta(p)}` : (sub || meta(p)))),
+    isNew(p) ? h('span', { class: 'pz-dot', 'aria-hidden': 'true' }) : null,
     svgEl(CHEV_SVG, 'chev'));
   const soon = prep.filter((x) => x.pdf && String(x.debut) >= now && x.jour <= addD(today, 7));
   const drawList = () => {
@@ -951,25 +1168,23 @@ function pagePdf() {
         const g = sel.filter((p) => matOf(p) === m); if (!g.length) return;
         out.append(h('section', { class: 'group' }, h('div', { class: 'group-head' }, h('h3', { class: 'gdot', style: `--c:var(--${MAT[m] || 'other'})` }, m), h('span', { class: 'n num' }, `${g.length} PDF`)), h('div', { class: 'sheet list' }, g.map((p) => row(p)))));
       });
-    } else out.append(h('div', { class: 'sheet list' }, sel.map((p) => row(p))));
+    } else out.append(h('section', { class: 'group' }, h('div', { class: 'group-head' }, h('h3', { class: 'gdot', style: `--c:var(--${MAT[mat] || 'other'})` }, MAT_FULL[mat] || mat), h('span', { class: 'n num' }, `${sel.length} PDF`)), h('div', { class: 'sheet list' }, sel.map((p) => row(p)))));
   };
   drawChips(); drawList();
   const nNew = pdfs.filter(isNew).length;
   return h('div', { class: 'page pz' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'PDF'),
+    h('header', { class: 'page-head' }, h('h1', {}, 'Mes PDF'),
       h('p', {}, 'Tes supports de cours, rangés par matière. Touche un PDF pour le lire, puis « Annoter » pour écrire dessus.'),
       h('span', { class: 'offline-note' }, `${pdfs.length} PDF${nNew ? `, dont ${nNew} nouveau${nNew > 1 ? 'x' : ''}` : ''}${'serviceWorker' in navigator ? ' · lisibles hors ligne' : ''}`)),
-    h('div', { class: 'filters' }, search, sortBox,
-      h('div', { class: 'fgroup' }, h('span', { class: 'flabel' }, 'Matière'), matChips),
-      types.length > 1 ? h('div', { class: 'fgroup' }, h('span', { class: 'flabel' }, 'Type'), typeChips) : null),
-    out);
+    h('div', { class: 'pz-grid' }, matCards,
+      h('section', { class: 'pz-side', 'aria-label': 'Liste des PDF' }, searchBox, sortBox, filtRow, out)));
 }
 
 /* ---------- Annonce (élément) ---------- */
 function newsEl(a, now, fresh) {
   return h('article', { class: 'news' + (a.pour_toi ? '' : ' other') + (fresh ? ' fresh' : '') + (a.important ? ' imp' : ''), style: `--c:var(--${MAT[a.matiere] || 'other'})` },
-    h('div', { class: 'top' }, label(a.matiere), h('span', { class: 'when' }, ago(a.date, now)),
-      fresh ? h('span', { class: 'newdot' }, 'Nouveau') : null, a.important ? h('span', { class: 'flag' }, 'Important') : null, a.pour_toi ? null : h('span', { class: 'when' }, '· autre groupe')),
+    h('div', { class: 'top' }, label(a.matiere), fresh ? h('span', { class: 'cz-dot' }, h('span', { class: 'sr' }, 'Nouveau')) : null, h('span', { class: 'when' }, ago(a.date, now)),
+      a.important ? h('span', { class: 'flag' }, 'Important') : null, a.pour_toi ? null : h('span', { class: 'when' }, '· autre groupe')),
     h('span', { class: 'title' }, a.titre), a.resume ? h('p', {}, a.resume) : null,
     a.lien ? h('a', { href: a.lien, target: '_blank', rel: 'noopener' }, 'Lire sur Moodle', svgEl(EXT_SVG, 'ext')) : null);
 }
@@ -1002,41 +1217,58 @@ function pagePlan() {
   };
   const head = h('header', { class: 'page-head' }, h('h1', {}, "Plan d'études"),
     h('p', {}, `${PL.titre || 'Mon plan'} · ${fDay(PL.du + 'T12:00')} → ${fDay(PL.au + 'T12:00')}`));
-  const prog = h('section', { class: 'sheet plan-prog', 'aria-label': 'Avancement' });
+  // 1re rangée bento : avancement (accent), temps prévu du jour choisi, méthode (élément fort)
+  const prog = h('section', { class: 'pl-card pl-prog plan-prog', 'aria-label': 'Avancement' });
+  const dayCard = h('section', { class: 'pl-card pl-dayc', 'aria-label': 'Travail prévu' });
+  const tip = PL.methode ? h('section', { class: 'pl-card pl-tip', 'aria-label': 'Méthode' }, h('span', { class: 'pl-k' }, 'Méthode'), h('span', { class: 'pl-tx' }, PL.methode)) : null;
+  const top = h('div', { class: 'pl-top' + (tip ? '' : ' no-tip') }, prog, dayCard, tip);
   const chips = h('div', { class: 'chips plan-days', role: 'group', 'aria-label': 'Choisir le jour' });
-  const body = h('div', {});
-  const tip = PL.methode ? h('p', { class: 'plan-tip' }, h('b', {}, 'Méthode · '), PL.methode) : null;
-  const row = (b) => {
+  const body = h('div', { class: 'pl-body' });
+  const CHECK = '<path pathLength="1" d="M5 12.5l4.5 4.5L19 7.5"/>';
+  const nowT = nowL(), nowHM = nowT.slice(11, 16);
+  const row = (b, day) => {
     const ok = !!done[b.id];
+    const live = !ok && day === today && b.debut <= nowHM && b.fin > nowHM;
     const pd = (b.pdfs || []).map((id) => pdfs.find((p) => p.id === id)).filter(Boolean);
-    return h('div', { class: 'pblock' + (ok ? ' done' : ''), 'data-id': b.id, style: `--c:var(--${MAT[b.matiere] || 'other'})` },
+    return h('div', { class: 'pblock' + (ok ? ' done' : '') + (live ? ' is-now' : ''), 'data-id': b.id, style: `--c:var(--${MAT[b.matiere] || 'other'})` },
       h('button', { class: 'pcheck', type: 'button', 'aria-pressed': String(ok), 'aria-label': (ok ? 'Marquer comme pas fait : ' : 'Marquer comme fait : ') + b.titre,
-        onclick: () => { if (done[b.id]) delete done[b.id]; else { done[b.id] = 1; justDone = b.id; } prefs.planDone = done; savePrefs(); draw(); } }, svgEl('<path pathLength="1" d="M5 12.5l4.5 4.5L19 7.5"/>')),
+        onclick: () => { if (done[b.id]) delete done[b.id]; else { done[b.id] = 1; justDone = b.id; } prefs.planDone = done; savePrefs(); draw(); } }, svgEl(CHECK)),
       h('div', { class: 'pmain' },
-        h('div', { class: 'ptop' }, h('span', { class: 'ptime num' }, `${b.debut} – ${b.fin}`), label(b.matiere), h('span', { class: 'pdur num' }, `${mins(b)} min`)),
+        h('div', { class: 'ptop' }, h('span', { class: 'ptime num' }, `${b.debut} – ${b.fin}`), label(b.matiere), live ? h('span', { class: 'pnow' }, 'Maintenant') : null),
         h('b', { class: 'ptitle' }, b.titre),
-        b.detail ? h('span', { class: 'pdet' }, b.detail) : null,
-        pd.length ? h('div', { class: 'ppdfs' }, pd.map((p) => h('button', { class: 'btn', type: 'button', onclick: () => openPdf(p), 'aria-label': 'Ouvrir le PDF ' + p.titre }, svgEl(FILE_SVG), h('span', {}, p.titre)))) : null));
+        ok ? h('span', { class: 'pdet num' }, `Fait · ${mins(b)} min`) : h('span', { class: 'pdur num' }, `${mins(b)} min`),
+        !ok && b.detail ? h('span', { class: 'pdet' }, b.detail) : null,
+        pd.length ? h('div', { class: 'ppdfs' }, pd.map((p, i) => h('button', { class: 'btn' + (i === 0 && !ok ? ' solid' : ''), type: 'button', onclick: () => openPdf(p), 'aria-label': 'Ouvrir le PDF ' + p.titre }, svgEl(FILE_SVG), h('span', {}, i === 0 && !ok ? 'Ouvrir · ' + p.titre : p.titre)))) : null));
   };
   const draw = () => {
     const all = jours.flatMap((j) => j.blocs || []), nDone = all.filter((b) => done[b.id]).length;
     const mDone = all.filter((b) => done[b.id]).reduce((s, b) => s + mins(b), 0), mAll = all.reduce((s, b) => s + mins(b), 0);
+    const pc = all.length ? Math.round(nDone / all.length * 100) : 0;
     prog.replaceChildren(
-      h('div', { class: 'pp-row' }, h('b', { class: 'num' }, `${nDone} / ${all.length} blocs`), h('span', { class: 'num' }, `${fmtH(mDone)} sur ${fmtH(mAll)}`)),
-      h('div', { class: 'prog', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(all.length), 'aria-valuenow': String(nDone) }, h('i', { style: `width:${all.length ? Math.max(nDone ? 3 : 0, nDone / all.length * 100) : 0}%` })));
+      h('span', { class: 'pl-pc num' }, `${pc}%`),
+      h('div', { class: 'pl-pinfo' },
+        h('span', { class: 'pl-pt' }, PL.titre || 'Mon plan'),
+        h('span', { class: 'pl-ps num' }, `${fDay(PL.du + 'T12:00')} → ${fDay(PL.au + 'T12:00')} · ${nDone} bloc${nDone > 1 ? 's' : ''} sur ${all.length} · ${fmtH(mDone)} sur ${fmtH(mAll)}`),
+        h('div', { class: 'prog', role: 'progressbar', 'aria-label': 'Avancement du plan', 'aria-valuemin': '0', 'aria-valuemax': String(all.length), 'aria-valuenow': String(nDone) }, h('i', { style: `width:${all.length ? Math.max(nDone ? 3 : 0, nDone / all.length * 100) : 0}%` }))));
     chips.replaceChildren(...jours.map((j) => {
-      const bl = j.blocs || [], d = bl.filter((b) => done[b.id]).length;
-      return h('button', { class: 'chip' + (j.date === today ? ' is-today' : '') + (bl.length && d === bl.length ? ' is-done' : ''), type: 'button', 'aria-pressed': String(j.date === sel), onclick: () => { if (sel !== j.date) { sel = j.date; draw(); } } },
-        dayLabel(j.date), h('small', { class: 'num' }, `${d}/${bl.length}`));
+      const bl = j.blocs || [], d = bl.filter((b) => done[b.id]).length, full = bl.length && d === bl.length;
+      const wd = P(j.date + 'T12:00').toLocaleDateString('fr-BE', { weekday: 'short' }).replace('.', '');
+      return h('button', { class: 'chip' + (j.date === today ? ' is-today' : '') + (full ? ' is-done' : ''), type: 'button', 'aria-pressed': String(j.date === sel), 'aria-label': `${dayLabel(j.date)}, ${d} sur ${bl.length} fait${d > 1 ? 's' : ''}`, onclick: () => { if (sel !== j.date) { sel = j.date; draw(); } } },
+        h('span', { class: 'pd-n' }, wd), h('span', { class: 'pd-d num' }, String(P(j.date + 'T12:00').getDate())),
+        full ? h('span', { class: 'pd-ok', 'aria-hidden': 'true' }, svgEl(CHECK)) : h('small', { class: 'num' }, `${d}/${bl.length}`));
     }));
     const j = jours.find((x) => x.date === sel), bl = j.blocs || [];
     const left = bl.filter((b) => !done[b.id]);
+    const mDay = bl.reduce((s, b) => s + mins(b), 0), mLeft = left.reduce((s, b) => s + mins(b), 0);
+    dayCard.replaceChildren(h('span', { class: 'pl-k' }, sel === today ? "Aujourd'hui" : dayLabel(sel)),
+      h('span', { class: 'pl-big num' }, mDay ? dur(mDay) : '0 min'),
+      h('span', { class: 'pl-sub' }, !bl.length ? 'rien de prévu' : left.length ? (mLeft === mDay ? 'de travail prévu' : `dont ${dur(mLeft)} encore à faire`) : 'tout est fait'));
     if (shown !== sel) wasComplete = bl.length > 0 && !left.length;
     body.replaceChildren(h('section', { class: 'block' },
-      h('h2', {}, cap(fLong(j.date + 'T12:00')), h('span', { class: 'count num' }, fmtH(bl.reduce((s, b) => s + mins(b), 0)))),
+      h('h2', {}, cap(fLong(j.date + 'T12:00')), h('span', { class: 'count num' }, `${bl.length - left.length}/${bl.length} · ${dur(mDay)}`)),
       j.note ? h('p', { class: 'lead-line' }, j.note) : null,
       bl.length && !left.length ? h('p', { class: 'plan-win' }, 'Journée terminée. Bien joué !') : null,
-      h('div', { class: 'sheet list plan-list' }, bl.map(row))));
+      bl.length ? h('div', { class: 'plan-list' }, bl.map((b) => row(b, j.date))) : h('p', { class: 'empty-line' }, 'Rien de prévu ce jour-là.')));
     const complete = bl.length > 0 && !left.length;
     if (!calm()) {
       // changement de jour : les blocs arrivent du côté du jour choisi
@@ -1047,13 +1279,17 @@ function pagePlan() {
       if (justDone) {
         const r = body.querySelector(`.pblock[data-id="${justDone}"]`);
         if (r) { r.classList.add('pl-pop'); const end = (e) => { if (e.target === r) { r.classList.remove('pl-pop'); r.removeEventListener('animationend', end); } }; r.addEventListener('animationend', end); }
-        if (complete && !wasComplete) { confetti(r && r.querySelector('.pcheck')); const w = body.querySelector('.plan-win'); if (w) w.classList.add('pl-win-in'); }
+        if (complete && !wasComplete) {
+          // journée d'aujourd'hui bouclée : la pluie de confettis (une fois par jour) ; autre jour : petite gerbe
+          if (sel === today && window.Q1Motion && Q1Motion.confetti) { if (prefs.confettiDay !== today) { prefs.confettiDay = today; savePrefs(); Q1Motion.confetti(); } }
+          else confetti(r && r.querySelector('.pcheck'));
+          const w = body.querySelector('.plan-win'); if (w) w.classList.add('pl-win-in'); }
       }
     }
     shown = sel; justDone = null; wasComplete = complete;
   };
   draw();
-  return h('div', { class: 'page plan' }, head, prog, chips, body, tip);
+  return h('div', { class: 'page plan' }, head, top, chips, body);
 }
 
 /* ---------- Page : Cours ---------- */
@@ -1065,11 +1301,12 @@ function pageCours() {
   // la prochaine fois, seules les annonces arrivées après maintenant seront « nouvelles »
   const latest = annonces.reduce((m, a) => (String(a.date) > m ? String(a.date) : m), seenAt);
   prefs.newsSeenAt = latest > now ? now : latest; savePrefs();
-  let tab = !has('annonces') || prefs.coursTab === 'cours' ? 'cours' : 'news';
+  const withNews = has('annonces');
+  let tab = !withNews || prefs.coursTab === 'cours' ? 'cours' : 'news';
   let nMat = prefs.newsMat || 'Tout', others = !!prefs.newsOthers, nMax = 8;
   const nMats = ORDER.filter((m) => annonces.some((a) => a.matiere === m));
   const nChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filtrer les annonces' });
-  const nList = h('div', { class: 'filters' });
+  const nList = h('div', { class: 'cz-nlist' });
   const drawNews = () => {
     const base = annonces.filter((a) => others || a.pour_toi);
     if (nMat !== 'Tout' && !nMats.includes(nMat)) nMat = 'Tout';
@@ -1077,21 +1314,24 @@ function pageCours() {
     const all = base.filter((a) => nMat === 'Tout' || a.matiere === nMat);
     const pin = all.filter((a) => a.important && dd(a.date, now) <= 14), rest = all.filter((a) => !pin.includes(a)), sel = rest.slice(0, nMax);
     nList.replaceChildren(
-      pin.length ? h('section', { class: 'group' }, h('div', { class: 'group-head' }, h('h3', {}, 'Important'), h('span', { class: 'n' }, '14 derniers jours')), h('div', { class: 'sheet' }, pin.map((a) => newsEl(a, now, fresh(a))))) : null,
-      sel.length ? h('section', { class: 'group' }, pin.length ? h('div', { class: 'group-head' }, h('h3', {}, 'Toutes les annonces')) : null, h('div', { class: 'sheet' }, sel.map((a) => newsEl(a, now, fresh(a))))) : (pin.length ? null : h('p', { class: 'empty-line' }, 'Aucune annonce pour cette matière.')),
-      rest.length > nMax ? h('button', { class: 'btn', type: 'button', onclick: () => { nMax += 10; drawNews(); } }, `Voir ${Math.min(10, rest.length - nMax)} annonces de plus`) : null);
+      pin.length ? h('section', { class: 'cz-sec imp' }, h('h3', { class: 'cz-sh' }, 'Important · 14 derniers jours'), pin.map((a) => newsEl(a, now, fresh(a)))) : null,
+      sel.length ? h('section', { class: 'cz-sec' }, pin.length ? h('h3', { class: 'cz-sh' }, 'Toutes les annonces') : null, sel.map((a) => newsEl(a, now, fresh(a)))) : (pin.length ? null : h('p', { class: 'empty-line' }, 'Aucune annonce pour cette matière.')),
+      rest.length > nMax ? h('button', { class: 'btn cz-more', type: 'button', onclick: () => { nMax += 10; drawNews(); } }, `Voir ${Math.min(10, rest.length - nMax)} annonces de plus`) : null);
   };
-  const othersToggle = h('label', { class: 'toggle' }, h('input', { type: 'checkbox', id: 'newsothers', checked: others || null, onchange: (e) => { others = e.target.checked; prefs.newsOthers = others; savePrefs(); drawNews(); } }), 'Afficher aussi les annonces des autres groupes');
-  const newsView = h('div', { class: 'filters' },
-    h('p', { class: 'lead-line' }, nFresh ? `${nFresh} nouvelle${nFresh > 1 ? 's' : ''} annonce${nFresh > 1 ? 's' : ''} depuis ta dernière visite.` : 'Pas de nouvelle annonce depuis ta dernière visite.'),
-    nChips, othersToggle, nList);
+  const othersToggle = h('label', { class: 'check cz-oth' }, h('input', { type: 'checkbox', id: 'newsothers', checked: others || null, onchange: (e) => { others = e.target.checked; prefs.newsOthers = others; savePrefs(); drawNews(); } }), 'Voir aussi les autres groupes');
+  // Carte accent : nombre de nouvelles annonces depuis la dernière visite
+  const newsHero = h('div', { class: 'cz-hero' },
+    h('span', { class: 'cz-n num' }, String(nFresh)),
+    h('span', { class: 'cz-ht' }, h('b', {}, nFresh === 1 ? 'nouvelle annonce' : 'nouvelles annonces'), h('span', {}, nFresh ? `de tes profs · groupe ${PROF.groupe}` : 'depuis ta dernière visite')),
+    othersToggle);
+  const newsView = h('section', { class: 'cz-news', 'aria-label': 'Annonces' }, newsHero, h('div', { class: 'cz-card cz-ncard' }, nChips, nList));
   // Cours : prochaine séance et prochain quiz pour chaque cours
   const nextSess = (c) => hor.find((x) => x.code === c.code && String(x.debut) >= now && x.type !== 'Congé');
   const nextQuiz = (c) => String(c.quadri).startsWith('Q') && quiz.find((q) => q.matiere === c.matiere && String(q.fermeture) > now);
   const card = (c) => {
     const s = nextSess(c), qz = nextQuiz(c);
-    return h('a', { class: 'sheet course ' + mcls(c.matiere), href: c.lien, target: '_blank', rel: 'noopener', style: `--c:var(--${MAT[c.matiere] || 'other'})`, 'aria-label': `${c.nom} (${c.code}), ouvrir sur l’UV` },
-      h('span', { class: 'chead' }, h('span', { class: 'code' }, c.code), svgEl(EXT_SVG, 'ext')),
+    return h('a', { class: 'course ' + mcls(c.matiere), href: c.lien, target: '_blank', rel: 'noopener', style: `--c:var(--${MAT[c.matiere] || 'other'})`, 'aria-label': `${c.nom} (${c.code}), ouvrir sur l’UV` },
+      h('span', { class: 'chead' }, h('span', { class: 'code' }, c.code), h('span', { class: 'cgo' }, 'Ouvrir sur l’UV', svgEl(EXT_SVG, 'ext'))),
       h('span', { class: 'name' }, c.nom),
       h('span', { class: 'cinfo' },
         s ? h('span', {}, h('b', {}, 'Prochaine séance'), ` ${s.type ? s.type.toLowerCase() + ', ' : ''}${rel(s.debut, now)} ${hh(s.debut)}`) : null,
@@ -1099,30 +1339,40 @@ function pageCours() {
         !has('visites') ? null : h('span', { class: 'seen' }, c.dernier_acces ? `Dernière visite sur l’UV ${ago(c.dernier_acces, now)}` : 'Pas encore ouvert sur l’UV')));
   };
   const groups = [['Ce quadrimestre', (c) => String(c.quadri).startsWith('Q1')], ['Deuxième quadrimestre', (c) => c.quadri === 'Q2'], ['Soutien et remédiation', (c) => !String(c.quadri).startsWith('Q')]];
-  const coursView = h('div', { class: 'filters' },
-    h('p', { class: 'lead-line' }, 'Touche un cours pour l’ouvrir sur l’UV (Moodle).'),
+  let first = true;
+  const coursView = h('section', { class: 'cz-card cz-courses', 'aria-label': 'Mes cours sur l’UV' },
+    h('div', { class: 'cz-ch' }, h('h2', {}, 'Mes cours sur l’UV'), h('span', {}, 'Touche un cours pour l’ouvrir sur Moodle')),
     groups.map(([title, f]) => {
       const list = cours.filter(f).sort((a, b) => (ORDER.indexOf(a.matiere) + 1 || 99) - (ORDER.indexOf(b.matiere) + 1 || 99) || a.code.localeCompare(b.code));
       if (!list.length) return null;
-      return h('section', { class: 'group' }, h('div', { class: 'group-head' }, h('h3', {}, title), h('span', { class: 'n num' }, `${list.length} cours`)), h('div', { class: 'courses' }, list.map(card)));
+      const head = h('div', { class: 'cz-gh' + (first ? ' first' : '') }, h('h3', {}, title), h('span', { class: 'num' }, `${list.length} cours`)); first = false;
+      return h('div', { class: 'cz-group' }, head, h('div', { class: 'courses' }, list.map(card)));
     }));
-  const segBox = h('div', {});
+  const segBox = h('div', { class: 'cz-seg' });
+  const root = h('div', { class: 'page cz' + (withNews ? '' : ' solo') });
   const drawTab = () => {
     segBox.replaceChildren(segEl([['news', 'Annonces', nFresh], ['cours', 'Mes cours']], tab, (k) => { tab = k; prefs.coursTab = k; savePrefs(); drawTab(); }, 'Partie à afficher'));
-    newsView.hidden = tab !== 'news'; coursView.hidden = tab !== 'cours';
+    root.dataset.part = tab; // téléphone : une seule partie à la fois ; iPad/PC : les deux côte à côte
   };
-  drawNews(); drawTab();
-  return h('div', { class: 'page cz' },
-    h('header', { class: 'page-head' }, h('h1', {}, 'Cours'), h('p', {}, has('annonces') ? `Les annonces de tes profs (groupe ${PROF.groupe}) et l’accès direct à tes cours sur l’UV.` : 'L’accès direct à tes cours sur l’UV.')),
-    has('annonces') ? segBox : null, newsView, coursView);
+  if (withNews) drawNews();
+  drawTab();
+  root.append(
+    h('header', { class: 'page-head' }, h('h1', {}, 'Cours'), h('p', {}, withNews ? `Les annonces de tes profs (groupe ${PROF.groupe}) et l’accès direct à tes cours sur l’UV.` : 'L’accès direct à tes cours sur l’UV.')),
+    withNews ? segBox : null,
+    h('div', { class: 'cz-grid' }, withNews ? newsView : null, coursView));
+  return root;
 }
 
 /* ---------- Lecteur PDF ---------- */
-let doc = null, zoom = 1, tok = 0, obs = null, cur = null, lastFocus = null;
+let doc = null, zoom = 1, tok = 0, obs = null, cur = null, lastFocus = null, curPg = 1, pgRaf = 0;
+const pgInfo = () => { $('#rinfo').textContent = doc ? `page ${curPg} / ${doc.numPages}` : ''; $('#rprev').disabled = !doc || curPg <= 1; $('#rnext').disabled = !doc || curPg >= doc.numPages; };
+const zInfo = () => { $('#zval').textContent = Math.round(zoom * 100) + ' %'; };
 async function openPdf(p) {
   cur = p; lastFocus = document.activeElement;
   if (window.Q1Motion) Q1Motion.show($('#reader')); else $('#reader').hidden = false; document.body.style.overflow = 'hidden';
-  $('#rname').textContent = p.titre; $('#rinfo').textContent = '';
+  $('#rname').textContent = p.titre; doc = null; curPg = 1; zoom = 1; zInfo(); pgInfo();
+  const rm = $('#rmat'); rm.className = 'label ' + mcls(p.matiere); rm.textContent = p.matiere || ''; rm.hidden = !p.matiere;
+  drawFab();
   if (location.hash !== '#pdf-' + p.id) { try { history.pushState(null, '', '#pdf-' + p.id); } catch (_) {} }
   $('#rclose').focus();
   const pages = $('#pages'); pages.replaceChildren(h('p', { class: 'msg' }, 'Ouverture du PDF…'));
@@ -1130,16 +1380,17 @@ async function openPdf(p) {
   try {
     const buf = await decrypt(await fetchEnc(p.enc)); if (cur !== p) return;
     doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
-    $('#rinfo').textContent = doc.numPages + ' p.'; zoom = 1; layout();
+    zoom = 1; zInfo(); pgInfo(); layout();
   } catch (_) { pages.replaceChildren(h('p', { class: 'msg' }, 'Impossible d’ouvrir ce PDF. Vérifie ta connexion, puis réessaie.')); }
 }
-async function layout() {
-  const my = ++tok, wrap = $('#pages'); wrap.replaceChildren(); if (obs) obs.disconnect();
+async function layout(keep) {
+  const my = ++tok, wrap = $('#pages'), at = keep ? curPg : 1; wrap.replaceChildren(); if (obs) obs.disconnect();
   const b = (await doc.getPage(1)).getViewport({ scale: 1 });
   const w = Math.min(Math.max(260, wrap.clientWidth - 24), b.width * 1.6) * zoom, hgt = w * b.height / b.width;
   obs = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting && !e.target.dataset.done) { e.target.dataset.done = 1; draw(+e.target.dataset.n, e.target, my, w); } }), { root: wrap, rootMargin: '900px 0px' });
   for (let i = 1; i <= doc.numPages; i++) { const d = h('div', { class: 'pg', 'data-n': i, style: `width:${w}px;height:${hgt}px` }); wrap.append(d); obs.observe(d); }
-  wrap.scrollTop = 0;
+  wrap.scrollTop = 0; curPg = 1;
+  if (at > 1) toPage(at, true); else pgInfo();
 }
 async function draw(n, holder, my, w) {
   const page = await doc.getPage(n); if (my !== tok) return;
@@ -1148,17 +1399,35 @@ async function draw(n, holder, my, w) {
   await page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
   if (my !== tok) return; holder.style.height = 'auto'; holder.replaceChildren(c);
 }
+// Page affichée = dernière page dont le haut est passé au tiers de l'écran
+$('#pages').addEventListener('scroll', () => {
+  if (!doc || pgRaf) return;
+  pgRaf = requestAnimationFrame(() => {
+    pgRaf = 0; const wrap = $('#pages'), mid = wrap.scrollTop + wrap.clientHeight / 3; let n = 1;
+    for (const d of wrap.children) { if (!d.dataset.n) continue; if (d.offsetTop <= mid) n = +d.dataset.n; else break; }
+    if (n !== curPg) { curPg = n; pgInfo(); }
+  });
+}, { passive: true });
+function toPage(n, instant) {
+  if (!doc) return; n = Math.max(1, Math.min(doc.numPages, n));
+  const wrap = $('#pages'), el = wrap.querySelector(`.pg[data-n="${n}"]`); if (!el) return;
+  const calm = instant || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  wrap.scrollTo({ top: Math.max(0, el.offsetTop - 16), behavior: calm ? 'auto' : 'smooth' }); curPg = n; pgInfo();
+}
 function closeReader(fromHash) {
-  const r = $('#reader'); if (window.Q1Motion) Q1Motion.hide(r, () => { if (r.hidden) $('#pages').replaceChildren(); }); else r.hidden = true;
+  const r = $('#reader'); if (window.Q1Motion) Q1Motion.hide(r, () => { if (r.hidden) $('#pages').replaceChildren(); drawFab(); }); else r.hidden = true;
   document.body.style.overflow = ''; cur = null; doc = null; tok++;
   if (!fromHash && location.hash.startsWith('#pdf-')) { try { history.back(); } catch (_) {} }
   if (lastFocus && lastFocus.focus) lastFocus.focus();
+  drawFab();
 }
 $('#rclose').addEventListener('click', () => closeReader(false));
 $('#rannot').addEventListener('click', () => { const p = cur; if (!p || !window.Q1Notes) return; Q1Notes.annotSitePdf(p, () => closeReader(true)); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#reader').hidden && !$('#reader').classList.contains('mo-close') && !document.querySelector('.nb-backdrop:not(.mo-close)')) closeReader(false); });
-$('#zin').addEventListener('click', () => { if (doc) { zoom = Math.min(zoom * 1.25, 3); layout(); } });
-$('#zout').addEventListener('click', () => { if (doc) { zoom = Math.max(zoom / 1.25, .5); layout(); } });
+$('#zin').addEventListener('click', () => { if (doc) { zoom = Math.min(zoom * 1.25, 3); zInfo(); layout(true); } });
+$('#zout').addEventListener('click', () => { if (doc) { zoom = Math.max(zoom / 1.25, .5); zInfo(); layout(true); } });
+$('#rprev').addEventListener('click', () => toPage(curPg - 1));
+$('#rnext').addEventListener('click', () => toPage(curPg + 1));
 
 /* ---------- Thème ---------- */
 const THEMES = ['auto', 'light', 'dark'];
@@ -1172,10 +1441,10 @@ function applyTheme() {
   const t = THEMES.includes(prefs.theme) ? prefs.theme : 'auto';
   if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
   const isDark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', isDark ? '#000000' : '#f5f5f7'));
+  document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.setAttribute('content', isDark ? '#0E0F12' : '#E9EBEE'));
   document.querySelectorAll('[data-theme-toggle]').forEach((b) => {
     const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = TICON[t];
-    b.replaceChildren(s); if (!b.classList.contains('themefab')) b.append(TLABEL[t]);
+    b.replaceChildren(s); if (!b.classList.contains('themefab') && !b.classList.contains('iconbtn')) b.append(TLABEL[t]);
     b.setAttribute('aria-label', TLABEL[t] + ' (toucher pour changer)'); b.title = TLABEL[t];
   });
 }
@@ -1200,6 +1469,8 @@ function pomoNext() {
   else pomo.phase = 'focus';
   pomo.running = false; pomo.left = LEN[pomo.phase] * 60; savePomo();
   beep(); try { navigator.vibrate && navigator.vibrate([200, 100, 200]); } catch (_) {}
+  // fin de session : petite pulsation de la carte du minuteur
+  if (window.Q1Motion) requestAnimationFrame(() => document.querySelectorAll('.bt-timer, #pomo:not([hidden]), #pomoMini:not([hidden]), #pomoFab:not([hidden])').forEach((el) => Q1Motion.pop(el, 'mo-beat')));
   closeTimerNote();
   notify(pomo.phase === 'focus' ? 'Pause terminée' : 'Bloc terminé, bravo', { body: pomo.phase === 'focus' ? 'On reprend : 25 min de concentration. Touche pour ouvrir le minuteur.' : `Pause de ${LEN[pomo.phase]} min. Touche pour la lancer.`, tag: 'q1-pomo-fin', silent: false, vibrate: [200, 100, 200], requireInteraction: true });
 }
@@ -1218,20 +1489,21 @@ function pomoReset() {
 const pomoMini = h('button', { class: 'pomo-mini', id: 'pomoMini', type: 'button', hidden: true, onclick: () => openPomo(true) });
 document.body.append(pomoMini);
 function drawMini(r) {
-  const inDoc = !$('#reader').hidden || !!document.querySelector('#ne:not([hidden])');
-  const show = inDoc && (pomo.running || r !== LEN[pomo.phase] * 60);
+  const inReader = !$('#reader').hidden && !$('#reader').classList.contains('mo-close'), inDoc = inReader || !!document.querySelector('#ne:not([hidden])');
+  const active = pomo.running || r !== LEN[pomo.phase] * 60, show = inDoc && (active || inReader);
   pomoMini.hidden = !show; if (!show) return;
-  pomoMini.className = 'pomo-mini' + (pomo.phase === 'focus' ? '' : ' brk') + (pomo.running ? '' : ' paused');
-  pomoMini.replaceChildren(svgEl('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/>'), h('span', { class: 'num' }, mmss(r)));
-  pomoMini.setAttribute('aria-label', `Minuteur : ${pomo.phase === 'focus' ? '' : 'pause, '}${mmss(r)} restantes${pomo.running ? '' : ' (en pause)'}. Ouvrir le minuteur`);
+  pomoMini.className = 'pomo-mini' + (pomo.phase === 'focus' ? '' : ' brk') + (pomo.running ? ' run' : (active ? ' paused' : ''));
+  const ic = pomo.running ? '<path d="M8 5v14M16 5v14"/>' : '<path d="M7 4v16l13-8z" fill="currentColor" stroke="none"/>';
+  pomoMini.replaceChildren(h('span', { class: 'pm-ic' }, svgEl(ic)), h('span', { class: 'num' }, active ? mmss(r) : `Minuteur · ${mmss(r)}`));
+  pomoMini.setAttribute('aria-label', `Minuteur : ${pomo.phase === 'focus' ? '' : 'pause, '}${mmss(r)} restantes${pomo.running ? '' : (active ? ' (en pause)' : ' (arrêté)')}. Ouvrir le minuteur`);
 }
 function drawFab() {
   const fab = $('#pomoFab'), r = remaining();
-  drawMini(r);
+  drawMini(r); drawTodayTimer(r);
   fab.classList.toggle('run', pomo.running && pomo.phase === 'focus'); fab.classList.toggle('brk', pomo.running && pomo.phase !== 'focus');
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('aria-hidden', 'true');
   s.innerHTML = '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/>';
-  fab.replaceChildren(s, pomo.running || r !== LEN[pomo.phase] * 60 ? mmss(r) : 'Minuteur');
+  fab.replaceChildren(h('span', { class: 'pf-ic' }, s), h('span', { class: 'num' }, pomo.running || r !== LEN[pomo.phase] * 60 ? mmss(r) : 'Minuteur'));
   fab.setAttribute('aria-label', 'Minuteur : ' + (pomo.running ? `${PLABEL[pomo.phase]}, ${mmss(r)} restantes` : 'arrêté'));
   document.title = pomo.running ? `${mmss(r)}${pomo.phase === 'focus' ? '' : ' · Pause'} · Mon Q1 Biomed` : 'Mon Q1 Biomed';
 }
@@ -1343,12 +1615,21 @@ function cacheForOffline() {
 
 /* ---------- Démarrage ---------- */
 function start() {
-  prepare(); $('#brandsub').textContent = 'BA1 sciences biomédicales · ' + PROF.groupe; document.documentElement.dataset.profil = PROF.id || 'principal'; buildTabs(); netState(); $('#pomoFab').hidden = false; drawFab(); cacheForOffline();
+  prepare(); $('#brandsub').textContent = 'BA1 sciences biomédicales · ' + PROF.groupe; document.documentElement.dataset.profil = PROF.id || 'principal'; buildTabs(); $('#avatar').textContent = (String(PROF.nom || '?').trim()[0] || '?').toUpperCase(); netState(); $('#pomoFab').hidden = false; drawFab(); cacheForOffline();
   if (D.maj) $('#maj').textContent = 'Mis à jour le ' + new Date(D.maj).toLocaleString('fr-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   if (window.Q1Notes && Q1Notes.boot) Q1Notes.boot({ key: KEY, pdfs: () => pdfs, decrypt, fetchBuf: fetchEnc, profile: PROF.id });
   $('#lock').hidden = true; $('#app').hidden = false; route(); updateBadge();
+  endBoot();
 }
-tryStored().then((ok) => { if (ok) start(); else $('#pw').focus(); });
+// fin du chargement : les squelettes s'effacent pendant que les vraies cartes arrivent
+function endBoot() {
+  const html = document.documentElement, sk = $('#skel');
+  if (!html.classList.contains('booting')) { sk.remove(); return; }
+  html.classList.remove('booting');
+  if (window.Q1Motion && !Q1Motion.reduce() && !$('#app').hidden) { sk.classList.add('out'); setTimeout(() => sk.remove(), 450); } else sk.remove();
+}
+$('#pw').addEventListener('input', () => $('#login').classList.remove('bad'));
+tryStored().then((ok) => { if (ok) start(); else { endBoot(); $('#pw').focus(); } });
 })();
 </script>
 <script src="motion.js"></script>

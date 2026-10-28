@@ -126,7 +126,11 @@ function buildRoot() {
   root = h('div', { class: 'ne', id: 'ne', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Cahier', hidden: true },
     h('div', { class: 'ne-top' }), h('div', { class: 'ne-tools', role: 'toolbar', 'aria-label': 'Outils' }),
     h('div', { class: 'ne-body' }, h('aside', { class: 'ne-side', hidden: true, 'aria-label': 'Pages' }), h('div', { class: 'ne-scroll' }, h('div', { class: 'ne-pages' })),
-      h('div', { class: 'ne-pageind num', 'aria-live': 'polite' }), h('canvas', { class: 'ne-laser', 'aria-hidden': 'true' })));
+      h('div', { class: 'ne-pnav' },
+        h('button', { class: 'ne-pnav-b', type: 'button', 'aria-label': 'Page précédente', onclick: () => stepPage(-1) }, U().ico('back')),
+        h('div', { class: 'ne-pageind num', 'aria-live': 'polite' }),
+        h('button', { class: 'ne-pnav-b', type: 'button', 'aria-label': 'Page suivante', onclick: () => stepPage(1) }, U().ico('chev'))),
+      h('canvas', { class: 'ne-laser', 'aria-hidden': 'true' })));
   document.body.append(root);
   E.sc = root.querySelector('.ne-scroll'); E.pagesEl = root.querySelector('.ne-pages'); E.body = root.querySelector('.ne-body');
   const sc = E.sc;
@@ -213,6 +217,7 @@ function goPage(pid, smooth = true) {
   E.cur = pid; E.zoomPid = pid; requestVisible();
 }
 X.goPage = goPage;
+function stepPage(d) { const i = E.pages.findIndex((p) => p.id === E.cur); const pg = E.pages[i + d]; if (pg) goPage(pg.id); }
 
 /* ---------- Rendu ---------- */
 let visRaf = 0;
