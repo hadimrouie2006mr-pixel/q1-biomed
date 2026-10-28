@@ -995,7 +995,9 @@ html:has(#reader:not([hidden])) .pomo-mini { left: auto; right: max(28px, env(sa
 /* Reprendre (grande carte noire) */
 .nb-resume { display: flex; align-items: center; gap: 24px; width: 100%; min-height: 128px; padding: 16px 24px; border: 0; border-radius: var(--r-lg); background: var(--focus); color: var(--on-focus); font: inherit; text-align: left; cursor: pointer; }
 .nb-resume-cv { flex: none; width: 72px; height: 96px; display: block; position: relative; }
-.nb-resume-cv .nb-cover { width: 72px; height: 96px; aspect-ratio: auto; }
+.nb-resume .nb-resume-cv .nb-cover { width: 72px; height: 96px; aspect-ratio: auto; }
+.nb-resume .nb-resume-cv .nb-cover-ear { width: 16px; height: 16px; }
+.nb-resume .nb-resume-cv .nb-cover-tag { left: 6px; bottom: 6px; font-size: 9px; padding: 1px 5px; }
 .nb-resume-cv .nb-cover-label, .nb-resume-cv .nb-cover-stitch { display: none; }
 .nb-resume-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .nb-resume-tx .k, .nb-resume-tx > span:last-child { font-size: 14px; font-weight: 600; opacity: .7; }
@@ -1082,7 +1084,7 @@ html:has(#reader:not([hidden])) .pomo-mini { left: auto; right: max(28px, env(sa
   .nb-sb-sync { order: -1; flex: none; margin: 0; padding: 0 14px; min-height: 44px; justify-content: center; border-radius: 999px; }
   .nb-sb-sync > span { display: none; }
   .nb-resume { gap: 14px; padding: 14px 16px; min-height: 0; border-radius: var(--r); }
-  .nb-resume-cv { width: 54px; height: 72px; } .nb-resume-cv .nb-cover { width: 54px; height: 72px; }
+  .nb-resume-cv { width: 54px; height: 72px; } .nb-resume .nb-resume-cv .nb-cover { width: 54px; height: 72px; }
   .nb-resume-tx b { font-size: 20px; } .nb-resume-tx .k { font-size: 13px; } .nb-resume-tx > span:last-child { font-size: 13px; }
   .nb-resume-go { height: 44px; padding: 0 16px; font-size: 15px; }
 }
