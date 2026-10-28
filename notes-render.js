@@ -70,9 +70,107 @@ const PENS = {
 };
 const ptsOf = (flat) => { const a = []; for (let i = 0; i < flat.length; i += 3) a.push([flat[i], flat[i + 1], flat[i + 2]]); return a; };
 function outline(flat, it, last = true) {
+  if (it.v === 2) return outline2(flat, it, last);
   const o = PENS[it.tool === 'hl' ? 'hl' : (it.pen || 'fountain')];
   return PF.getStroke(ptsOf(flat), Object.assign({ size: it.size, simulatePressure: !!it.sim && it.tool !== 'hl', last }, o));
 }
+
+/* ---------- Écriture v2 (traits marqués v: 2) ----------
+   perfect-freehand est réglé pour des traits de 16 px : avec nos stylos de 1 à 4 pt il rognait
+   le début (premier « size » du trait) et la fin (3 dernières unités) de chaque lettre.
+   On travaille donc à l'échelle ×INK_K, on garde le début du trait, on lisse moins (le filtre
+   d'entrée s'en charge) et on comble les trous entre échantillons par une courbe (Catmull-Rom). */
+const INK_K = 8;
+const PENS2 = {
+  fountain: { thinning: .58, smoothing: .5, streamline: .16, start: { cap: true }, end: { cap: true } },
+  ball: { thinning: .1, smoothing: .5, streamline: .18, start: { cap: true }, end: { cap: true } },
+  brush: { thinning: .8, smoothing: .55, streamline: .18, start: { cap: true, taper: 6 }, end: { cap: true, taper: 10 } },
+  hl: { thinning: 0, smoothing: .5, streamline: .3, start: { cap: false }, end: { cap: false } }
+};
+// Courbe Catmull-Rom centripète : ajoute des points là où deux échantillons sont trop éloignés (écriture rapide).
+function densify(f, gap) {
+  const n = f.length / 3; if (n < 3) return f;
+  const out = [];
+  const P = (i) => [f[i * 3], f[i * 3 + 1], f[i * 3 + 2]];
+  const kn = (a, b) => Math.max(1e-4, Math.sqrt(Math.hypot(b[0] - a[0], b[1] - a[1])));
+  for (let i = 0; i < n - 1; i++) {
+    const p1 = P(i), p2 = P(i + 1);
+    out.push(p1[0], p1[1], p1[2]);
+    const d = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]), m = Math.min(16, Math.floor(d / gap));
+    if (m < 1) continue;
+    const p0 = i > 0 ? P(i - 1) : [2 * p1[0] - p2[0], 2 * p1[1] - p2[1]];
+    const p3 = i + 2 < n ? P(i + 2) : [2 * p2[0] - p1[0], 2 * p2[1] - p1[1]];
+    const t01 = kn(p0, p1), t12 = kn(p1, p2), t23 = kn(p2, p3);
+    const m1 = [0, 1].map((k) => p2[k] - p1[k] + t12 * ((p1[k] - p0[k]) / t01 - (p2[k] - p0[k]) / (t01 + t12)));
+    const m2 = [0, 1].map((k) => p2[k] - p1[k] + t12 * ((p3[k] - p2[k]) / t23 - (p3[k] - p1[k]) / (t12 + t23)));
+    for (let s = 1; s <= m; s++) {
+      const u = s / (m + 1), u2 = u * u, u3 = u2 * u;
+      const h00 = 2 * u3 - 3 * u2 + 1, h10 = u3 - 2 * u2 + u, h01 = -2 * u3 + 3 * u2, h11 = u3 - u2;
+      out.push(h00 * p1[0] + h10 * m1[0] + h01 * p2[0] + h11 * m2[0], h00 * p1[1] + h10 * m1[1] + h01 * p2[1] + h11 * m2[1], p1[2] + (p2[2] - p1[2]) * u);
+    }
+  }
+  out.push(f[f.length - 3], f[f.length - 2], f[f.length - 1]);
+  return out;
+}
+function outline2(flat, it, last) {
+  const hl = it.tool === 'hl', base = PENS2[hl ? 'hl' : (it.pen || 'fountain')];
+  const K = INK_K, sim = !!it.sim && !hl, size = it.size * K;
+  const o = Object.assign({}, base, { size, simulatePressure: sim, last, streamline: sim ? Math.max(base.streamline, .32) : base.streamline });
+  if (base.start.taper) o.start = Object.assign({}, base.start, { taper: base.start.taper * K });
+  if (base.end.taper) o.end = Object.assign({}, base.end, { taper: base.end.taper * K });
+  const d = densify(flat, Math.max(.35, it.size * .45));
+  const sp = []; for (let i = 0; i < d.length; i += 3) sp.push([d[i] * K, d[i + 1] * K, d[i + 2]]);
+  // « size » ne sert ici qu'à ignorer le début du trait : on garde presque tout
+  const pts = PF.getStrokePoints(sp, { streamline: o.streamline, size: size * .2, last });
+  const ol = PF.getStrokeOutlinePoints(pts, o);
+  for (const p of ol) { p[0] /= K; p[1] /= K; }
+  return ol;
+}
+
+/* ---------- Entrée du stylet : filtre 1€ + courbe de pression + anticipation ----------
+   Les positions sont filtrées en pixels écran (même sensation à tous les zooms). */
+const SMOOTH = { low: { min: 14, beta: .07 }, normal: { min: 8, beta: .05 }, high: { min: 4, beta: .035 } };
+const GAMMA = { high: .55, normal: .75, low: 1 };
+function inkInput({ pen = true, smooth = 'normal', press = 'normal' } = {}) {
+  const S = SMOOTH[smooth] || SMOOTH.normal, gamma = GAMMA[press] || GAMMA.normal;
+  const al = (fc, dt) => 1 / (1 + 1 / (2 * Math.PI * fc * dt));
+  let x = null, y = 0, vx = 0, vy = 0, t0 = 0, p = null, rx = 0, ry = 0, wx = 0, wy = 0;
+  return {
+    add(cx, cy, pr, t) {
+      // vitesse « brute » de la pointe (pour l'anticipation), lissée sur ~30 ms
+      if (x !== null) { let d = (t - t0) / 1000; if (!(d > 0)) d = 1 / 240; d = Math.min(d, .05); const aw = al(5, d); wx += aw * ((cx - rx) / d - wx); wy += aw * ((cy - ry) / d - wy); }
+      rx = cx; ry = cy;
+      // pression : courbe (le Pencil donne souvent 0,1–0,3 en écriture légère) puis petit lissage
+      let q = .5;
+      if (pen) { let r = pr > 0 ? pr : (p == null ? .35 : null); if (r == null) q = p; else { r = Math.pow(Math.min(1, r), gamma); q = p == null ? r : p + (r - p) * .45; } q = Math.max(.05, Math.min(1, q)); }
+      p = q;
+      if (x === null) { x = cx; y = cy; t0 = t; return [x, y, q]; }
+      let dt = (t - t0) / 1000; if (!(dt > 0)) dt = 1 / 240; dt = Math.min(dt, .05); t0 = t;
+      const ad = al(1.5, dt);
+      vx += ad * ((cx - x) / dt - vx); vy += ad * ((cy - y) / dt - vy);
+      const a = al(S.min + S.beta * Math.hypot(vx, vy), dt);
+      x += a * (cx - x); y += a * (cy - y);
+      return [x, y, q];
+    },
+    // point anticipé (~1 image d'avance) à partir de la vraie position de la pointe
+    predict(ms = 12) {
+      if (x === null) return null;
+      const v = Math.hypot(wx, wy); if (v < 40) return null;
+      const k = Math.min(ms / 1000, 16 / v);
+      return [rx + wx * k, ry + wy * k, p];
+    },
+    pressure: () => p
+  };
+}
+// Trace un contour directement dans le canvas (sans passer par une chaîne SVG) : utilisé pour le trait en cours.
+function traceOutline(ctx, pts) {
+  const n = pts.length; if (!n) return;
+  if (n < 3) { ctx.moveTo(pts[0][0], pts[0][1]); return; }
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 0; i < n; i++) { const [x0, y0] = pts[i], [x1, y1] = pts[(i + 1) % n]; ctx.quadraticCurveTo(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2); }
+  ctx.closePath();
+}
+function fillLive(ctx, flat, it) { const o = outline(flat, it, false); ctx.beginPath(); traceOutline(ctx, o); ctx.fill(); }
 const r2 = (n) => Math.round(n * 100) / 100;
 function svgD(pts) {
   const n = pts.length; if (!n) return '';
@@ -484,6 +582,6 @@ async function exportPdf(nbId, pageIds, onProgress) {
   return out.save();
 }
 
-N.R = { tplOps, drawTemplate, paperColor, PAPERC, strokePath, strokeD, livePath, shapePath, shapeD, textLayout, fontCss, FONTS, bbox, itemH, getImg, onImage, drawItem, drawItems, sortItems, hit, inLasso, inBox, pointInPoly, transformItem, mMul, ap, recognize, shapeFrom, snapAngle, tidyShape, splitStroke, splitShape, renderPageImage, drawBg, exportPdf, loadPdfLib, boxCorners, segDist };
+N.R = { tplOps, drawTemplate, paperColor, PAPERC, strokePath, strokeD, livePath, fillLive, inkInput, densify, outline, shapePath, shapeD, textLayout, fontCss, FONTS, bbox, itemH, getImg, onImage, drawItem, drawItems, sortItems, hit, inLasso, inBox, pointInPoly, transformItem, mMul, ap, recognize, shapeFrom, snapAngle, tidyShape, splitStroke, splitShape, renderPageImage, drawBg, exportPdf, loadPdfLib, boxCorners, segDist };
 N.drawTemplate = drawTemplate;
 })();

@@ -22,7 +22,8 @@ const DEF = {
   text: { color: PENC[0], font: 'sans', fs: 16, bold: false, italic: false },
   tape: { color: TAPEC[0], sizes: [10, 18, 28], si: 1 },
   laser: { color: '#ff3b30' },
-  favColors: [], presets: [], fingerDraw: false, dir: 'v'
+  favColors: [], presets: [], fingerDraw: false, dir: 'v',
+  press: 'normal', smooth: 'normal', predict: true // écriture au stylet : sensibilité à la pression, lissage, anticipation
 };
 const TP = (() => { const p = (N.uiPrefs && N.uiPrefs().tools) || {}; const o = JSON.parse(JSON.stringify(DEF)); for (const k of Object.keys(p)) o[k] = typeof DEF[k] === 'object' && !Array.isArray(DEF[k]) ? Object.assign(o[k], p[k]) : p[k]; return o; })();
 const saveTP = () => N.uiPrefsSave && N.uiPrefsSave({ tools: TP });
@@ -140,6 +141,7 @@ function buildRoot() {
   if ('onpointerrawupdate' in window) sc.addEventListener('pointerrawupdate', onRaw);
   sc.addEventListener('pointerup', onUp);
   sc.addEventListener('pointercancel', onCancel);
+  sc.addEventListener('pointerleave', (e) => { if (e.pointerType === 'pen') hideHover(); });
   sc.addEventListener('lostpointercapture', (e) => { if (G && G.pid === e.pointerId && G.kind !== 'done') onUp(e); });
   sc.addEventListener('wheel', onWheel, { passive: false });
   sc.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -340,7 +342,7 @@ function onDown(e) {
   if (!E) return;
   if (e.target.closest && e.target.closest('.ne-ovl')) return; // interface posée sur la page (sélection, texte…)
   const t = now();
-  if (e.pointerType === 'pen') { E.penSeen = true; E.lastPen = t; if (nav.ptrs.size) { nav.ptrs.clear(); nav.pinch = null; } }
+  if (e.pointerType === 'pen') { hideHover(); E.penSeen = true; E.lastPen = t; if (nav.ptrs.size) { nav.ptrs.clear(); nav.pinch = null; } }
   if (e.pointerType === 'touch') {
     if (G && G.ptype === 'pen') return;                 // paume pendant l'écriture
     if (t - E.lastPen < 500) return;                     // paume juste après le stylet
@@ -495,9 +497,18 @@ function toggleTape(pid, tp) {
   applyRaw([{ pid, coll: 'items', id: tp.id, before: tp, after }]);
 }
 X.toggleTape = toggleTape;
+// Survol du Pencil (iPad compatibles) : aperçu de la pointe, à la taille et la couleur de l'outil
+let hoverEl = null, hoverT = 0;
 function hoverCursor(e) {
-  if (e.pointerType !== 'mouse' || !E.sel || TP.tool !== 'lasso') return;
+  if (e.pointerType !== 'pen' || e.buttons || G || !canEdit()) return;
+  const t = TP.tool; if (!['pen', 'hl', 'eraser', 'shape'].includes(t)) { hideHover(); return; }
+  if (!hoverEl) { hoverEl = document.createElement('div'); hoverEl.setAttribute('aria-hidden', 'true'); root.append(hoverEl); }
+  const d = Math.max(4, curSize(t) * E.scale);
+  hoverEl.className = 'ne-hover' + (t === 'eraser' ? ' er' : t === 'hl' ? ' hl' : '');
+  hoverEl.style.cssText = `width:${d}px;height:${d}px;transform:translate(${e.clientX - d / 2}px,${e.clientY - d / 2}px);--c:${t === 'eraser' ? '#6b737c' : curColor(t)}`;
+  clearTimeout(hoverT); hoverT = setTimeout(hideHover, 800);
 }
+function hideHover() { if (hoverEl) hoverEl.style.display = 'none'; }
 function onWheel(e) {
   if (!E) return;
   if (e.ctrlKey || e.metaKey) { e.preventDefault(); const r = E.sc.getBoundingClientRect(); zoomAt(E.zoom * Math.exp(-e.deltaY * .01), e.clientX - r.left, e.clientY - r.top, true); }
@@ -517,7 +528,9 @@ function startGesture(e) {
   if (tool === 'pen' || tool === 'hl' || tool === 'shape') {
     if (E.sel) X.clearSel();
     const cfg = toolCfg(tool);
-    G = Object.assign(base, { kind: 'ink', tool, pts: [], pred: [], lastMoveT: now(), color: cfg.color, size: curSize(tool), pen: tool === 'pen' ? cfg.pen : 'ball', sim: e.pointerType !== 'pen', straight: tool === 'hl' && cfg.straight });
+    G = Object.assign(base, { kind: 'ink', tool, pts: [], pred: [], lastMoveT: now(), color: cfg.color, size: curSize(tool), pen: tool === 'pen' ? cfg.pen : 'ball', sim: e.pointerType !== 'pen', straight: tool === 'hl' && cfg.straight,
+      v: 2, inp: R().inkInput({ pen: e.pointerType === 'pen', smooth: TP.smooth, press: TP.press }), liveDirty: true, fullDirty: true });
+    hideHover();
     addPoint(e);
   } else if (tool === 'eraser') {
     if (E.sel) X.clearSel();
@@ -548,20 +561,24 @@ X.beginGesture = (e, props) => {
 function capture(e) { try { E.sc.setPointerCapture(e.pointerId); } catch (_) {} }
 const pageXY = (ev) => ({ x: (ev.clientX - G.scRect.left + G.sl - G.pv.ox) / E.scale, y: (ev.clientY - G.scRect.top + G.st - G.pv.oy) / E.scale });
 X.pageXY = (ev) => pageXY(ev);
+const pageAtC = (cx, cy) => ({ x: (cx - G.scRect.left + G.sl - G.pv.ox) / E.scale, y: (cy - G.scRect.top + G.st - G.pv.oy) / E.scale });
+// Pression brute du stylet (0 = inconnue : le filtre garde alors la précédente)
 function pressureOf(ev) {
   if (ev.pointerType !== 'pen') return .5;
-  let p = ev.pressure || 0; if (p <= 0) p = .35;
+  let p = ev.pressure || 0; if (p <= 0) return 0;
   if (G.pen === 'brush') {
     let alt = ev.altitudeAngle;
     if (alt == null && (ev.tiltX || ev.tiltY)) { const tx = Math.tan(ev.tiltX * Math.PI / 180), ty = Math.tan(ev.tiltY * Math.PI / 180); alt = Math.atan(1 / Math.max(1e-3, Math.hypot(tx, ty))); }
     if (alt != null) p = Math.min(1, p * (1 + (1 - alt / (Math.PI / 2)) * 1.3));
   }
-  return clamp(p, .05, 1);
+  return clamp(p, .02, 1);
 }
 function addPoint(ev) {
-  const q = pageXY(ev), pts = G.pts, n = pts.length;
+  let cx = ev.clientX, cy = ev.clientY, pr = pressureOf(ev);
+  if (G.inp) { const f = G.inp.add(cx, cy, pr, ev.timeStamp); cx = f[0]; cy = f[1]; pr = f[2]; } else if (pr <= 0) pr = .35;
+  const q = pageAtC(cx, cy), pts = G.pts, n = pts.length;
   if (n) { const dx = q.x - pts[n - 3], dy = q.y - pts[n - 2], d = Math.hypot(dx, dy); if (d < .25 / Math.max(.5, E.scale)) return; if (d * E.scale > 2.5) G.lastMoveT = now(); }
-  pts.push(Math.round(q.x * 100) / 100, Math.round(q.y * 100) / 100, Math.round(pressureOf(ev) * 1000) / 1000);
+  pts.push(Math.round(q.x * 100) / 100, Math.round(q.y * 100) / 100, Math.round(pr * 1000) / 1000);
 }
 function moveGesture(e) {
   const evs = (e.getCoalescedEvents && e.getCoalescedEvents()) || []; const list = evs.length ? evs : [e];
@@ -569,8 +586,13 @@ function moveGesture(e) {
     if (G.shape) adjustShape(pageXY(list[list.length - 1]));   // forme reconnue : on garde appuyé et on l'ajuste
     else {
       for (const ev of list) addPoint(ev);
+      // anticipation : on dessine un poil en avant de la pointe pour masquer le retard d'affichage
       G.pred = [];
-      if (e.getPredictedEvents && G.ptype === 'pen' && !G.straight) { const pr = e.getPredictedEvents(); for (const ev of pr.slice(-1)) { const q = pageXY(ev); G.pred.push(q.x, q.y, pressureOf(ev)); } }
+      if (G.ptype === 'pen' && !G.straight && TP.predict !== false) {
+        const pr = (e.getPredictedEvents && e.getPredictedEvents()) || [];
+        if (pr.length) { const q = pageXY(pr[pr.length - 1]); G.pred.push(q.x, q.y, G.inp ? G.inp.pressure() : .5); }
+        else if (G.inp) { const f = G.inp.predict(); if (f) { const q = pageAtC(f[0], f[1]); G.pred.push(q.x, q.y, f[2]); } }
+      }
     }
   } else if (G.kind === 'erase') {
     for (const ev of list) { const q = pageXY(ev); const d = Math.hypot(q.x - G.last.x, q.y - G.last.y), step = Math.max(1, curSize('eraser') / 2); const n = Math.ceil(d / step); for (let i = 1; i <= n; i++) eraseAt(G.last.x + (q.x - G.last.x) * i / n, G.last.y + (q.y - G.last.y) * i / n); G.last = q; }
@@ -581,7 +603,7 @@ function moveGesture(e) {
   else if (G.kind === 'tape') { const q = pageXY(e); G.x2 = q.x; G.y2 = q.y; }
   else if (G.kind === 'textTap') { const q = pageXY(e); if (Math.hypot(q.x - G.sx, q.y - G.sy) * E.scale > 6 && G.target) { G.kind = 'xform'; G.mode = 'move'; X.selectItems(G.pv.id, [G.target.id]); X.xformStart(G); } }
   else if (G.kind === 'laser') { X.laserPoint(e.clientX, e.clientY); return; }
-  G.cx = e.clientX; G.cy = e.clientY;
+  G.cx = e.clientX; G.cy = e.clientY; G.liveDirty = true;
   scheduleLive();
 }
 function onUp(e) {
@@ -654,22 +676,48 @@ function adjustShape(q) {
 }
 function scheduleLive() { if (!liveRaf) liveRaf = requestAnimationFrame(drawLive); }
 X.scheduleLive = scheduleLive;
+// Efface seulement la zone utile du calque en direct (au lieu de toute la page à chaque image)
+function liveCtx(pv, box) {
+  const r = pv.r.rect, c = liveC, x = c.getContext('2d'), kx = c.width / r.w, ky = c.height / r.h;
+  x.setTransform(1, 0, 0, 1, 0, 0);
+  if (box) {
+    const x0 = Math.max(0, Math.floor((box.x - r.x) * kx) - 2), y0 = Math.max(0, Math.floor((box.y - r.y) * ky) - 2);
+    const x1 = Math.min(c.width, Math.ceil((box.x + box.w - r.x) * kx) + 2), y1 = Math.min(c.height, Math.ceil((box.y + box.h - r.y) * ky) + 2);
+    if (x1 > x0 && y1 > y0) x.clearRect(x0, y0, x1 - x0, y1 - y0);
+  } else x.clearRect(0, 0, c.width, c.height);
+  x.setTransform(kx, 0, 0, ky, -r.x * kx, -r.y * ky); return x;
+}
+function boxOfPts(f, m) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let i = 0; i < f.length; i += 3) { const x = f[i], y = f[i + 1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  return { x: x0 - m, y: y0 - m, w: x1 - x0 + 2 * m, h: y1 - y0 + 2 * m };
+}
+const unionBox = (a, b) => { if (!b) return a; const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y); return { x, y, w: Math.max(a.x + a.w, b.x + b.w) - x, h: Math.max(a.y + a.h, b.y + b.h) - y }; };
 function drawLive() {
   liveRaf = 0; if (!G || !G.pv) return;
   const pv = G.pv; if (!pv.r) return;
-  const ctx = ctxFor(liveC, pv.r.rect);
   if (G.kind === 'ink') {
     // maintien en fin de trait → forme propre (ou trait droit au surligneur)
     if (!G.shape && G.tool !== 'shape' && G.pts.length >= 12 && now() - G.lastMoveT > 480) {
       if (G.tool === 'hl') G.straight = true;
       else { const sh = R().recognize(G.pts); if (sh) snapShape(R().tidyShape(sh)); }
-      G.lastMoveT = now() + 1e9;
+      G.lastMoveT = now() + 1e9; G.liveDirty = true;
     }
-    const it = liveItem(G);
-    if (it.type === 'sh') R().drawItem(ctx, it, pv.pg);
-    else { ctx.fillStyle = it.color; ctx.globalAlpha = it.tool === 'hl' ? .5 : 1; ctx.fill(R().livePath(it.pts.concat(G.straight ? [] : G.pred), it)); ctx.globalAlpha = 1; }
+    if (G.liveDirty && G.pts.length) {
+      G.liveDirty = false;
+      const it = liveItem(G);
+      if (it.type === 'sh') { R().drawItem(ctxFor(liveC, pv.r.rect), it, pv.pg); G.fullDirty = true; }
+      else {
+        const flat = G.straight ? it.pts : it.pts.concat(G.pred), box = boxOfPts(flat, it.size * 1.5 + 2);
+        const ctx = liveCtx(pv, G.fullDirty ? null : unionBox(box, G.lastBox)); G.fullDirty = false; G.lastBox = box;
+        ctx.fillStyle = it.color; ctx.globalAlpha = it.tool === 'hl' ? .5 : 1; R().fillLive(ctx, flat, it); ctx.globalAlpha = 1;
+      }
+    }
     liveRaf = requestAnimationFrame(drawLive);
-  } else if (G.kind === 'erase') {
+    return;
+  }
+  const ctx = ctxFor(liveC, pv.r.rect);
+  if (G.kind === 'erase') {
     const r = curSize('eraser') / 2; ctx.strokeStyle = 'rgba(100,110,120,.8)'; ctx.lineWidth = 1 / E.scale; ctx.beginPath(); ctx.arc(G.ex ?? G.sx, G.ey ?? G.sy, r, 0, 6.283); ctx.stroke();
   } else if (G.kind === 'lasso') {
     ctx.strokeStyle = '#2c5bb8'; ctx.lineWidth = 1.4 / E.scale; ctx.setLineDash([5 / E.scale, 4 / E.scale]);
@@ -686,7 +734,9 @@ function liveItem(g) {
   }
   let pts = g.pts;
   if (g.straight && pts.length >= 6) { const n = pts.length, x0 = pts[0], y0 = pts[1], x1 = pts[n - 3], y1 = pts[n - 2]; pts = []; for (let i = 0; i <= 8; i++) pts.push(x0 + (x1 - x0) * i / 8, y0 + (y1 - y0) * i / 8, .5); }
-  return { type: 's', tool: g.tool === 'hl' ? 'hl' : 'pen', pen: g.pen, color: g.color, size: g.size, pts, sim: g.sim || g.straight };
+  const st = { type: 's', tool: g.tool === 'hl' ? 'hl' : 'pen', pen: g.pen, color: g.color, size: g.size, pts, sim: g.sim || g.straight };
+  if (g.v) st.v = g.v;
+  return st;
 }
 // Détecte un gribouillis (va-et-vient serrés) posé sur de l'encre existante ; renvoie les éléments à effacer.
 function scribbleTargets(pts, pv) {

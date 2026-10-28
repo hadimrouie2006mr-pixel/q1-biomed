@@ -178,6 +178,12 @@ function toolOptions() {
     if (t === 'lasso') body.append(h('p', { class: 'muted' }, 'Entoure ce que tu veux modifier. Touche une image ou un texte pour le sélectionner directement. Ensuite : glisse pour déplacer, poignées pour agrandir ou pivoter. Au clavier : Ctrl/Cmd + A, C, X, V, D, Suppr.'));
     if (t === 'laser') body.append(h('p', { class: 'muted' }, 'Le trait rouge s’efface tout seul : idéal en présentation.'));
     if (t === 'pen') body.append(seg('pen', [['fountain', 'Plume'], ['ball', 'Bille'], ['brush', 'Pinceau']], 'Type de stylo'));
+    // réglages d'écriture au stylet (communs au stylo et au surligneur)
+    const segG = (key, list, lbl, def) => h('div', { class: 'nb-field' }, h('span', {}, lbl), h('div', { class: 'seg', role: 'group', 'aria-label': lbl, style: `grid-template-columns:repeat(${list.length},minmax(0,1fr))` }, list.map(([k, tx]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String((X.TP[key] || def) === k), onclick: () => { X.TP[key] = k; X.saveTP(); draw(); } }, tx))));
+    if (t === 'pen' || t === 'hl') body.append(
+      segG('press', [['high', 'Forte'], ['normal', 'Normale'], ['low', 'Faible']], 'Sensibilité à la pression (Forte : un trait plein même en appuyant peu)', 'normal'),
+      segG('smooth', [['low', 'Léger'], ['normal', 'Normal'], ['high', 'Fort']], 'Lissage de l’écriture (Fort : lettres plus rondes, Léger : suit chaque détail)', 'normal'),
+      h('label', { class: 'toggle' }, h('input', { type: 'checkbox', checked: X.TP.predict !== false ? true : null, onchange: (ev) => { X.TP.predict = ev.target.checked; X.saveTP(); } }), 'Anticipation du trait (l’encre colle à la pointe du Pencil)'));
     if (t === 'pen') body.append(h('label', { class: 'toggle' }, h('input', { type: 'checkbox', checked: X.TP.scribble !== false ? true : null, onchange: (ev) => { X.TP.scribble = ev.target.checked; X.saveTP(); } }), 'Hachurer pour effacer (gribouille sur une écriture pour la supprimer)'));
     if (t === 'hl') body.append(tog('straight', 'Trait droit (tu peux aussi maintenir à la fin du trait)'));
     if (t === 'eraser') body.append(seg('mode', [['stroke', 'Trait entier'], ['partial', 'Partielle'], ['hl', 'Surligneur seulement']], 'Gomme'),
@@ -844,22 +850,23 @@ function zwDown(ev) {
   ev.preventDefault(); const area = ev.currentTarget; try { area.setPointerCapture(ev.pointerId); } catch (_) {}
   const tool = ['pen', 'hl'].includes(X.TP.tool) ? X.TP.tool : 'pen';
   const cfg = X.toolCfg(tool);
-  ZG = { id: ev.pointerId, area, rc: area.getBoundingClientRect(), tool, pts: [], color: cfg.color, size: X.curSize(tool), pen: tool === 'pen' ? cfg.pen : 'ball', sim: ev.pointerType !== 'pen', ptype: ev.pointerType };
+  ZG = { id: ev.pointerId, area, rc: area.getBoundingClientRect(), tool, pts: [], color: cfg.color, size: X.curSize(tool), pen: tool === 'pen' ? cfg.pen : 'ball', sim: ev.pointerType !== 'pen', ptype: ev.pointerType,
+    inp: R().inkInput({ pen: ev.pointerType === 'pen', smooth: X.TP.smooth, press: X.TP.press }) };
   if (X.TP.tool !== tool) X.setTool(tool);
   zwAdd(ev);
 }
-function zwAdd(ev) { const e = E(); const { m } = zwDims(); const evs = (ev.getCoalescedEvents && ev.getCoalescedEvents()) || []; for (const q of (evs.length ? evs : [ev])) { const x = e.zw.x + (q.clientX - ZG.rc.left) / m, y = e.zw.y + (q.clientY - ZG.rc.top) / m; const p = q.pointerType === 'pen' ? clamp(q.pressure || .35, .05, 1) : .5; ZG.pts.push(Math.round(x * 100) / 100, Math.round(y * 100) / 100, p); } }
+function zwAdd(ev) { const e = E(); const { m } = zwDims(); const evs = (ev.getCoalescedEvents && ev.getCoalescedEvents()) || []; for (const q of (evs.length ? evs : [ev])) { const f = ZG.inp.add(q.clientX, q.clientY, q.pointerType === 'pen' ? clamp(q.pressure || 0, 0, 1) : .5, q.timeStamp); const x = e.zw.x + (f[0] - ZG.rc.left) / m, y = e.zw.y + (f[1] - ZG.rc.top) / m; ZG.pts.push(Math.round(x * 100) / 100, Math.round(y * 100) / 100, Math.round(f[2] * 1000) / 1000); } }
 function zwMoveEv(ev) {
   if (!ZG || ev.pointerId !== ZG.id) return; zwAdd(ev);
   const e = E(); const live = ZG.area.querySelector('.zw-live'); const { rh } = zwDims(); const rect = { x: e.zw.x, y: e.zw.y, w: e.zw.w, h: rh };
-  const ctx = X.ctxFor(live, rect); const it = { type: 's', tool: ZG.tool === 'hl' ? 'hl' : 'pen', pen: ZG.pen, color: ZG.color, size: ZG.size, pts: ZG.pts, sim: ZG.sim };
-  ctx.fillStyle = it.color; ctx.globalAlpha = it.tool === 'hl' ? .5 : 1; ctx.fill(R().livePath(ZG.pts, it)); ctx.globalAlpha = 1;
+  const ctx = X.ctxFor(live, rect); const it = { type: 's', tool: ZG.tool === 'hl' ? 'hl' : 'pen', pen: ZG.pen, color: ZG.color, size: ZG.size, pts: ZG.pts, sim: ZG.sim, v: 2 };
+  ctx.fillStyle = it.color; ctx.globalAlpha = it.tool === 'hl' ? .5 : 1; R().fillLive(ctx, ZG.pts, it); ctx.globalAlpha = 1;
 }
 function zwUp(ev) {
   if (!ZG || ev.pointerId !== ZG.id) return; const g = ZG; ZG = null; const e = E();
   const live = g.area.querySelector('.zw-live'); live.getContext('2d').setTransform(1, 0, 0, 1, 0, 0); live.getContext('2d').clearRect(0, 0, live.width, live.height);
   if (g.pts.length < 3) return;
-  const item = X.newItem({ type: 's', tool: g.tool === 'hl' ? 'hl' : 'pen', pen: g.pen, color: g.color, size: g.size, pts: g.pts, sim: g.sim });
+  const item = X.newItem({ type: 's', tool: g.tool === 'hl' ? 'hl' : 'pen', pen: g.pen, color: g.color, size: g.size, pts: g.pts, sim: g.sim, v: 2 });
   X.commit([{ pid: e.zw.pid, coll: 'items', id: item.id, before: null, after: item }]);
   X.zwAfterStroke(item, e.zw.pid);
 }
