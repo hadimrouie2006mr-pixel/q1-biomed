@@ -244,6 +244,24 @@ async function openSitePdf(p, folder) {
       }
       N.setIdx('nbs', Object.assign({}, idx.nbs[id], { np: pdf.numPages }));
     } catch (e) { toast('Impossible d’ouvrir ce PDF pour l’annoter.'); return; }
+  } else {
+    // PDF du site refait avec plus de pages (ex. version avec images) : ajouter les pages manquantes à la fin.
+    // Une page supprimée par l'utilisateur (objet présent mais plus « live ») n'est jamais recréée.
+    try {
+      const src = 'site:' + p.id;
+      const pdf = await N.pdfDoc(src);
+      const have = new Set(Object.values(nd.pages || {}).filter((pg) => pg && pg.bg && pg.bg.src === src).map((pg) => pg.bg.n));
+      let ord = Math.max(0, ...livePages.map((pg) => pg.ord || 0)), added = 0;
+      for (let n = 1; n <= pdf.numPages; n++) {
+        const pid = 'p' + n;
+        if (have.has(n) || nd.pages[pid]) continue;
+        const vp = (await pdf.getPage(n)).getViewport({ scale: 1 });
+        S().setObj(nbPath(id), 'pages', { id: pid, ord: ++ord, w: vp.width, h: vp.height, tpl: 'blank', color: 'white', bg: { kind: 'pdf', src, n } });
+        await S().ensure(pgPath(id, pid), { items: {} });
+        added++;
+      }
+      if (added) { N.setIdx('nbs', Object.assign({}, idx.nbs[id], { np: livePages.length + added, upd: Date.now() })); toast(`PDF mis à jour : ${added} page${added > 1 ? 's' : ''} ajoutée${added > 1 ? 's' : ''}`); }
+    } catch (_) { /* hors ligne : on ouvre le cahier tel quel */ }
   }
   N.editor.open(id);
 }
