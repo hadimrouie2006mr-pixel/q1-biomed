@@ -184,6 +184,7 @@ function toolOptions() {
       segG('press', [['high', 'Forte'], ['normal', 'Normale'], ['low', 'Faible']], 'Sensibilité à la pression (Forte : un trait plein même en appuyant peu)', 'normal'),
       segG('smooth', [['low', 'Léger'], ['normal', 'Normal'], ['high', 'Fort']], 'Lissage de l’écriture (Fort : lettres plus rondes, Léger : suit chaque détail)', 'normal'),
       h('label', { class: 'toggle' }, h('input', { type: 'checkbox', checked: X.TP.predict !== false ? true : null, onchange: (ev) => { X.TP.predict = ev.target.checked; X.saveTP(); } }), 'Anticipation du trait (l’encre colle à la pointe du Pencil)'));
+    if (t === 'pen' || t === 'hl') body.append(h('label', { class: 'toggle' }, h('input', { type: 'checkbox', checked: X.TP.holdShape !== false ? true : null, onchange: (ev) => { X.TP.holdShape = ev.target.checked; X.saveTP(); } }), t === 'hl' ? 'Maintenir la pointe immobile pour redresser le trait' : 'Maintenir la pointe immobile pour redresser le trait (ligne, cercle, rectangle…)'));
     if (t === 'pen') body.append(h('label', { class: 'toggle' }, h('input', { type: 'checkbox', checked: X.TP.scribble !== false ? true : null, onchange: (ev) => { X.TP.scribble = ev.target.checked; X.saveTP(); } }), 'Hachurer pour effacer (gribouille sur une écriture pour la supprimer)'));
     if (t === 'hl') body.append(tog('straight', 'Trait droit (tu peux aussi maintenir à la fin du trait)'));
     if (t === 'eraser') body.append(seg('mode', [['stroke', 'Trait entier'], ['partial', 'Partielle'], ['hl', 'Surligneur seulement']], 'Gomme'),
@@ -202,6 +203,7 @@ function toolOptions() {
     body.append(h('div', { class: 'nb-field' }, h('span', {}, 'Double-tap (deux touches rapides du doigt sur la page)'),
       h('div', { class: 'seg', role: 'group', 'aria-label': 'Double-tap', style: 'grid-template-columns:repeat(3,minmax(0,1fr))' }, [['eraser', 'Gomme ↔ outil'], ['prev', 'Outil précédent'], ['off', 'Désactivé']].map(([k, tx]) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String((X.TP.dblTap || 'eraser') === k), onclick: () => { X.TP.dblTap = k; X.saveTP(); draw(); } }, tx))),
       h('span', { class: 'muted small', style: 'font-weight:400' }, 'Le double-tap du Pencil lui-même n’est pas transmis aux sites web par Safari : fais-le avec le doigt sur la page. Stylet avec bout gomme ou bouton (PC) : il gomme directement. Clavier : touche G.')));
+    body.append(h('label', { class: 'toggle' }, h('input', { type: 'checkbox', checked: X.TP.tapUndo !== false ? true : null, onchange: (ev) => { X.TP.tapUndo = ev.target.checked; X.saveTP(); } }), 'Toucher à deux doigts pour annuler (trois doigts : rétablir)'));
     body.append(h('label', { class: 'toggle' }, h('input', { type: 'checkbox', checked: X.TP.fingerDraw ? true : null, onchange: (ev) => { X.TP.fingerDraw = ev.target.checked; X.saveTP(); } }), 'Dessiner au doigt (sinon le doigt fait défiler et zoomer)'));
   };
   draw();
@@ -534,7 +536,14 @@ async function drawThumb(el) {
 X.onEdit = (pids) => {
   const e = E(); if (!e) return; e.thumbVer = e.thumbVer || {};
   pids.forEach((pid) => { e.thumbVer[pid] = (e.thumbVer[pid] || 0) + 1; });
-  clearTimeout(e.thumbT); e.thumbT = setTimeout(() => { if (!E()) return; pids.forEach((pid) => { const el = X.root().querySelector(`.ne-thumb[data-id="${pid}"]`); if (el) drawThumb(el); }); }, 600);
+  e.thumbPids = new Set([...(e.thumbPids || []), ...pids]);
+  const go = () => {
+    const e2 = E(); if (!e2 || e2 !== e) return;
+    if (N.inkBusy && N.inkBusy()) { e.thumbT = setTimeout(go, 500); return; }   // on attend une pause dans l'écriture
+    const list = [...e.thumbPids]; e.thumbPids = null;
+    list.forEach((pid) => { const el = X.root().querySelector(`.ne-thumb[data-id="${pid}"]`); if (el) drawThumb(el); });
+  };
+  clearTimeout(e.thumbT); e.thumbT = setTimeout(go, 600);
 };
 function dragThumb(ev, pid) {
   if (!X.canEdit()) return;
@@ -853,22 +862,25 @@ function zwDown(ev) {
   ZG = { id: ev.pointerId, area, rc: area.getBoundingClientRect(), tool, pts: [], color: cfg.color, size: X.curSize(tool), pen: tool === 'pen' ? cfg.pen : 'ball', sim: ev.pointerType !== 'pen', ptype: ev.pointerType,
     inp: R().inkInput({ pen: ev.pointerType === 'pen', smooth: X.TP.smooth, press: X.TP.press }) };
   if (X.TP.tool !== tool) X.setTool(tool);
+  X.penMark(ev.pointerType === 'pen', true);
   zwAdd(ev);
 }
 function zwAdd(ev) { const e = E(); const { m } = zwDims(); const evs = (ev.getCoalescedEvents && ev.getCoalescedEvents()) || []; for (const q of (evs.length ? evs : [ev])) { const f = ZG.inp.add(q.clientX, q.clientY, q.pointerType === 'pen' ? clamp(q.pressure || 0, 0, 1) : .5, q.timeStamp); const x = e.zw.x + (f[0] - ZG.rc.left) / m, y = e.zw.y + (f[1] - ZG.rc.top) / m; ZG.pts.push(Math.round(x * 100) / 100, Math.round(y * 100) / 100, Math.round(f[2] * 1000) / 1000); } }
 function zwMoveEv(ev) {
-  if (!ZG || ev.pointerId !== ZG.id) return; zwAdd(ev);
+  if (!ZG || ev.pointerId !== ZG.id) return; zwAdd(ev); X.penMark(ZG.ptype === 'pen');
   const e = E(); const live = ZG.area.querySelector('.zw-live'); const { rh } = zwDims(); const rect = { x: e.zw.x, y: e.zw.y, w: e.zw.w, h: rh };
   const ctx = X.ctxFor(live, rect); const it = { type: 's', tool: ZG.tool === 'hl' ? 'hl' : 'pen', pen: ZG.pen, color: ZG.color, size: ZG.size, pts: ZG.pts, sim: ZG.sim, v: 2 };
   ctx.fillStyle = it.color; ctx.globalAlpha = it.tool === 'hl' ? .5 : 1; R().fillLive(ctx, ZG.pts, it); ctx.globalAlpha = 1;
 }
 function zwUp(ev) {
-  if (!ZG || ev.pointerId !== ZG.id) return; const g = ZG; ZG = null; const e = E();
+  if (!ZG || ev.pointerId !== ZG.id) return; const g = ZG; ZG = null; const e = E(); X.penMark(g.ptype === 'pen', false);
+  if (g.pts.length >= 6) { const f = g.inp.end(), { m } = zwDims(); if (f) g.pts.push(Math.round((e.zw.x + (f[0] - g.rc.left) / m) * 100) / 100, Math.round((e.zw.y + (f[1] - g.rc.top) / m) * 100) / 100, Math.round(f[2] * 1000) / 1000); }
   const live = g.area.querySelector('.zw-live'); live.getContext('2d').setTransform(1, 0, 0, 1, 0, 0); live.getContext('2d').clearRect(0, 0, live.width, live.height);
   if (g.pts.length < 3) return;
   const item = X.newItem({ type: 's', tool: g.tool === 'hl' ? 'hl' : 'pen', pen: g.pen, color: g.color, size: g.size, pts: g.pts, sim: g.sim, v: 2 });
   X.commit([{ pid: e.zw.pid, coll: 'items', id: item.id, before: null, after: item }]);
   X.zwAfterStroke(item, e.zw.pid);
+  S().nudge && S().nudge();
 }
 X.zwAfterStroke = (item, pid) => {
   const e = E(); if (!e || !e.zw || pid !== e.zw.pid || item.type !== 's') return;

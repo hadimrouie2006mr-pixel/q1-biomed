@@ -56,7 +56,7 @@ async function open(id, { page } = {}) {
   if (!openTabs.includes(id)) { openTabs.push(id); if (openTabs.length > 6) openTabs.shift(); }
   const nd = await S().ensure(N.paths.nbPath(id), { pages: {}, audio: {} });
   nd.pages = nd.pages || {}; nd.audio = nd.audio || {};
-  E = { id, nb, nd, docs: new Map(), pvs: new Map(), zoom: 1, fit: 1, scale: 1, dir: (N.uiPrefs().dirs || {})[id] || TP.dir || 'v', undo: [], redo: [], sel: null, hide: new Set(), cur: null, penSeen: false, lastPen: -1e9, lastUpd: 0, readonly: !!nb.readonly, hl: null };
+  E = { id, nb, nd, docs: new Map(), pvs: new Map(), zoom: 1, fit: 1, scale: 1, dir: (N.uiPrefs().dirs || {})[id] || TP.dir || 'v', undo: [], redo: [], sel: null, hide: new Set(), cur: null, penSeen: false, penT: -1e9, hoverT: -1e9, lastUpd: 0, readonly: !!nb.readonly, hl: null };
   buildRoot();
   document.body.classList.add('ne-open');
   root.classList.remove('mo-close'); root.hidden = false;
@@ -135,7 +135,7 @@ function buildRoot() {
   document.body.append(root);
   E.sc = root.querySelector('.ne-scroll'); E.pagesEl = root.querySelector('.ne-pages'); E.body = root.querySelector('.ne-body');
   const sc = E.sc;
-  sc.addEventListener('scroll', () => requestVisible(), { passive: true });
+  sc.addEventListener('scroll', () => { if (G) { G.sl = sc.scrollLeft; G.st = sc.scrollTop; } requestVisible(); }, { passive: true });
   sc.addEventListener('pointerdown', onDown);
   sc.addEventListener('pointermove', onMove);
   if ('onpointerrawupdate' in window) sc.addEventListener('pointerrawupdate', onRaw);
@@ -241,6 +241,7 @@ function updateVisible() {
     else if (far && pv.r) release(pv);
   }
   if (best && best !== E.cur) { E.cur = best; X.onPageChange && X.onPageChange(); }
+  warmLive();
   const ind = root.querySelector('.ne-pageind'); const i = E.pages.findIndex((p) => p.id === E.cur);
   ind.textContent = `${i + 1} / ${E.pages.length}`;
 }
@@ -283,6 +284,32 @@ function renderInk(pv) {
   R().drawItems(ctx, visibleItems(pv), pv.pg, { view: pv.r.rect });
 }
 X.renderInk = renderInk;
+// Redessine uniquement une zone de la page (unités page) : la zone, calée sur des pixels entiers, est vidée puis tout ce
+// qui la touche est retracé dans l'ordre habituel, découpé à la zone. Rien ne s'accumule : chaque passage repart de zéro.
+function renderInkBox(pv, box) {
+  if (!pv.r) return;
+  if (pv.dirty || !isFinite(box.x + box.y + box.w + box.h)) { renderInk(pv); return; }
+  const r = pv.r.rect, c = pv.ink, kx = c.width / r.w, ky = c.height / r.h;
+  const x0 = Math.max(0, Math.floor((box.x - r.x) * kx) - 2), y0 = Math.max(0, Math.floor((box.y - r.y) * ky) - 2);
+  const x1 = Math.min(c.width, Math.ceil((box.x + box.w - r.x) * kx) + 2), y1 = Math.min(c.height, Math.ceil((box.y + box.h - r.y) * ky) + 2);
+  const w = x1 - x0, hh = y1 - y0; if (!(w > 0 && hh > 0)) return;      // hors de la partie affichée
+  if (w * hh > c.width * c.height * .45) { renderInk(pv); return; }     // presque toute la page : autant tout refaire
+  const ctx = c.getContext('2d');
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.beginPath(); ctx.rect(x0, y0, w, hh); ctx.clip(); ctx.clearRect(x0, y0, w, hh);
+  ctx.setTransform(kx, 0, 0, ky, -r.x * kx, -r.y * ky);
+  R().drawItems(ctx, visibleItems(pv), pv.pg, { view: { x: r.x + x0 / kx, y: r.y + y0 / ky, w: w / kx, h: hh / ky } });
+  ctx.restore();
+}
+// Après une modification : redessine seulement autour des éléments touchés (anciens et nouveaux)
+function redrawItems(pid, list) {
+  const pv = pvOf(pid); if (!pv) return;
+  pv.sorted = null;
+  if (!pv.r || pv.dirty || list.length > 60) { pv.dirty = true; if (pv.r) renderInk(pv); return; }
+  let boxes = list.map((it) => R().bbox(it));
+  if (boxes.length > 6) boxes = [boxes.reduce((a, b) => unionBox(a, b))];
+  for (const b of boxes) renderInkBox(pv, { x: b.x - 1, y: b.y - 1, w: b.w + 2, h: b.h + 2 });
+}
+X.redrawItems = redrawItems;
 function markDirty(pid) { const pv = pvOf(pid); if (pv) { pv.dirty = true; pv.sorted = null; } }
 X.markDirty = markDirty;
 function rerender(pid) { const pv = pvOf(pid); if (!pv) return; pv.dirty = true; if (pv.r) renderInk(pv); }
@@ -307,17 +334,24 @@ function renderBg(pv) {
 /* ---------- Modifications + annuler/refaire ---------- */
 // change = { pid, coll: 'items' | 'pages', id, before, after }
 function applyRaw(changes) {
-  let pagesChanged = false; const touched = new Set();
+  let pagesChanged = false; const touched = new Map();  // page → éléments touchés (avant et après)
   for (const c of changes) {
     if (c.coll === 'pages') { S().setObj(N.paths.nbPath(E.id), 'pages', c.after ? Object.assign({}, c.after) : S().tomb(c.id)); pagesChanged = true; }
-    else { const path = N.paths.pgPath(E.id, c.pid); if (!E.docs.has(c.pid)) continue; S().setObj(path, 'items', c.after ? Object.assign({}, c.after) : S().tomb(c.id)); touched.add(c.pid); }
+    else {
+      const path = N.paths.pgPath(E.id, c.pid); if (!E.docs.has(c.pid)) continue;
+      const items = E.docs.get(c.pid).items || {}, old = items[c.id];
+      const cur = S().setObj(path, 'items', c.after ? Object.assign({}, c.after) : S().tomb(c.id));
+      const l = touched.get(c.pid) || []; touched.set(c.pid, l);
+      if (live(old) && old.type) l.push(old);
+      if (c.after) l.push(cur);
+    }
   }
   E.changed = true; touchNb();
-  touched.forEach((pid) => rerender(pid));
+  touched.forEach((list, pid) => redrawItems(pid, list));
   if (pagesChanged) X.relayoutPages();
   X.updateUndo && X.updateUndo();
   X.zwRedraw && X.zwRedraw();
-  X.onEdit && X.onEdit([...touched]);
+  X.onEdit && X.onEdit([...touched.keys()]);
 }
 function commit(changes) {
   if (!changes.length) return;
@@ -335,17 +369,47 @@ X.newItem = newItem;
 
 /* ---------- Gestes ---------- */
 let G = null;          // geste de dessin en cours
-const nav = { ptrs: new Map(), pinch: null, moved: false, t0: 0, max: 0, vx: 0, vy: 0, lastT: 0, inertia: 0 };
+let inkT = -1e9, zwOn = false;   // fin du dernier geste ; trait en cours dans la loupe
+// Les tâches de fond (enregistrement, synchro, miniatures) attendent qu'on ne soit plus en train d'écrire
+N.inkBusy = () => !!G || now() - inkT < 400;
+N.inkDown = () => !!G || (zwOn && now() - inkT < 3000);
+const nav = { ptrs: new Map(), pinch: null, moved: false, pan: false, t0: 0, max: 0, vx: 0, vy: 0, lastT: 0, inertia: 0, noTap: false, firm: false, big: false, sz: 0, dist: 0, downs: [], ups: [] };
 const canEdit = () => E && !E.readonly && !E.present;
 X.canEdit = canEdit;
+/* Rejet de la paume. Safari ne dit pas si un contact est un doigt ou la paume : on se fie au moment (juste après
+   le stylet), à l'ampleur du geste (une paume posée glisse de quelques px, un doigt qui fait défiler va franchement
+   plus loin) et à la taille du contact comparée à celle des vrais gestes faits sur cet appareil. */
+const PALM_MS = 250;      // contact posé juste après le stylet : la paume, ignorée
+const TAP_MS = 600;       // pas de raccourci tactile (annuler à 2 doigts, double-tap) juste après le stylet
+const PEN_NEAR_MS = 6000; // on écrit, ou le stylet survole : il faut un geste plus franc pour bouger la page
+const penNear = (t) => E.penSeen && t - Math.max(E.penT, E.hoverT) < PEN_NEAR_MS;
+const panSlop = () => (nav.firm ? 18 : 8), pinchSlop = () => (nav.firm ? 24 : 10);
+const spread = (a) => (a.length ? Math.max(...a) - Math.min(...a) : 0);
+// Taille habituelle d'un doigt ici, apprise sur les vrais défilements (jamais pendant qu'on écrit)
+const FS = (() => { const f = (N.uiPrefs && N.uiPrefs().fingerSz) || {}; return { v: +f.v || 0, n: +f.n || 0 }; })();
+const sizeOf = (e) => Math.max(e.width || 0, e.height || 0);
+function learnFinger(sz) {
+  if (!(sz > 2)) return;
+  FS.v = FS.n ? FS.v + (sz - FS.v) / Math.min(FS.n + 1, 12) : sz; FS.n++;
+  if (FS.n <= 12 || FS.n % 25 === 0) N.uiPrefsSave && N.uiPrefsSave({ fingerSz: { v: Math.round(FS.v * 10) / 10, n: Math.min(FS.n, 999) } });
+}
+const palmSized = (sz, k) => FS.n >= 4 && FS.v > 2 && sz > FS.v * k;
+X.penMark = (pen, down) => { inkT = now(); if (down != null) zwOn = !!down; if (E && pen) { E.penSeen = true; E.penT = inkT; } };   // écriture dans la loupe
+function dropNav() {
+  if (nav.pinch) { endPinch(); updateVisible(); }      // zoom entamé : page nette avant que le trait commence
+  nav.ptrs.clear(); nav.pan = false;
+}
 function onDown(e) {
   if (!E) return;
   if (e.target.closest && e.target.closest('.ne-ovl')) return; // interface posée sur la page (sélection, texte…)
   const t = now();
-  if (e.pointerType === 'pen') { hideHover(); E.penSeen = true; E.lastPen = t; if (nav.ptrs.size) { nav.ptrs.clear(); nav.pinch = null; } }
+  if (e.pointerType === 'pen') {
+    hideHover(); E.penSeen = true; E.penT = t; lastTap = null; stopInertia();
+    if (nav.ptrs.size) dropNav();                        // la paume était posée avant la pointe : la page ne bouge plus
+  }
   if (e.pointerType === 'touch') {
     if (G && G.ptype === 'pen') return;                 // paume pendant l'écriture
-    if (t - E.lastPen < 500) return;                     // paume juste après le stylet
+    if (t - E.penT < PALM_MS) return;                    // paume juste après le stylet
     if (G && G.ptype === 'touch') {                      // 2e doigt pendant un trait au doigt
       if (t - G.t0 < 260 && G.kind !== 'xform') { const first = G; abortGesture(); navDown({ pointerId: first.pid, clientX: first.cx, clientY: first.cy, pointerType: 'touch' }, true); navDown(e); }
       return;
@@ -354,21 +418,33 @@ function onDown(e) {
     if (!fingerTool || nav.ptrs.size) { navDown(e); return; }
   }
   if (e.pointerType === 'mouse' && e.button !== 0) { if (e.button === 1) navDown(e); return; }
+  // le même stylet se pose alors qu'un geste est resté ouvert : son « levé » s'est perdu (le système a interrompu) → on le clôt au lieu de bloquer le stylet
+  if (G && G.ptype === e.pointerType && e.pointerType !== 'touch') onCancel({ pointerId: G.pid });
   if (G) return;
   startGesture(e);
 }
 function navDown(e, synthetic) {
   stopInertia();
   if (!synthetic) try { E.sc.setPointerCapture(e.pointerId); } catch (_) {}
-  if (!nav.ptrs.size) { nav.t0 = now(); nav.moved = false; nav.max = 0; nav.startZoom = E.zoom; nav.startCur = E.cur; }
-  nav.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, type: e.pointerType });
+  const t = now();
+  // pendant qu'on écrit : des contacts posés depuis un moment sans bouger (la paume) ne comptent pas quand un doigt arrive ;
+  // ce doigt agit seul (défiler, toucher à deux doigts…) au lieu de former un « pincement » avec la paume
+  if (e.pointerType === 'touch' && nav.ptrs.size && !nav.pan && !(nav.pinch && nav.pinch.on) && penNear(t)
+    && [...nav.ptrs.values()].every((p) => p.type === 'touch' && t - p.t > 300 && Math.hypot(p.x - p.x0, p.y - p.y0) <= 8)) {
+    if (nav.pinch && nav.pinch.raf) cancelAnimationFrame(nav.pinch.raf);
+    nav.pinch = null; nav.ptrs.clear();
+  }
+  if (!nav.ptrs.size) { nav.t0 = t; nav.moved = false; nav.pan = false; nav.max = 0; nav.vx = nav.vy = 0; nav.startZoom = E.zoom; nav.startCur = E.cur; nav.noTap = false; nav.firm = false; nav.big = false; nav.sz = 0; nav.dist = 0; nav.downs = []; nav.ups = []; }
+  if (e.pointerType === 'touch') { if (t - E.penT < TAP_MS) nav.noTap = true; if (penNear(t)) nav.firm = true; }
+  nav.downs.push(t);
+  nav.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t, type: e.pointerType, sz: sizeOf(e) });
   nav.max = Math.max(nav.max, nav.ptrs.size);
   if (nav.ptrs.size === 2) {
     const [a, b] = [...nav.ptrs.values()]; const r = E.sc.getBoundingClientRect();
     stopInertia();
     const cx = (a.x + b.x) / 2 - r.left, cy = (a.y + b.y) / 2 - r.top;
     const pv = pvAtContent(E.sc.scrollLeft + cx, E.sc.scrollTop + cy) || pvOf(E.cur);
-    nav.pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: E.zoom, cx, cy, pid: pv ? pv.id : E.cur, raf: 0, z: E.zoom, nx: cx, ny: cy };
+    nav.pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: E.zoom, cx, cy, pid: pv ? pv.id : E.cur, raf: 0, z: E.zoom, nx: cx, ny: cy, on: false };
   }
 }
 function onRaw(e) { if (G && e.pointerId === G.pid) { G.raw = true; moveGesture(e); } }
@@ -378,30 +454,52 @@ function onMove(e) {
   const p = nav.ptrs.get(e.pointerId); if (!p) { hoverCursor(e); return; }
   const dx = e.clientX - p.x, dy = e.clientY - p.y, dt = Math.max(1, e.timeStamp - (nav.lastT || e.timeStamp - 16));
   p.x = e.clientX; p.y = e.clientY;
-  if (Math.hypot(p.x - p.x0, p.y - p.y0) > 8) nav.moved = true;
+  const sz = sizeOf(e); if (sz > p.sz) p.sz = sz;
+  const far = Math.hypot(p.x - p.x0, p.y - p.y0);
+  if (far > 8) nav.moved = true;
+  // pendant qu'on écrit : contact bien plus gros qu'un doigt et qui n'a encore rien déplacé → la paume, on l'écarte
+  if (p.type === 'touch' && nav.firm && !nav.pan && !(nav.pinch && nav.pinch.on) && palmSized(p.sz, 3)) {
+    nav.ptrs.delete(e.pointerId); nav.noTap = true;
+    if (nav.pinch) { if (nav.pinch.raf) cancelAnimationFrame(nav.pinch.raf); nav.pinch = null; }
+    return;
+  }
   if (nav.ptrs.size === 1) {
-    E.sc.scrollLeft -= dx; E.sc.scrollTop -= dy; clampPan();
+    // un contact posé qui glisse à peine ne déplace pas la page ; le défilement part d'ici, sans à-coup
+    if (!nav.pan) { if (far > panSlop()) { nav.pan = true; nav.lastT = e.timeStamp; } return; }
+    E.sc.scrollLeft -= dx; E.sc.scrollTop -= dy; clampPan(); nav.dist += Math.hypot(dx, dy);
     nav.vx = .8 * (-dx / dt) + .2 * nav.vx; nav.vy = .8 * (-dy / dt) + .2 * nav.vy; nav.lastT = e.timeStamp;
   } else if (nav.ptrs.size >= 2 && nav.pinch) {
     const [a, b] = [...nav.ptrs.values()]; const r = E.sc.getBoundingClientRect();
-    const d = Math.hypot(a.x - b.x, a.y - b.y) || 1, P = nav.pinch;
-    P.nx = (a.x + b.x) / 2 - r.left; P.ny = (a.y + b.y) / 2 - r.top; P.z = P.z0 * d / P.d0;
+    const d = Math.hypot(a.x - b.x, a.y - b.y) || 1, P = nav.pinch, nx = (a.x + b.x) / 2 - r.left, ny = (a.y + b.y) / 2 - r.top;
+    if (!P.on) {                                         // deux contacts posés : rien ne bouge avant un vrai geste
+      if (Math.abs(d - P.d0) <= pinchSlop() && Math.hypot(nx - P.cx, ny - P.cy) <= panSlop()) return;
+      P.on = true; P.d0 = d; P.cx = nx; P.cy = ny;
+    }
+    P.nx = nx; P.ny = ny; P.z = P.z0 * d / P.d0;
     if (!P.raf) P.raf = requestAnimationFrame(pinchFrame);   // une seule mise à jour par image
     nav.vx = nav.vy = 0;
   }
 }
 function navUp(e) {
   const p = nav.ptrs.get(e.pointerId); if (!p) return false;
-  nav.ptrs.delete(e.pointerId);
-  if (nav.ptrs.size === 1 && nav.pinch) { endPinch(); const q = [...nav.ptrs.values()][0]; q.x0 = q.x; q.y0 = q.y; }
+  nav.ptrs.delete(e.pointerId); nav.ups.push(now());
+  if (p.sz > nav.sz) nav.sz = p.sz;
+  if (p.type === 'touch' && palmSized(p.sz, 2.2)) nav.big = true;
+  if (nav.ptrs.size === 1 && nav.pinch) { endPinch(); const q = [...nav.ptrs.values()][0]; q.x0 = q.x; q.y0 = q.y; nav.pan = false; }
   if (!nav.ptrs.size) {
     if (nav.pinch) endPinch();
     const dur = now() - nav.t0, zoomed = Math.abs(E.zoom - nav.startZoom) > .02;
     if (!nav.moved && !zoomed && dur < 320) {
-      if (nav.max === 2) undo(); else if (nav.max >= 3) redo();
+      // raccourcis tactiles : jamais juste après le stylet ni avec un contact de la taille d'une paume ;
+      // à plusieurs doigts, il faut les poser et les lever ensemble (une paume se pose en deux temps)
+      const together = spread(nav.downs) < 160 && spread(nav.ups) < 160, multi = TP.tapUndo !== false && together;
+      if (nav.noTap || nav.big) { /* la paume : rien */ }
+      else if (nav.max === 2) { if (multi) undo(); }
+      else if (nav.max >= 3) { if (multi) redo(); }
       else if (nav.max === 1 && e.type === 'pointerup') { if (!tapAt(e.clientX, e.clientY, e.pointerType)) quickTap(e.clientX, e.clientY); }
-    } else if (nav.max === 1 && nav.moved && !E.present && E.dir === 'h' && E.zoom <= 1.02) snapPage(nav.vx);
-    else if (nav.max === 1 && nav.moved && e.type === 'pointerup') startInertia();
+    } else if (nav.max === 1 && nav.pan && !E.present && E.dir === 'h' && E.zoom <= 1.02) snapPage(nav.vx);
+    else if (nav.max === 1 && nav.pan && e.type === 'pointerup') startInertia();
+    if (!nav.firm && nav.max === 1 && nav.dist > 80) learnFinger(nav.sz);
     if (E.present && nav.moved) X.presentSnap && X.presentSnap(nav.vx);
     requestVisible();
   }
@@ -418,6 +516,7 @@ function endPinch() {
   const P = nav.pinch; if (!P) return;
   if (P.raf) { cancelAnimationFrame(P.raf); P.raf = 0; pinchFrame(); }
   nav.pinch = null;
+  if (!P.on) { requestVisible(); return; }               // deux contacts posés sans vrai geste : rien n'a changé
   if (E.dir === 'h' && !E.present) {
     const pv = pvOf(P.pid) || pvOf(E.cur);
     if (pv) { E.zoomPid = pv.id; E.cur = pv.id; }
@@ -500,7 +599,9 @@ X.toggleTape = toggleTape;
 // Survol du Pencil (iPad compatibles) : aperçu de la pointe, à la taille et la couleur de l'outil
 let hoverEl = null, hoverT = 0;
 function hoverCursor(e) {
-  if (e.pointerType !== 'pen' || e.buttons || G || !canEdit()) return;
+  if (e.pointerType !== 'pen' || e.buttons || G) return;
+  E.hoverT = now(); E.penSeen = true;
+  if (!canEdit()) return;
   const t = TP.tool; if (!['pen', 'hl', 'eraser', 'shape'].includes(t)) { hideHover(); return; }
   if (!hoverEl) { hoverEl = document.createElement('div'); hoverEl.setAttribute('aria-hidden', 'true'); root.append(hoverEl); }
   const d = t === 'eraser' ? Math.max(4, curSize(t) * E.scale) : Math.max(3, curSize(t) * E.scale * .6); // gomme : taille réelle ; stylos : point plus discret
@@ -515,6 +616,7 @@ function onWheel(e) {
 }
 
 function startGesture(e) {
+  stopInertia();                                         // la page ne glisse plus sous la pointe
   // bout « gomme » d'un stylet (bouton 5) ou bouton latéral (bouton 2) : gomme le temps du geste
   const penEraser = e.pointerType === 'pen' && (e.button === 5 || (e.buttons & 32) || ((e.button === 2 || (e.buttons & 2)) && (TP.barrel || 'eraser') === 'eraser'));
   const tool = E.present ? 'laser' : (E.readonly && TP.tool !== 'laser') ? null : penEraser ? 'eraser' : TP.tool;
@@ -528,7 +630,7 @@ function startGesture(e) {
   if (tool === 'pen' || tool === 'hl' || tool === 'shape') {
     if (E.sel) X.clearSel();
     const cfg = toolCfg(tool);
-    G = Object.assign(base, { kind: 'ink', tool, pts: [], pred: [], lastMoveT: now(), color: cfg.color, size: curSize(tool), pen: tool === 'pen' ? cfg.pen : 'ball', sim: e.pointerType !== 'pen', straight: tool === 'hl' && cfg.straight,
+    G = Object.assign(base, { kind: 'ink', tool, pts: [], pred: [], dw: null, color: cfg.color, size: curSize(tool), pen: tool === 'pen' ? cfg.pen : 'ball', sim: e.pointerType !== 'pen', straight: tool === 'hl' && cfg.straight,
       v: 2, inp: R().inkInput({ pen: e.pointerType === 'pen', smooth: TP.smooth, press: TP.press }), liveDirty: true, fullDirty: true });
     hideHover();
     addPoint(e);
@@ -573,11 +675,22 @@ function pressureOf(ev) {
   }
   return clamp(p, .02, 1);
 }
+const HOLD_MS = 520, HOLD_PX = 4;
 function addPoint(ev) {
   let cx = ev.clientX, cy = ev.clientY, pr = pressureOf(ev);
+  // maintien : la pointe est-elle restée au même endroit ? Mesuré en distance réelle à l'écran, pas d'un échantillon
+  // à l'autre (le Pencil en envoie 240 par seconde : même en traçant, deux échantillons voisins sont à moins d'un pixel)
+  if (!G.dw || Math.hypot(cx - G.dw.x, cy - G.dw.y) > HOLD_PX) G.dw = { x: cx, y: cy, t: now(), done: false };
   if (G.inp) { const f = G.inp.add(cx, cy, pr, ev.timeStamp); cx = f[0]; cy = f[1]; pr = f[2]; } else if (pr <= 0) pr = .35;
   const q = pageAtC(cx, cy), pts = G.pts, n = pts.length;
-  if (n) { const dx = q.x - pts[n - 3], dy = q.y - pts[n - 2], d = Math.hypot(dx, dy); if (d < .25 / Math.max(.5, E.scale)) return; if (d * E.scale > 2.5) G.lastMoveT = now(); }
+  if (n) {
+    const dx = q.x - pts[n - 3], dy = q.y - pts[n - 2], d = Math.hypot(dx, dy);
+    if (d < .25 / Math.max(.5, E.scale)) {
+      // pointe immobile qui appuie plus fort (un point, un « i », une fin de mot) : on garde la pression la plus forte
+      if (G.ptype === 'pen' && pr > pts[n - 1]) { pts[n - 1] = Math.round(pr * 1000) / 1000; G.liveDirty = true; }
+      return;
+    }
+  }
   pts.push(Math.round(q.x * 100) / 100, Math.round(q.y * 100) / 100, Math.round(pr * 1000) / 1000);
 }
 function moveGesture(e) {
@@ -611,8 +724,11 @@ function onUp(e) {
   if (nav.ptrs.has(e.pointerId)) { navUp(e); return; }
   if (!G || e.pointerId !== G.pid) return;
   const g = G; G = null; g.kindDone = g.kind;
+  inkT = now(); if (g.ptype === 'pen') E.penT = inkT;
   cancelAnimationFrame(liveRaf); liveRaf = 0;
   if (e.type === 'pointerup' && g.kind === 'ink' && !g.shape) { const evs = (e.getCoalescedEvents && e.getCoalescedEvents()) || []; G = g; evs.forEach(addPoint); G = null; }
+  // le trait va jusqu'à l'endroit où la pointe s'est levée (voir inkInput.end)
+  if (g.kind === 'ink' && !g.shape && !g.straight && g.inp && g.pts.length >= 6) { const f = g.inp.end(); if (f) { G = g; const q = pageAtC(f[0], f[1]); G = null; g.pts.push(Math.round(q.x * 100) / 100, Math.round(q.y * 100) / 100, Math.round(f[2] * 1000) / 1000); } }
   if (g.kind === 'ink') finishInk(g);
   else if (g.kind === 'erase') finishErase(g);
   else if (g.kind === 'lasso') { clearLive(); X.finishLasso(g); }
@@ -621,6 +737,7 @@ function onUp(e) {
   else if (g.kind === 'textTap') { clearLive(); X.openText(g.pv, g.target, g.sx, g.sy); }
   else if (g.kind === 'laser') { X.laserPoint(null); }
   X.updateUndo && X.updateUndo();
+  S().nudge && S().nudge();                              // le stylet vient de se lever : bon moment pour enregistrer ce qui attend
 }
 function onCancel(e) {
   if (nav.ptrs.has(e.pointerId)) { navUp(e); return; }
@@ -629,7 +746,7 @@ function onCancel(e) {
     if (G.kind === 'ink' && G.pts.length > 6) onUp(e); else abortGesture();
   }
 }
-function abortGesture() { if (!G) return; const g = G; G = null; if (g.kind === 'xform') X.xformAbort(g); if (g.kind === 'erase' && g.changes.size) finishErase(g); clearLive(); }
+function abortGesture() { if (!G) return; const g = G; G = null; inkT = now(); if (g.ptype === 'pen') E.penT = inkT; if (g.kind === 'xform') X.xformAbort(g); if (g.kind === 'erase' && g.changes.size) finishErase(g); clearLive(); }
 
 /* ---------- Calque de dessin en direct ---------- */
 let liveC = null, liveRaf = 0, livePv = null;
@@ -647,6 +764,13 @@ function ensureLive(pv) {
   return x;
 }
 X.ensureLive = ensureLive;
+// Prépare le calque du trait en cours pour la page affichée dès qu'on s'y arrête (ou après un zoom) : le premier
+// trait n'attend plus la création du calque au moment où la pointe se pose.
+let warmT = 0;
+function warmLive() {
+  if (!E || G) return;
+  clearTimeout(warmT); warmT = setTimeout(() => { if (!E || G || nav.pinch || !canEdit()) return; const pv = pvOf(E.cur); if (pv && pv.r) ensureLive(pv); }, 250);   // sans effet si le calque est déjà prêt (même page, même zoom)
+}
 function clearLive() { if (liveC && livePv && livePv.r) { const x = liveC.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, liveC.width, liveC.height); } }
 X.clearLive = clearLive;
 /* Formes façon Goodnotes : on trace, on garde le stylet immobile → la forme devient propre ;
@@ -697,11 +821,12 @@ function drawLive() {
   liveRaf = 0; if (!G || !G.pv) return;
   const pv = G.pv; if (!pv.r) return;
   if (G.kind === 'ink') {
-    // maintien en fin de trait → forme propre (ou trait droit au surligneur)
-    if (!G.shape && G.tool !== 'shape' && G.pts.length >= 12 && now() - G.lastMoveT > 480) {
+    // pointe maintenue immobile → forme propre (ou trait droit au surligneur) ; un seul essai par arrêt
+    if (!G.shape && G.tool !== 'shape' && G.pts.length >= 12 && G.dw && !G.dw.done && now() - G.dw.t > HOLD_MS && TP.holdShape !== false) {
+      G.dw.done = true;
       if (G.tool === 'hl') G.straight = true;
       else { const sh = R().recognize(G.pts); if (sh) snapShape(R().tidyShape(sh)); }
-      G.lastMoveT = now() + 1e9; G.liveDirty = true;
+      G.liveDirty = true;
     }
     if (G.liveDirty && G.pts.length) {
       G.liveDirty = false;
@@ -816,7 +941,8 @@ function tapeItem(g) { const r = (v) => Math.round(v * 100) / 100; return { type
 function eraseAt(x, y) {
   const pv = G.pv, r = curSize('eraser') / 2, mode = toolCfg('eraser').mode;
   let changed = false;
-  for (const it of itemsOf(pv.id)) {
+  if (!G.cand) G.cand = itemsOf(pv.id);                 // liste gardée pendant le geste, refaite quand la gomme a changé la page
+  for (const it of G.cand) {
     if (E.hide.has(it.id)) continue;
     if (mode === 'hl' && !(it.type === 's' && it.tool === 'hl')) continue;
     if (!(it.type === 's' || it.type === 'sh' || it.type === 'tp')) continue;
@@ -840,16 +966,20 @@ function eraseAt(x, y) {
       else G.changes.get(it.id).after = null;
       S().setObj(N.paths.pgPath(E.id, pv.id), 'items', S().tomb(it.id));
     }
-    changed = true;
+    changed = true; const b = R().bbox(it); G.dbox = G.dbox ? unionBox(G.dbox, b) : b;
   }
-  if (changed) { pv.dirty = true; pv.sorted = null; if (!G.rr) G.rr = requestAnimationFrame(() => { if (G) G.rr = 0; renderInk(pv); }); }
+  if (changed) { G.cand = null; pv.sorted = null; const g = G; if (!g.rr) g.rr = requestAnimationFrame(() => flushErase(g)); }
+}
+function flushErase(g) {
+  g.rr = 0; const b = g.dbox; g.dbox = null; if (!b || !E || !pvOf(g.pv.id)) return;
+  g.pv.sorted = null; renderInkBox(g.pv, { x: b.x - 1, y: b.y - 1, w: b.w + 2, h: b.h + 2 });
 }
 function finishErase(g) {
-  clearLive(); if (g.rr) cancelAnimationFrame(g.rr);
+  clearLive(); if (g.rr) cancelAnimationFrame(g.rr); flushErase(g);
   // les morceaux créés puis effacés dans le même geste s'annulent
   const list = [...g.changes.values()].filter((c) => !(c.before === null && c.after === null)).map((c) => c.after ? Object.assign({}, c, { after: g.pv && E.docs.get(c.pid).items[c.id] }) : c);
   if (list.length) { E.undo.push(list); E.redo = []; E.changed = true; touchNb(); }
-  renderInk(g.pv); X.updateUndo(); X.zwRedraw && X.zwRedraw(); X.onEdit && X.onEdit([g.pv.id]);
+  X.updateUndo(); X.zwRedraw && X.zwRedraw(); X.onEdit && X.onEdit([g.pv.id]);
 }
 
 /* ---------- Clavier ---------- */

@@ -135,6 +135,7 @@ function inkInput({ pen = true, smooth = 'normal', press = 'normal' } = {}) {
   const S = SMOOTH[smooth] || SMOOTH.normal, gamma = GAMMA[press] || GAMMA.normal;
   const al = (fc, dt) => 1 / (1 + 1 / (2 * Math.PI * fc * dt));
   let x = null, y = 0, vx = 0, vy = 0, t0 = 0, p = null, rx = 0, ry = 0, wx = 0, wy = 0;
+  const tail = [];     // dernières positions lissées, avec leur instant : x, y, t (direction du tracé à la fin du trait)
   return {
     add(cx, cy, pr, t) {
       // vitesse « brute » de la pointe (pour l'anticipation), lissée sur ~30 ms
@@ -150,7 +151,23 @@ function inkInput({ pen = true, smooth = 'normal', press = 'normal' } = {}) {
       vx += ad * ((cx - x) / dt - vx); vy += ad * ((cy - y) / dt - vy);
       const a = al(S.min + S.beta * Math.hypot(vx, vy), dt);
       x += a * (cx - x); y += a * (cy - y);
+      tail.push(x, y, t); if (tail.length > 48) tail.splice(0, 3);
       return [x, y, q];
+    },
+    // Fin du trait : le lissage suit la pointe avec 1 à 2 px de retard, le trait s'arrêtait donc un peu avant l'endroit
+    // où le stylet se lève (lettres mal fermées). On rattrape ce retard, mais prudemment : seulement dans le sens où
+    // allait le tracé juste avant le lever (les 10 dernières ms sont ignorées : c'est là que la pointe dérape) et pas
+    // plus loin que le retard attendu. Un dérapage de côté ou en arrière n'ajoute donc pas de crochet.
+    end() {
+      if (x === null) return null;
+      let A = -1, B = -1;
+      for (let i = tail.length - 3; i >= 0; i -= 3) { const age = t0 - tail[i + 2]; if (B < 0) { if (age >= 10) B = i; } else if (age >= 28) { A = i; break; } }
+      if (A < 0) return null;
+      const ux = tail[B] - tail[A], uy = tail[B + 1] - tail[A + 1], ul = Math.hypot(ux, uy); if (ul < .05) return null;
+      const v = Math.hypot(vx, vy), lag = v / (2 * Math.PI * (S.min + S.beta * v));
+      const k = Math.min(1.3 * lag + .3, ((rx - x) * ux + (ry - y) * uy) / ul); if (!(k > .3)) return null;
+      x += ux / ul * k; y += uy / ul * k;
+      return [x, y, p];
     },
     // point anticipé (~1 image d'avance) à partir de la vraie position de la pointe
     predict(ms = 12) {
@@ -385,7 +402,14 @@ function recognize(flat, force) {
     const chord = gap; let dev = 0; P.forEach(([x, y]) => { dev = Math.max(dev, segDist(x, y, sx, sy, ex, ey)); });
     if (dev / Math.max(chord, 1) < .09 || (force && dev / Math.max(chord, 1) < .2)) return { kind: 'line', pts: flatten([[sx, sy], [ex, ey]]), closed: false };
     const v = rdp(P, .07 * diag);
-    if (v.length >= 3 && v.length <= 4) { let ok = true; for (let i = 0; i < P.length && ok; i++) { let d = Infinity; for (let k = 1; k < v.length; k++) d = Math.min(d, segDist(P[i][0], P[i][1], v[k - 1][0], v[k - 1][1], v[k][0], v[k][1])); if (d > .08 * diag) ok = false; } if (ok) return { kind: 'poly', pts: flatten(v), closed: false }; }
+    if (v.length >= 3 && v.length <= 4) {
+      // ligne brisée : chaque tronçon doit être vraiment droit (comme une ligne seule), sinon une courbe douce
+      // — un arc, un « S » — serait prise pour des segments et cassée en angles
+      const dev = new Array(v.length - 1).fill(0); let ok = true;
+      for (let i = 0; i < P.length && ok; i++) { let d = Infinity, kk = 1; for (let k = 1; k < v.length; k++) { const q = segDist(P[i][0], P[i][1], v[k - 1][0], v[k - 1][1], v[k][0], v[k][1]); if (q < d) { d = q; kk = k; } } if (d > .08 * diag) ok = false; if (d > dev[kk - 1]) dev[kk - 1] = d; }
+      for (let k = 1; k < v.length && ok; k++) { const L = Math.hypot(v[k][0] - v[k - 1][0], v[k][1] - v[k - 1][1]); if (dev[k - 1] > Math.max(1.5, (force ? .2 : .09) * L)) ok = false; }
+      if (ok) return { kind: 'poly', pts: flatten(v), closed: false };
+    }
     return force ? { kind: 'line', pts: flatten([[sx, sy], [ex, ey]]), closed: false } : null;
   }
   // forme fermée

@@ -120,7 +120,10 @@ async function ensure(path, init) {
   const d = await get(path); if (d) return d;
   const data = init || {}; docs.set(path, { path, data, ver: 1 }); put(path); return data;
 }
-const saveTimers = new Map();
+const saveTimers = new Map(), saveSince = new Map();
+// Pendant qu'on écrit au stylet, l'enregistrement et la synchro attendent : copier une page chargée bloque quelques
+// millisecondes, et en plein trait ça se voit (le trait saccade). 2 = un trait est en cours, 1 = on vient d'écrire, 0 = au repos.
+const inkState = () => { try { return N.inkDown && N.inkDown() ? 2 : N.inkBusy && N.inkBusy() ? 1 : 0; } catch (_) { return 0; } };
 function writeLocal(path) {
   const rec = docs.get(path); if (!rec) return Promise.resolve();
   return idbPut('docs', { path, data: rec.data }).catch((e) => { console.warn('IDB', e); setStatus('error', 'Stockage local plein ou indisponible'); });
@@ -128,15 +131,28 @@ function writeLocal(path) {
 function put(path) {
   const rec = docs.get(path); if (!rec) return;
   rec.ver++; dirty.add(path); saveState();
-  if (saveTimers.has(path)) clearTimeout(saveTimers.get(path)); else pendingWrites++;
+  if (saveTimers.has(path)) clearTimeout(saveTimers.get(path)); else { pendingWrites++; saveSince.set(path, Date.now()); }
   setStatus(computeStatus());
-  saveTimers.set(path, setTimeout(() => { saveTimers.delete(path); writeLocal(path).finally(() => { pendingWrites = Math.max(0, pendingWrites - 1); setStatus(computeStatus()); }); }, 300));
+  saveTimers.set(path, setTimeout(() => saveGo(path), 300));
   schedulePush();
 }
+// Enregistre le document sur l'appareil. Jamais en plein trait (au plus tard 6 s après la modification) ; entre deux
+// traits rapprochés seulement si ça attend depuis plus de 1,5 s ; sinon à la première pause. flush() écrit tout de
+// suite quoi qu'il arrive (fermeture du cahier, changement d'app).
+function saveGo(path) {
+  if (!saveTimers.has(path)) return;
+  clearTimeout(saveTimers.get(path));
+  const late = Date.now() - (saveSince.get(path) || 0), ink = inkState();
+  if (ink === 2 ? late < 6000 : ink === 1 && late < 1500) { saveTimers.set(path, setTimeout(() => saveGo(path), 150)); return; }
+  saveTimers.delete(path); saveSince.delete(path);
+  writeLocal(path).finally(() => { pendingWrites = Math.max(0, pendingWrites - 1); setStatus(computeStatus()); });
+}
+// Appelé par l'éditeur au moment où le stylet se lève : le meilleur moment pour écrire ce qui attend
+const nudge = () => { for (const path of [...saveTimers.keys()]) saveGo(path); };
 let pendingWrites = 0;
 async function flush() {
   const ps = [];
-  for (const [path, t] of saveTimers) { clearTimeout(t); saveTimers.delete(path); ps.push(writeLocal(path).finally(() => { pendingWrites = Math.max(0, pendingWrites - 1); })); }
+  for (const [path, t] of saveTimers) { clearTimeout(t); saveTimers.delete(path); saveSince.delete(path); ps.push(writeLocal(path).finally(() => { pendingWrites = Math.max(0, pendingWrites - 1); })); }
   st.dirty = [...dirty]; ps.push(idbPut('kv', st, 'sync').catch(() => {}));
   await Promise.all(ps); setStatus(computeStatus());
 }
@@ -283,7 +299,10 @@ let busy = false, again = false, pushTimer = 0, pollTimer = 0, active = false, l
 const online = () => navigator.onLine !== false;
 function schedulePush(ms = 3000) {
   if (!token) return;
-  clearTimeout(pushTimer); pushTimer = setTimeout(() => syncNow(), ms);
+  clearTimeout(pushTimer);
+  const due = Date.now() + ms;
+  const go = () => { const ink = inkState(), over = Date.now() - due; if (ink === 2 ? over < 20000 : ink === 1 && over < 8000) { pushTimer = setTimeout(go, 600); return; } syncNow(); };
+  pushTimer = setTimeout(go, ms);
 }
 async function hasLocalBlobsToSend() { try { return (await idbAll('blobs')).some((b) => !b.up); } catch (_) { return false; } }
 async function syncNow() {
@@ -319,7 +338,7 @@ async function syncNow() {
 }
 function setActive(v) {
   active = v; clearInterval(pollTimer);
-  if (v && token) pollTimer = setInterval(() => { if (!document.hidden) syncNow(); }, 60000);
+  if (v && token) pollTimer = setInterval(() => { if (document.hidden) return; if (inkState()) schedulePush(1500); else syncNow(); }, 60000);
 }
 
 /* ---------- État affiché ---------- */
@@ -403,7 +422,7 @@ async function init(key) {
 
 N.store = {
   init, get, ensure, put, setObj, tomb, flush, stamp, uid, dev, on, mergeInto,
-  blobPut, blobGet, syncNow, setActive, setToken, disconnect, testToken,
+  blobPut, blobGet, nudge, syncNow, setActive, setToken, disconnect, testToken,
   hasToken: () => !!token, status: () => status, statusMsg: () => statusMsg, statusText: (s) => STATUS_TEXT[s || status] || '',
   repo, setRepo: (r) => { cfg.repo = r; saveCfg(); }, lastSync: () => cfg.lastSync || 0, get branch() { return BRANCH; }, setProfile,
   exportAll, importAll, allDocPaths: () => idbKeys('docs'),
