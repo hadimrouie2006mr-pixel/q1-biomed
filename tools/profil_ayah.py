@@ -10,7 +10,7 @@ Usage : AYAH_PASSWORD=... python3 tools/profil_ayah.py <src_hadi> <src_ayah> <de
                     on garde l'horaire de la dernière publication (ayah/data.enc).
 
 Ce qu'Ayah reçoit de Hadi : quiz (sans notes ni tentatives), cours (sans dates de visite),
-PDF, annonces (« pour toi » recalculé pour B7). Jamais : Google Agenda.
+PDF, QCM de l'étude guidée, annonces (« pour toi » recalculé pour B7). Jamais : Google Agenda.
 Ensuite : SITE_PASSWORD=$AYAH_PASSWORD python3 tools/build.py <src_ayah> <depot>/ayah
 """
 import base64, hashlib, json, os, re, shutil, sys
@@ -78,6 +78,9 @@ def main():
     # Plan d'études : le même que Hadi (s'il est fourni ; sinon build.py garde le précédent)
     if (hs / "data/plan.json").exists():
         shutil.copy(hs / "data/plan.json", d / "plan.json")
+    # Étude guidée : mêmes fiches, mêmes QCM
+    if (hs / "data/etude.json").exists():
+        shutil.copy(hs / "data/etude.json", d / "etude.json")
     if (hs / "pdf").exists():
         shutil.copytree(hs / "pdf", out / "pdf")
     print(f"Ayah : {len(horaire)} séances ({source}), {len(quiz)} quiz, {len(annonces)} annonces")

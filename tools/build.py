@@ -2,7 +2,8 @@
 Construit le site chiffré « Mon Q1 Biomed » pour GitHub Pages.
 
 Entrées (jamais publiées) :
-  <src>/data/horaire.json, quiz.json, cours.json, pdfs.json, agenda.json (Google Agenda), plan.json (plan d'études, objet)
+  <src>/data/horaire.json, quiz.json, cours.json, pdfs.json, agenda.json (Google Agenda), plan.json (plan d'études, objet),
+  etude.json (QCM de l'étude guidée, objet { <id du PDF>: { titre, pages: { "<n°>": [ {q, c, e} ] } } })
   <src>/pdf/*.pdf
 Sortie (à publier, à la racine du dépôt) :
   cfg.json        sel + itérations PBKDF2 (public, sans secret)
@@ -41,13 +42,17 @@ def main():
     for name in ("horaire", "quiz", "cours", "pdfs", "agenda", "annonces", "plan"):
         f = src / "data" / f"{name}.json"
         bundle[name] = json.loads(f.read_text(encoding="utf-8")) if f.exists() else []
-    # Plan d'études : s'il n'est pas fourni dans <src>, on garde celui du build précédent
-    if not (src / "data" / "plan.json").exists() and (out / "data.enc").exists() and cfg_path.exists():
+    f = src / "data" / "etude.json"
+    bundle["etude"] = json.loads(f.read_text(encoding="utf-8")) if f.exists() else {}
+    # Plan d'études et étude guidée : s'ils ne sont pas fournis dans <src>, on garde ceux du build précédent
+    keep_prev = [k for k in ("plan", "etude") if not (src / "data" / f"{k}.json").exists()]
+    if keep_prev and (out / "data.enc").exists() and cfg_path.exists():
         try:
             u = (out / "data.enc").read_bytes()
             prev = json.loads(aes.decrypt(u[:12], u[12:], None))
-            if isinstance(prev.get("plan"), dict):
-                bundle["plan"] = prev["plan"]
+            for k in keep_prev:
+                if isinstance(prev.get(k), dict):
+                    bundle[k] = prev[k]
         except Exception:
             pass
     from datetime import datetime, timezone
@@ -73,8 +78,10 @@ def main():
 
     (out / "data.enc").write_bytes(enc(json.dumps(bundle, ensure_ascii=False).encode()))
     cfg_path.write_text(json.dumps({"salt": base64.b64encode(salt).decode(), "iter": ITER}))
+    et = bundle["etude"] if isinstance(bundle["etude"], dict) else {}
+    n_et = sum(len(l) for d in et.values() for l in d.get("pages", {}).values())
     print(f"OK : {len(bundle['quiz'])} quiz, {len(bundle['horaire'])} séances, "
-          f"{len(keep)} PDF chiffrés")
+          f"{len(keep)} PDF chiffrés, {n_et} QCM d'étude guidée")
 
 if __name__ == "__main__":
     main()

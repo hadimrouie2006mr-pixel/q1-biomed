@@ -397,6 +397,7 @@ button.item:hover { background: var(--paper); }
 <link rel="stylesheet" href="pages.css">
 <link rel="stylesheet" href="theme.css">
 <link rel="stylesheet" href="motion.css">
+<link rel="stylesheet" href="etude.css">
 </head>
 <body>
 
@@ -449,6 +450,7 @@ button.item:hover { background: var(--paper); }
       <span class="num" id="zval">100 %</span>
       <button class="rb-ib" id="zin" type="button" aria-label="Zoomer">+</button>
     </div>
+    <button class="btn" id="retude" type="button" hidden aria-label="Étude guidée : lire chaque page puis répondre à un QCM"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l2 2 4-4"/><rect x="4" y="4" width="16" height="16" rx="3"/></svg>Étude guidée</button>
     <button class="btn accent" id="rannot" type="button" aria-label="Annoter ce PDF dans les Cahiers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.2-4.6L15.5 5.1a2 2 0 0 1 2.8 0l.6.6a2 2 0 0 1 0 2.8L8.6 18.8z"/></svg>Annoter</button>
   </div>
   <div class="pages" id="pages"></div>
@@ -476,6 +478,7 @@ try { pdfjsLib.GlobalWorkerOptions.workerPort = new Worker('vendor/pdf.worker.mi
 <script src="notes-render.js"></script>
 <script src="notes-editor.js"></script>
 <script src="notes-panels.js"></script>
+<script src="etude.js"></script>
 <script>
 (() => {
 'use strict';
@@ -1138,6 +1141,7 @@ function pagePdf() {
   const meta = (p) => {
     const s = linked(p), bits = [];
     if (p.type) bits.push(p.type + (TYPE_INFO[p.type] && !s ? ` (${TYPE_INFO[p.type]})` : ''));
+    if (etudeFor(p)) bits.push(`étude guidée (${Q1Etude.count(etudeFor(p))} QCM)`);
     if (s && String(s.debut) >= now) bits.push(`pour ${(s.type || 'la séance').toLowerCase()} ${rel(s.debut, now)} ${hh(s.debut)}`);
     if (p.date) bits.push(`ajouté ${dd(p.date, today) <= 1 ? (dd(p.date, today) === 0 ? "aujourd'hui" : 'hier') : 'le ' + fDay(p.date + 'T12:00')}`);
     return bits.join(' · ');
@@ -1364,6 +1368,8 @@ function pageCours() {
 }
 
 /* ---------- Lecteur PDF ---------- */
+// Étude guidée (etude.js) : QCM page par page, seulement pour les fiches qui ont des questions
+const etudeFor = (p) => (p && D && D.etude && !Array.isArray(D.etude) && window.Q1Etude && Q1Etude.has(D.etude[p.id])) ? D.etude[p.id] : null;
 let doc = null, zoom = 1, tok = 0, obs = null, cur = null, lastFocus = null, curPg = 1, pgRaf = 0;
 const pgInfo = () => { $('#rinfo').textContent = doc ? `page ${curPg} / ${doc.numPages}` : ''; $('#rprev').disabled = !doc || curPg <= 1; $('#rnext').disabled = !doc || curPg >= doc.numPages; };
 const zInfo = () => { $('#zval').textContent = Math.round(zoom * 100) + ' %'; };
@@ -1373,6 +1379,7 @@ async function openPdf(p) {
   $('#rname').textContent = p.titre; doc = null; curPg = 1; zoom = 1; zInfo(); pgInfo();
   const rm = $('#rmat'); rm.className = 'label ' + mcls(p.matiere); rm.textContent = p.matiere || ''; rm.hidden = !p.matiere;
   drawFab();
+  const et = $('#retude'); et.hidden = !etudeFor(p); et.disabled = true;
   if (location.hash !== '#pdf-' + p.id) { try { history.pushState(null, '', '#pdf-' + p.id); } catch (_) {} }
   $('#rclose').focus();
   const pages = $('#pages'); pages.replaceChildren(h('p', { class: 'msg' }, 'Ouverture du PDF…'));
@@ -1380,7 +1387,7 @@ async function openPdf(p) {
   try {
     const buf = await decrypt(await fetchEnc(p.enc)); if (cur !== p) return;
     doc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
-    zoom = 1; zInfo(); pgInfo(); layout();
+    zoom = 1; zInfo(); pgInfo(); layout(); $('#retude').disabled = false;
   } catch (_) { pages.replaceChildren(h('p', { class: 'msg' }, 'Impossible d’ouvrir ce PDF. Vérifie ta connexion, puis réessaie.')); }
 }
 async function layout(keep) {
@@ -1422,6 +1429,7 @@ function closeReader(fromHash) {
   drawFab();
 }
 $('#rclose').addEventListener('click', () => closeReader(false));
+$('#retude').addEventListener('click', () => { const p = cur, data = etudeFor(p); if (!p || !doc || !data) return; Q1Etude.open({ p, doc, data, page: curPg, onClose: (pg) => { if (cur === p && doc) toPage(pg, true); } }); });
 $('#rannot').addEventListener('click', () => { const p = cur; if (!p || !window.Q1Notes) return; Q1Notes.annotSitePdf(p, () => closeReader(true)); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('#reader').hidden && !$('#reader').classList.contains('mo-close') && !document.querySelector('.nb-backdrop:not(.mo-close)')) closeReader(false); });
 $('#zin').addEventListener('click', () => { if (doc) { zoom = Math.min(zoom * 1.25, 3); zInfo(); layout(true); } });
