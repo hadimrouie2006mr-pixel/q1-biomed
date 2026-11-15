@@ -157,3 +157,30 @@
 /* Minuteur flottant : caché pendant l'étude s'il est arrêté ; s'il tourne, il remonte au-dessus des boutons du bas */
 body.et-open #pomoMini:not(.run):not(.paused) { display: none; }
 body.et-open #pomoMini { bottom: calc(84px + env(safe-area-inset-bottom)); }
+
+/* Onglet « Étude guidée » (pageEtude dans index.html) */
+.eg-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 14px; }
+.eg-stat { background: var(--sheet); border-radius: var(--r, 24px); padding: 18px 20px; display: flex; flex-direction: column; gap: 4px; }
+.eg-stat .v { font-size: 34px; font-weight: 800; letter-spacing: -.02em; line-height: 1.05; }
+.eg-stat .v small { font-size: 16px; font-weight: 600; color: var(--soft); }
+.eg-stat .k { font-size: 13px; font-weight: 600; color: var(--soft); }
+.eg-next { background: var(--focus); color: var(--on-focus); gap: 8px; }
+.eg-next .k { color: inherit; opacity: .8; }
+.eg-next b { font-size: 18px; line-height: 1.25; }
+.eg-next .btn { align-self: flex-start; margin-top: auto; }
+.eg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 14px; }
+.eg-card { background: var(--sheet); border-radius: var(--r, 24px); padding: 18px 20px; display: flex; flex-direction: column; gap: 8px; }
+.eg-top { display: flex; justify-content: space-between; align-items: center; }
+.eg-badge { padding: 4px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; background: var(--ok-t); color: var(--ok); }
+.eg-t { margin: 2px 0 0; font-size: 19px; font-weight: 700; line-height: 1.25; }
+.eg-m { font-size: 14px; color: var(--soft); }
+.eg-bar { height: 8px; border-radius: 4px; background: var(--pill); overflow: hidden; margin-top: 4px; }
+.eg-bar i { display: block; height: 100%; border-radius: 4px; background: var(--c, var(--accent)); }
+.eg-s { font-size: 14px; font-weight: 600; }
+.eg-go { margin-top: 6px; align-self: flex-start; min-height: 44px; }
+@media (max-width: 720px) {
+  .eg-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .eg-stat { padding: 14px 16px; }
+  .eg-stat .v { font-size: 28px; }
+  .eg-next { grid-column: span 2; }
+}

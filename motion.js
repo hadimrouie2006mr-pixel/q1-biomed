@@ -12,7 +12,7 @@
 (() => {
   'use strict';
   const reduce = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const ORDER = ['aujourdhui', 'plan', 'semaine', 'quiz', 'pdf', 'cours', 'cahiers'];
+  const ORDER = ['aujourdhui', 'etude', 'semaine', 'quiz', 'pdf', 'cours', 'cahiers'];
   let lastTab = null;
   const fresh = new WeakMap(); // page -> instant d'arrivée (les redessins pendant l'entrée ne sont pas ré-animés)
   const curTab = () => { const a = document.querySelector('#bottomTabs [aria-current="page"], #railTabs [aria-current="page"]'); return a ? a.dataset.tab : null; };

@@ -505,7 +505,8 @@ const PROFILES = [
   { dir: 'ayah/', id: 'ayah', nom: 'Ayah', groupe: 'B7', sans: ['notes', 'agenda', 'visites'] }
 ];
 let PROF = PROFILES[0];
-const has = (f) => !PROF.sans.includes(f) && (f !== 'plan' || !!(D && D.plan && Array.isArray(D.plan.jours) && D.plan.jours.length));
+// Plan d'études : semaine terminée, onglet remplacé par « Étude guidée » (le code du plan reste, désactivé)
+const has = (f) => !PROF.sans.includes(f) && f !== 'plan';
 const fetchBuf = (u) => fetch(u, { cache: 'no-cache' }).then((r) => { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); });
 const fetchEnc = (u) => fetchBuf(PROF.dir + u);
 async function unlockWith(k, prof) {
@@ -571,6 +572,7 @@ const FILE_SVG = '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2
 const CHEV_SVG = '<path d="M9 6l6 6-6 6"/>';
 const ICON = {
   today: '<path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="8"/>',
+  etude: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/><path d="M9.5 14.5l2 2 3.5-4"/>',
   plan: '<path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 6l1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11M3.5 18l1.5 1.5L7.5 17"/>',
   week: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
   quiz: '<path d="M9 11l2 2 4-4"/><rect x="4" y="4" width="16" height="16" rx="3"/>',
@@ -578,8 +580,8 @@ const ICON = {
   cours: '<path d="M4 6l8-3 8 3-8 3z"/><path d="M6 8v6c0 1.5 2.7 3 6 3s6-1.5 6-3V8"/>',
   cahiers: '<path d="M6 3h11a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6z"/><path d="M6 3v18M9.5 3v18" opacity=".55"/><path d="M12.5 9.5l3-3 1 1-3 3-1.4.4z"/>'
 };
-const SHORT = { aujourdhui: 'Auj.' };
-const TABS = [['aujourdhui', "Aujourd'hui", 'today'], ['plan', 'Plan', 'plan'], ['semaine', 'Semaine', 'week'], ['quiz', 'Quiz', 'quiz'], ['pdf', 'PDF', 'pdf'], ['cours', 'Cours', 'cours'], ['cahiers', 'Cahiers', 'cahiers']];
+const SHORT = { aujourdhui: 'Auj.', etude: 'Étude' };
+const TABS = [['aujourdhui', "Aujourd'hui", 'today'], ['etude', 'Étude guidée', 'etude'], ['semaine', 'Semaine', 'week'], ['quiz', 'Quiz', 'quiz'], ['pdf', 'PDF', 'pdf'], ['cours', 'Cours', 'cours'], ['cahiers', 'Cahiers', 'cahiers']];
 const icon = (k) => { const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor'); s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round'); s.setAttribute('aria-hidden', 'true'); s.innerHTML = ICON[k]; return s; };
 
 /* ---------- Données dérivées ---------- */
@@ -661,7 +663,7 @@ function route(prevHash) {
 function show(tab) {
   prefs.tab = tab; savePrefs(); document.documentElement.dataset.tab = tab;
   document.querySelectorAll('[data-tab]').forEach((a) => { if (a.dataset.tab === tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
-  const page = ({ aujourdhui: pageToday, plan: pagePlan, semaine: pageWeek, quiz: pageQuiz, pdf: pagePdf, cours: pageCours, cahiers: () => (window.Q1Notes ? Q1Notes.page() : h('div', { class: 'page' }, h('p', { class: 'muted' }, 'Cahiers indisponibles.'))) })[tab]();
+  const page = ({ aujourdhui: pageToday, etude: pageEtude, plan: pagePlan, semaine: pageWeek, quiz: pageQuiz, pdf: pagePdf, cours: pageCours, cahiers: () => (window.Q1Notes ? Q1Notes.page() : h('div', { class: 'page' }, h('p', { class: 'muted' }, 'Cahiers indisponibles.'))) })[tab]();
   const swap = () => { $('#view').replaceChildren(page); window.scrollTo(0, 0); };
   shownTab = tab;
   if (window.Q1Motion) Q1Motion.swapPage(swap, tab); else swap();
@@ -1195,6 +1197,48 @@ function newsEl(a, now, fresh) {
 
 /* ---------- Page : Plan d'études ---------- */
 // Plan de travail jour par jour (D.plan), avec les PDF à ouvrir pour chaque bloc. Les blocs cochés restent sur l'appareil.
+/* ---------- Étude guidée : toutes les fiches qui ont des QCM, avec la progression ---------- */
+function pageEtude() {
+  const all = D && D.etude && !Array.isArray(D.etude) ? D.etude : {};
+  const ids = Object.keys(all).filter((id) => window.Q1Etude && Q1Etude.has(all[id])).sort();
+  const stat = (id) => {
+    const data = all[id], total = Q1Etude.count(data), m = Q1Etude.progress(id) || { res: {}, pos: 0 };
+    const v = Object.values(m.res || {}), seen = v.length, ok = v.filter(Boolean).length;
+    return { data, total, seen, ok, pages: Object.keys(data.pages).length, done: (m.pos || 0) >= total, started: seen > 0, pct: seen ? Math.round(ok / seen * 100) : 0 };
+  };
+  const st = ids.map(stat), seenAll = st.reduce((a, x) => a + x.seen, 0), okAll = st.reduce((a, x) => a + x.ok, 0), totAll = st.reduce((a, x) => a + x.total, 0);
+  const go = async (p, data, btn) => {
+    const lab = btn.textContent; btn.disabled = true; btn.textContent = 'Ouverture…';
+    try {
+      const buf = await decrypt(await fetchEnc(p.enc));
+      const d = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+      Q1Etude.open({ p, doc: d, data, page: 1, onClose: () => { setTimeout(() => { try { d.destroy(); } catch (_) {} }, 400); if (shownTab === 'etude') show('etude'); } });
+    } catch (_) { btn.textContent = 'Impossible d’ouvrir, réessaie'; setTimeout(() => { btn.textContent = lab; }, 2500); }
+    finally { btn.disabled = false; if (btn.textContent === 'Ouverture…') btn.textContent = lab; }
+  };
+  const cardOf = (id, x) => {
+    const p = pdfs.find((q) => q.id === id), ready = !!(p && p.enc), mat = (p && p.matiere) || 'Bio';
+    const status = !x.started ? 'Pas encore commencée' : x.done ? `Terminée · ${x.ok} / ${x.seen} justes` : `En cours · ${x.seen} / ${x.total} répondues`;
+    const cta = !ready ? null : !x.started ? 'Commencer' : x.done ? 'Voir le bilan' : 'Reprendre';
+    return h('section', { class: 'eg-card ' + mcls(mat) },
+      h('div', { class: 'eg-top' }, h('span', { class: 'label ' + mcls(mat) }, mat), x.done ? h('span', { class: 'eg-badge ok' }, `${x.pct} %`) : null),
+      h('h3', { class: 'eg-t' }, x.data.titre || (p && p.titre) || id),
+      h('span', { class: 'eg-m num' }, `${x.pages} pages · ${x.total} QCM · ≈ ${Math.max(5, Math.round(x.pages * 1.2 + x.total * 0.4))} min`),
+      h('span', { class: 'eg-bar', 'aria-hidden': 'true' }, h('i', { style: `width:${x.total ? Math.round(x.seen / x.total * 100) : 0}%` })),
+      h('span', { class: 'eg-s' }, ready ? status : 'Arrive avec la prochaine mise à jour du site'),
+      cta ? h('button', { class: 'btn eg-go' + (x.done ? '' : ' primary-btn'), type: 'button', onclick: (e) => go(p, x.data, e.currentTarget) }, cta) : null);
+  };
+  const head = h('header', { class: 'page-head' }, h('h1', {}, 'Étude guidée'), h('p', {}, 'Tu lis une page de ta fiche, elle se cache, tu réponds au QCM et tu vois tout de suite si c’est juste.'));
+  if (!ids.length) return h('div', { class: 'page eg' }, head, h('div', { class: 'empty-box' }, h('p', {}, 'Aucune fiche n’a encore de QCM.')));
+  const next = ids.map((id, i) => [id, st[i]]).find(([id, x]) => !x.done && pdfs.some((q) => q.id === id && q.enc));
+  return h('div', { class: 'page eg' }, head,
+    h('div', { class: 'eg-stats' },
+      h('div', { class: 'eg-stat' }, h('span', { class: 'v num' }, String(seenAll), h('small', {}, ` / ${totAll}`)), h('span', { class: 'k' }, 'QCM répondus')),
+      h('div', { class: 'eg-stat' }, h('span', { class: 'v num' }, seenAll ? Math.round(okAll / seenAll * 100) + ' %' : '—'), h('span', { class: 'k' }, 'de bonnes réponses')),
+      next ? h('div', { class: 'eg-stat eg-next' }, h('span', { class: 'k' }, 'À faire maintenant'), h('b', {}, all[next[0]].titre), h('button', { class: 'btn primary-btn', type: 'button', onclick: (e) => go(pdfs.find((q) => q.id === next[0]), all[next[0]], e.currentTarget) }, next[1].started ? 'Reprendre' : 'Commencer')) : null),
+    h('div', { class: 'eg-grid' }, ids.map((id, i) => cardOf(id, st[i]))));
+}
+
 function pagePlan() {
   const PL = D.plan, jours = PL.jours, today = nowL().slice(0, 10);
   const done = prefs.planDone || (prefs.planDone = {});
