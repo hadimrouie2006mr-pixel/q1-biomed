@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="text-scale" content="scale">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#E9EBEE" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0E0F12" media="(prefers-color-scheme: dark)">
@@ -43,7 +44,7 @@ try{if(localStorage.getItem("q1biomed.key"))document.documentElement.classList.a
 :root[data-theme="light"] { color-scheme: light; }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
-body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 1rem; line-height: 1.45; -webkit-font-smoothing: antialiased; }
 h1, h2, h3, p { margin: 0; }
 button, input { font: inherit; color: inherit; }
 a { color: inherit; }
@@ -69,7 +70,7 @@ a { color: inherit; }
 
 /* ---------- Coquille ---------- */
 .shell { min-height: 100%; display: grid; grid-template-columns: 15rem 1fr; }
-.rail { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 4px; padding: 28px 14px; border-right: 1px solid var(--rule); background: var(--paper); }
+.rail { position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column; gap: 4px; padding: 28px 14px; border-right: 1px solid var(--rule); background: var(--paper); }
 .brand { font-family: var(--f-head); font-weight: 700; font-size: 1.25rem; letter-spacing: -.01em; padding: 0 10px 18px; line-height: 1.1; }
 .brand small { display: block; font-family: var(--f-body); font-weight: 400; font-size: .8rem; color: var(--soft); margin-top: 4px; }
 .tab { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; text-decoration: none; color: var(--soft); font-weight: 700; border: 0; background: none; cursor: pointer; text-align: left; }
@@ -184,7 +185,7 @@ a { color: inherit; }
 .daybtn.today .dn { color: var(--bad); }
 .gcal { display: flex; flex-direction: column; gap: 8px; }
 .gcal-frame { overflow: hidden; }
-.gcal-frame iframe { display: block; width: 100%; height: min(72vh, 680px); border: 0; background: #fff; }
+.gcal-frame iframe { display: block; width: 100%; height: min(72dvh, 680px); border: 0; background: #fff; }
 .toggle { display: inline-flex; gap: 10px; align-items: center; font-weight: 700; font-size: .9rem; cursor: pointer; }
 .toggle input { width: 18px; height: 18px; accent-color: var(--ink); }
 
@@ -402,9 +403,10 @@ button.item:hover { background: var(--paper); }
 <body>
 
 <!-- Chargement : squelettes de cartes pendant le déchiffrement (clé déjà enregistrée) -->
-<div class="skel" id="skel" aria-busy="true" aria-label="Chargement">
-  <div class="sk-top"><span class="sk sk-t"></span><span class="sk sk-nav"></span><span class="sk sk-av"></span></div>
-  <div class="sk-grid"><span class="sk sk-hero"></span><span class="sk"></span><span class="sk"></span><span class="sk"></span><span class="sk"></span><span class="sk sk-w"></span><span class="sk sk-w"></span></div>
+<div class="skel" id="skel">
+  <progress class="sr" aria-label="Chargement de tes données"></progress>
+  <div class="sk-top" aria-hidden="true"><span class="sk sk-t"></span><span class="sk sk-nav"></span><span class="sk sk-av"></span></div>
+  <div class="sk-grid" aria-hidden="true"><span class="sk sk-hero"></span><span class="sk"></span><span class="sk"></span><span class="sk"></span><span class="sk"></span><span class="sk sk-w"></span><span class="sk sk-w"></span></div>
 </div>
 
 <!-- Verrou -->
@@ -417,8 +419,8 @@ button.item:hover { background: var(--paper); }
     </div>
     <div class="lock-intro"><b>Ton espace d'études privé</b><p>Cours, quiz, PDF et cahiers au même endroit. Entre ton mot de passe pour l'ouvrir.</p></div>
     <form id="login" autocomplete="on">
-      <input type="text" name="username" value="hadi" autocomplete="username" hidden>
-      <div class="field"><label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="current-password" required></div>
+      <input type="text" name="username" value="hadi" autocomplete="username" spellcheck="false" autocapitalize="none" autocorrect="off" hidden>
+      <div class="field"><label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="current-password" enterkeyhint="go" aria-invalid="false" required></div>
       <label class="check"><input id="remember" type="checkbox" checked> Se souvenir sur cet appareil</label>
       <button class="primary" id="go" type="submit">Ouvrir <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
       <div class="err" id="err" role="alert"></div>
@@ -522,7 +524,7 @@ async function tryStored() {
   } catch (_) { try { localStorage.removeItem(KEYSTORE); localStorage.removeItem(KEYSTORE + '.profil'); } catch (__) {} return false; }
 }
 $('#login').addEventListener('submit', async (ev) => {
-  ev.preventDefault(); $('#err').textContent = ''; const go = $('#go'); go.disabled = true; go.textContent = 'Ouverture…';
+  ev.preventDefault(); $('#err').textContent = ''; $('#pw').setAttribute('aria-invalid', 'false'); $('#pw').removeAttribute('aria-describedby'); const go = $('#go'), goKids = [...go.childNodes]; go.disabled = true; go.textContent = 'Ouverture…';
   try {
     // on essaie le mot de passe sur chaque profil : celui qui déchiffre est le bon
     let k = null, online = false;
@@ -535,8 +537,8 @@ $('#login').addEventListener('submit', async (ev) => {
     $('#login').classList.remove('bad');
     // la carte accent s'agrandit et laisse place au site
     if (window.Q1Motion && Q1Motion.unlock) Q1Motion.unlock($('.lock-hero'), start); else start();
-  } catch (_) { $('#err').textContent = 'Mot de passe incorrect, ou pas de connexion. Vérifie et réessaie.'; $('#login').classList.add('bad'); if (window.Q1Motion) { Q1Motion.shake($('#login')); Q1Motion.pop($('#err'), 'mo-errin'); } }
-  finally { go.disabled = false; go.textContent = 'Ouvrir'; }
+  } catch (_) { $('#err').textContent = 'Mot de passe incorrect, ou pas de connexion. Vérifie et réessaie.'; $('#pw').setAttribute('aria-invalid', 'true'); $('#pw').setAttribute('aria-describedby', 'err'); $('#login').classList.add('bad'); if (window.Q1Motion) { Q1Motion.shake($('#login')); Q1Motion.pop($('#err'), 'mo-errin'); } }
+  finally { go.disabled = false; go.replaceChildren(...goKids); }
 });
 document.addEventListener('click', (e) => { if (e.target.closest('[data-logout]')) { try { if ('clearAppBadge' in navigator) navigator.clearAppBadge().catch(() => {}); } catch (_) {} try { localStorage.removeItem(KEYSTORE); localStorage.removeItem(KEYSTORE + '.profil'); } catch (_) {} location.hash = ''; location.reload(); } });
 
@@ -1680,7 +1682,7 @@ function endBoot() {
   html.classList.remove('booting');
   if (window.Q1Motion && !Q1Motion.reduce() && !$('#app').hidden) { sk.classList.add('out'); setTimeout(() => sk.remove(), 450); } else sk.remove();
 }
-$('#pw').addEventListener('input', () => $('#login').classList.remove('bad'));
+$('#pw').addEventListener('input', () => { $('#login').classList.remove('bad'); $('#pw').setAttribute('aria-invalid', 'false'); $('#pw').removeAttribute('aria-describedby'); });
 tryStored().then((ok) => { if (ok) start(); else { endBoot(); $('#pw').focus(); } });
 })();
 </script>

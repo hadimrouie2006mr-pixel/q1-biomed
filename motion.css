@@ -52,9 +52,9 @@ html.booting .skel, .skel.out { display: flex; }
 .bt-tring .trk { stroke: color-mix(in srgb, currentColor 16%, transparent); }
 .bt-tring .arc { stroke: var(--accent); }
 .bt-timer.brk .bt-tring .arc { stroke: var(--ok); }
-.bt-trow .bt-time { font-size: 40px; }
-@media (max-width: 1040px) and (min-width: 821px) { .bt-tring { width: 56px; height: 56px; } .bt-trow { gap: 10px; } .bt-trow .bt-time { font-size: 34px; } }
-@media (max-width: 820px) { .bt-tring { display: none; } .bt-trow .bt-time { font-size: 34px; } }
+.bt-trow .bt-time { font-size: 2.5rem; }
+@media (max-width: 1040px) and (min-width: 821px) { .bt-tring { width: 56px; height: 56px; } .bt-trow { gap: 10px; } .bt-trow .bt-time { font-size: 2.125rem; } }
+@media (max-width: 820px) { .bt-tring { display: none; } .bt-trow .bt-time { font-size: 2.125rem; } }
 
 /* point rouge des annonces importantes (Cours) */
 .cz-sec.imp .cz-sh::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); margin-right: 8px; vertical-align: 1px; }

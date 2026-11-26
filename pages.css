@@ -3,24 +3,24 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --warn-t: #3a2608; --live: #30d158; --live-t: #11301b; } }
 :root[data-theme="dark"] { --warn-t: #3a2608; --live: #30d158; --live-t: #11301b; }
 
-.page-head p { font-size: 16px; line-height: 1.4; }
+.page-head p { font-size: 1rem; line-height: 1.4; }
 .ext { width: 15px; height: 15px; flex: none; opacity: .75; }
 .empty-line { color: var(--soft); padding: 4px 2px; }
-.lead-line { color: var(--soft); font-size: 15px; }
+.lead-line { color: var(--soft); font-size: .9375rem; }
 .empty-box { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; color: var(--soft); }
-.newdot { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; font-size: 12px; font-weight: 600; color: var(--focus); vertical-align: middle; white-space: nowrap; }
+.newdot { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; font-size: .75rem; font-weight: 600; color: var(--focus); vertical-align: middle; white-space: nowrap; }
 .newdot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.segn { margin-left: 6px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--focus); color: #fff; font-size: 12px; font-weight: 700; display: inline-grid; place-items: center; }
+.segn { margin-left: 6px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--focus); color: #fff; font-size: .75rem; font-weight: 700; display: inline-grid; place-items: center; }
 .seg .chip { min-height: 40px; }
 
 /* Filtres titrés */
 .fgroup { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.flabel { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--soft); padding-left: 4px; }
+.flabel { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--soft); padding-left: 4px; }
 
 /* Tuile de date */
 .dtile { width: 48px; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 0; border-radius: 12px; background: var(--fill2, rgba(120,120,128,.12)); line-height: 1.05; }
-.dtile b { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
-.dtile small { font-size: 11px; color: var(--soft); text-transform: capitalize; }
+.dtile b { font-size: 1.25rem; font-weight: 700; letter-spacing: -.02em; }
+.dtile small { font-size: .6875rem; color: var(--soft); text-transform: capitalize; }
 .dtile.live { background: var(--live); color: #fff; }
 .dtile.live small { color: rgba(255,255,255,.85); }
 
@@ -28,9 +28,9 @@
 .qrow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px 14px; align-items: center; padding: 14px 16px; }
 .qrow + .qrow { background-image: linear-gradient(var(--rule), var(--rule)); background-size: calc(100% - 78px) .5px; background-position: right top; background-repeat: no-repeat; }
 .qmain { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.qmain .title { font-weight: 600; font-size: 16px; line-height: 1.3; }
+.qmain .title { font-weight: 600; font-size: 1rem; line-height: 1.3; }
 .qmain .title .soft { color: var(--soft); font-weight: 400; }
-.qmain .line { font-size: 14px; color: var(--soft); line-height: 1.35; }
+.qmain .line { font-size: .875rem; color: var(--soft); line-height: 1.35; }
 .qmain .line.s-live { color: var(--live); font-weight: 600; }
 .qmain .line.s-bad { color: var(--bad); }
 .qmain .line.s-warn { color: var(--warn); }
@@ -50,8 +50,8 @@
 }
 
 .qhero .k { display: inline-flex; align-items: center; gap: 8px; }
-.qhero .s { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 15px; }
-.qhero .hint { font-size: 13px; color: var(--soft); }
+.qhero .s { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: .9375rem; }
+.qhero .hint { font-size: .8125rem; color: var(--soft); }
 .qhero .btn { align-self: flex-start; display: inline-flex; gap: 6px; }
 .qhero.is-live .k { color: var(--live) !important; }
 .qhero.is-live .btn { background: var(--live) !important; }
@@ -61,17 +61,17 @@
   @keyframes livePulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--live) 60%, transparent); } 100% { box-shadow: 0 0 0 9px transparent; } }
 }
 .kpi { gap: 2px; }
-.kpi .kl { font-size: 12px !important; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--soft); }
-.kpi span:last-child { font-size: 13px; line-height: 1.3; }
+.kpi .kl { font-size: .75rem !important; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--soft); }
+.kpi span:last-child { font-size: .8125rem; line-height: 1.3; }
 
 /* ---------- PDF ---------- */
 .prow .ico { position: relative; }
-.prow .ico em { position: absolute; left: 0; right: 0; bottom: 4px; font-style: normal; font-size: 9px; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: .02em; }
+.prow .ico em { position: absolute; left: 0; right: 0; bottom: 4px; font-style: normal; font-size: .5625rem; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: .02em; }
 .prow .ico:has(em) svg { margin-top: -10px; }
 .prow .tx b { display: block; }
 .prow .tx > span { line-height: 1.35; }
 .pz .group-head h3:not([style])::before, .cz .group-head h3:not([style])::before { display: none; }
-.prow .tx .newdot { color: var(--focus); font-size: 12px; font-weight: 600; }
+.prow .tx .newdot { color: var(--focus); font-size: .75rem; font-weight: 600; }
 
 /* ---------- Cours ---------- */
 .news { position: relative; }
@@ -82,9 +82,9 @@
 .course { text-decoration: none; color: inherit; min-height: 44px; }
 .course .chead { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .course .chead .ext { color: var(--soft); }
-.course .cinfo { display: flex; flex-direction: column; gap: 3px; font-size: 14px; color: var(--soft); margin-top: 2px; }
+.course .cinfo { display: flex; flex-direction: column; gap: 3px; font-size: .875rem; color: var(--soft); margin-top: 2px; }
 .course .cinfo b { color: var(--ink); font-weight: 600; }
-.course .seen { font-size: 13px !important; }
+.course .seen { font-size: .8125rem !important; }
 
 /* ---------- Minuteur : juste le cadran ---------- */
 .pomo { align-items: center; gap: 22px !important; padding-top: 18px; position: fixed; }
@@ -108,7 +108,7 @@
 
 /* Mini minuteur par-dessus un PDF ou un cahier */
 .pomo-mini { position: fixed; z-index: 50; left: max(14px, env(safe-area-inset-left)); bottom: calc(14px + env(safe-area-inset-bottom)); min-height: 44px; padding: 0 14px 0 12px; border-radius: 999px; border: 0;
-  display: inline-flex; align-items: center; gap: 7px; font: inherit; font-weight: 600; font-size: 16px; cursor: pointer; color: #fff; background: var(--focus); box-shadow: 0 6px 18px rgba(0,0,0,.22); }
+  display: inline-flex; align-items: center; gap: 7px; font: inherit; font-weight: 600; font-size: 1rem; cursor: pointer; color: #fff; background: var(--focus); box-shadow: 0 6px 18px rgba(0,0,0,.22); }
 .pomo-mini svg { width: 18px; height: 18px; }
 .pomo-mini .num { font-variant-numeric: tabular-nums; }
 .pomo-mini.brk { background: var(--ok); }
@@ -118,22 +118,22 @@
 
 /* Google Agenda sur iPad / iPhone */
 .gcal-ios { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-.gcal-ios > b { font-size: 17px; }
-.gcal-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.4; }
+.gcal-ios > b { font-size: 1.0625rem; }
+.gcal-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: .9375rem; line-height: 1.4; }
 .gcal-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .gcal-actions .btn { min-height: 44px; }
-.linkbtn { align-self: flex-start; background: none; border: 0; padding: 10px 0; min-height: 44px; color: var(--focus); font: inherit; font-size: 14px; cursor: pointer; }
+.linkbtn { align-self: flex-start; background: none; border: 0; padding: 10px 0; min-height: 44px; color: var(--focus); font: inherit; font-size: .875rem; cursor: pointer; }
 
 
 /* Plan d'études */
 .plan-prog { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
 .plan-prog .pp-row { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--soft); }
-.plan-prog .pp-row b { color: var(--ink); font-size: 17px; }
+.plan-prog .pp-row b { color: var(--ink); font-size: 1.0625rem; }
 .plan-prog .prog { height: 8px; border-radius: 4px; background: var(--pill); overflow: hidden; }
 .plan-prog .prog i { display: block; height: 100%; background: var(--live); border-radius: 4px; transition: width .3s; }
 .plan-days { display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr)); gap: 6px; margin-bottom: 6px; max-width: 560px; }
 .plan-days .chip { min-height: 46px; flex-direction: column; justify-content: center; gap: 0; padding: 4px 6px; line-height: 1.15; }
-.plan-days .chip small { font-size: 11px; font-weight: 600; opacity: .7; }
+.plan-days .chip small { font-size: .6875rem; font-weight: 600; opacity: .7; }
 .plan-days .chip.is-today:not([aria-pressed="true"]) { box-shadow: inset 0 0 0 2px var(--focus); }
 .plan-days .chip.is-done small::after { content: " ✓"; }
 .plan-list { display: flex; flex-direction: column; }
@@ -144,18 +144,18 @@
 .pcheck[aria-pressed="true"] { color: #fff; }
 .pcheck[aria-pressed="true"] svg { background: var(--c); }
 .pmain { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
-.ptop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 14px; color: var(--soft); }
+.ptop { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: .875rem; color: var(--soft); }
 .ptime { font-weight: 700; color: var(--ink); }
 .pdur { margin-left: auto; }
-.ptitle { font-size: 17px; line-height: 1.3; }
-.pdet { color: var(--soft); font-size: 15px; line-height: 1.4; }
+.ptitle { font-size: 1.0625rem; line-height: 1.3; }
+.pdet { color: var(--soft); font-size: .9375rem; line-height: 1.4; }
 .ppdfs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
 .ppdfs .btn { white-space: normal; text-align: left; min-height: 40px; max-width: 100%; }
 .ppdfs .btn svg { width: 16px; height: 16px; flex: none; }
 .pblock.done .ptitle, .pblock.done .pdet { opacity: .55; }
 .pblock.done .ptitle { text-decoration: line-through; }
 .plan-win { color: var(--live); font-weight: 700; }
-.plan-tip { color: var(--soft); font-size: 15px; margin-top: 16px; }
+.plan-tip { color: var(--soft); font-size: .9375rem; margin-top: 16px; }
 
 
 /* Plan d'études : animations */
